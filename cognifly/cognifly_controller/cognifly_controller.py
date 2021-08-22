@@ -158,7 +158,6 @@ class CogniflyController:
                  trace_logs=True):
         """
         Custom controller and udp interface for Cognifly
-        If one of udp_distant_ip, udp_distant_port or drone_port is None, then the UDP interface is disabled
         Args:
             udp_server: bool: if False, the drone will not run a udp server (True is needed for remote control)
             drone_hostname: str (optional): can be an IP. If None, the ip is extracted automatically.
