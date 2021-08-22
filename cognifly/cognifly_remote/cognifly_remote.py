@@ -48,7 +48,7 @@ class Cognifly:
             local_hostname: string: name of the local machine (can be an ip address). If None, this is retrieved automatically.
             send_port: int: udp_send_port for the local UDPInterface.
             recv_port: int: udp_recv_port for UDPInterface.
-            wait_for_first_obs: int: If True, waits for a first observation from the drone on intantiation.
+            wait_for_first_obs: int: If True, waits for a first observation from the drone on isntantiation.
             wait_for_first_obs_sleep_duration: float: used only if wait_for_first_obs is True
             wait_ack_duration: float: If > 0.0, the framework will wait this number of seconds for an acknowledgement before resending.
                 If <= 0.0, the resending feature is disabled.
