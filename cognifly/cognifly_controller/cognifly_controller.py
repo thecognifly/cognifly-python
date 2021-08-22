@@ -168,6 +168,7 @@ class CogniflyController:
             obs_loop_time: float (optional):
                 if None, an observation is sent by UDP as answer each time a UDP command is received
                 else, an observation is sent bu UDP every obs_loop_time seconds
+            trace_logs: bool (optional): if True, flight telemetry will be printed in a CSV-like log file
         """
         self.udp_server = udp_server
         if not self.udp_server:
