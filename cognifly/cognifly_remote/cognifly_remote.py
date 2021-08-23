@@ -39,7 +39,7 @@ class Cognifly:
                  local_hostname=None,
                  send_port=8988,
                  recv_port=8989,
-                 wait_for_first_obs=False,
+                 wait_for_first_obs=True,
                  wait_for_first_obs_sleep_duration=0.1,
                  wait_ack_duration=1.0):
         """
@@ -72,7 +72,6 @@ class Cognifly:
         self.udp_int.init_receiver(self.local_ip, self.recv_port)
 
         self.wait_ack_duration = wait_ack_duration
-        self.obs = None
 
         self.easy_api_cur_z = 0.0
         self.time_takeoff = time.time()
@@ -84,6 +83,7 @@ class Cognifly:
         self.__last_timestamp = time.time()
         self.__last_sent = None
         self.__wait_ack_reset = True
+        self.__last_i_obs = 0
 
         self._listener_thread = Thread(target=self.__listener_thread)
         self._listener_thread.setDaemon(True)  # thread will be terminated at exit
@@ -106,18 +106,18 @@ class Cognifly:
             for mb in mes:
                 m = pkl.loads(mb)
                 if m[0] == "ACK":  # aknowledgement type
-                    print(f"DEBUG: ACK")
                     self._lock.acquire()
                     if m[1] > self.__last_received_id:
                         self.__last_received_id = m[1]  # identifier
                     self._lock.release()
                 elif m[0] == "OBS":  # observation type
                     self._lock.acquire()
-                    # TODO: drop outdated observations
-                    self.__obs = m[1]  # observation
+                    i_obs = m[1]
+                    if i_obs > self.__last_i_obs:  # drop outdated observations
+                        self.__obs = m[2]  # observation
+                        self.__last_i_obs = i_obs
                     self._lock.release()
                 elif m[0] == "RES":  # acknowledgement for the reset command
-                    print(f"DEBUG: reset ACK")
                     self._lock.acquire()
                     self.__wait_ack_reset = False
                     self._lock.release()
@@ -190,9 +190,9 @@ class Cognifly:
             while True:
                 time.sleep(self.wait_for_first_obs_sleep_duration)
                 self._lock.acquire()
-                self.obs = deepcopy(self.__obs)
+                obs = deepcopy(self.__obs)
                 self._lock.release()
-                if self.obs is not None:
+                if obs is not None:
                     break
             logger.info("observation initialized")
 
@@ -266,7 +266,7 @@ class Cognifly:
 
     def takeoff(self, sleep_duration=10.0):
         """
-        arms the drone and takes off
+        Arms the drone and takes off
         """
         self.reset()
         self.arm()
@@ -284,7 +284,7 @@ class Cognifly:
 
     def land(self, sleep_duration=5.0):
         """
-        lands and disarms the drone
+        Lands and disarms the drone
         """
         self.easy_api_cur_z = 0.0
         self.land_nonblocking()
@@ -293,7 +293,7 @@ class Cognifly:
 
     def forward(self, val_cm):
         """
-        goes forward by number of centimeters
+        Goes forward by number of centimeters
         """
         val_m = val_cm / 100.0
         duration = val_m / EASY_API_SPEED + EASY_API_ADDITIONAL_DURATION
@@ -306,7 +306,7 @@ class Cognifly:
 
     def backward(self, val_cm):
         """
-        goes backward by number of centimeters
+        Goes backward by number of centimeters
         """
         val_m = val_cm / 100.0
         duration = val_m / EASY_API_SPEED + EASY_API_ADDITIONAL_DURATION
@@ -319,7 +319,7 @@ class Cognifly:
 
     def right(self, val_cm):
         """
-        goes right by number of centimeters
+        Goes right by number of centimeters
         """
         val_m = val_cm / 100.0
         duration = val_m / EASY_API_SPEED + EASY_API_ADDITIONAL_DURATION
@@ -332,7 +332,7 @@ class Cognifly:
 
     def left(self, val_cm):
         """
-        goes left by number of centimeters
+        Goes left by number of centimeters
         """
         val_m = val_cm / 100.0
         duration = val_m / EASY_API_SPEED + EASY_API_ADDITIONAL_DURATION
@@ -345,7 +345,7 @@ class Cognifly:
 
     def up(self, val_cm):
         """
-        goes up by number of centimeters
+        Goes up by number of centimeters
         """
         val_m = val_cm / 100.0
         duration = val_m / EASY_API_SPEED + EASY_API_ADDITIONAL_DURATION
@@ -360,7 +360,7 @@ class Cognifly:
 
     def down(self, val_cm):
         """
-        goes down by number of centimeters
+        Goes down by number of centimeters
         """
         val_m = val_cm / 100.0
         duration = val_m / EASY_API_SPEED + EASY_API_ADDITIONAL_DURATION
@@ -375,7 +375,7 @@ class Cognifly:
 
     def cw(self, val_deg):
         """
-        rotates clockwise by number of degrees (range 0-180)
+        Rotates clockwise by number of degrees (range 0-180)
         """
         val_rad = np.pi if val_deg == 180 else (val_deg % 180) * np.pi / 180.0
         duration = val_rad / EASY_API_YAW_RATE + EASY_API_ADDITIONAL_DURATION
@@ -388,7 +388,7 @@ class Cognifly:
 
     def ccw(self, val_deg):
         """
-        rotates counter-clockwise by number of degrees (range 0-180)
+        Rotates counter-clockwise by number of degrees (range 0-180)
         """
         val_rad = np.pi if val_deg == 180 else (val_deg % 180) * np.pi / 180.0
         duration = val_rad / EASY_API_YAW_RATE + EASY_API_ADDITIONAL_DURATION
@@ -400,67 +400,155 @@ class Cognifly:
         time.sleep(duration)
 
     def go(self, x, y, z, yaw=None, duration=10.0):
+        """
+        Goes to the requested position and yaw targets.
+        If yaw is None, no yaw target is set.
+        """
         self.easy_api_cur_z = clip(z, EASY_API_MIN_ALTITUDE, EASY_API_MAX_ALTITUDE)
-        self.set_position_nonblocking(x=x, y=y, z=self.easy_api_cur_z, yaw=None,
+        self.set_position_nonblocking(x=x, y=y, z=self.easy_api_cur_z, yaw=yaw,
                                       max_velocity=EASY_API_SPEED,
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
-                                      relative=True)
+                                      relative=False)
         time.sleep(duration)
+
+    # ==================================================================================================================
+
+    # Common API:
+    # The following getters are common to both the pro and the school API.
+    # You can (and should) use only get_telemetry() except for school purpose, because each call locks a Lock.
 
     def get_time(self):
         """
-        returns the number of seconds since the last takeoff command was sent
+        Gets the number of seconds since the last takeoff command was sent
         """
         return time.time() - self.time_takeoff
 
-    def wait(self):
-        raise NotImplementedError
-
-    def wait_for_new_battery(self):
-        raise NotImplementedError
-
-    def update(self):
+    def get_telemetry(self):
+        """
+        Gets a tuple of floats that describe the state of the drone in the world frame.
+        Angles are in radians.
+        health_flags is an empty list when the drone is healty.
+        Returns:
+            telemetry: Tuple: (battery_voltage: float,
+                               x: float,
+                               y: float,
+                               z: float,
+                               yaw: float,
+                               vel_x: float,
+                               vel_y: float,
+                               vel_z: float,
+                               yaw_rate: float,
+                               health_flags: list of strings)
+        """
         self._lock.acquire()
-        self.obs = deepcopy(self.__obs)
+        obs = deepcopy(self.__obs)
         self._lock.release()
+        return obs
 
-    def read_obs(self):
-        self._lock.acquire()
-        res = deepcopy(self.obs)
-        self._lock.release()
+    def get_battery(self):
+        """
+        Returns:
+            battery_voltage: float: battery voltage, in V
+        """
+        telemetry = self.get_telemetry()
+        return telemetry[0]
+
+    def get_position(self):
+        """
+        Returns:
+            x: float: in m
+            y: float: in m
+            z: float: in m
+        """
+        telemetry = self.get_telemetry()
+        return telemetry[1], telemetry[2], telemetry[3]
+
+    def get_yaw(self):
+        """
+        Returns:
+            x: float: yaw, in rad
+        """
+        telemetry = self.get_telemetry()
+        return telemetry[4]
+
+    def get_velocity(self):
+        """
+        Returns:
+            v_x: float: in m
+            v_y: float: in m
+            v_z: float: in m
+        """
+        telemetry = self.get_telemetry()
+        return telemetry[5], telemetry[6], telemetry[7]
+
+    def get_health(self):
+        """
+        Returns:
+            health_flags: list os strings: empty when the drone is healthy
+        """
+        telemetry = self.get_telemetry()
+        return telemetry[9]
+
+    def get_yaw_rate(self):
+        """
+        Returns:
+            w: float: yaw rate in rad/s
+        """
+        telemetry = self.get_telemetry()
+        return telemetry[8]
+
+    def get_tof(self):
+        """
+        Returns:
+            h: float: altitude in m
+        """
+        _, _, res = self.get_position()
         return res
 
+    def get_height(self):
+        """
+        Alias for get_tof() as cognifly doesn't know its height from the starting point.
+        """
+        return self.get_tof()
+
+    def get_speed(self):
+        """
+        Returns:
+            speed: float: norm of the velocity, in m
+        """
+        v_x, v_y, v_z = self.get_velocity()
+        return np.linalg.norm([v_x, v_y, v_z])
+
+
+def print_stuff(drone):
+    print(f"battery:{drone.get_battery()}V")
+    print(f"position:{drone.get_position()}")
+    print(f"speed:{drone.get_speed()}")
+    print(f"height:{drone.get_height()}")
 
 if __name__ == '__main__':
-    cf = Cognifly(drone_hostname="pfizer.local")
-    cf.reset()
-    cf.arm()
-    time.sleep(2.0)
-    cf.takeoff_nonblocking()
-    time.sleep(10.0)
-
-    cf.set_position_nonblocking(x=0.0, y=0.0, z=0.5, yaw=0.0,
-                                max_velocity=0.5, max_yaw_rate=0.5, max_duration=5.0, relative=False)
-    time.sleep(10.0)
-
-    cf.set_position_nonblocking(x=1.0, y=0.0, z=0.5, yaw=0.0,
-                                max_velocity=0.5, max_yaw_rate=0.5, max_duration=10.0, relative=True)
-    time.sleep(20.0)
-
-    cf.set_position_nonblocking(x=0.0, y=0.0, z=0.5, yaw=np.pi / 2,
-                                max_velocity=0.5, max_yaw_rate=0.5, max_duration=10.0, relative=True)
-    time.sleep(20.0)
-
-    cf.set_position_nonblocking(x=1.0, y=0.0, z=0.5, yaw=0.0,
-                                max_velocity=0.5, max_yaw_rate=0.5, max_duration=10.0, relative=True)
-    time.sleep(20.0)
-
-    cf.set_position_nonblocking(x=0.0, y=0.0, z=0.5, yaw=0.0,
-                                max_velocity=0.5, max_yaw_rate=0.5, max_duration=10.0, relative=False)
-    time.sleep(20.0)
-
-    cf.land_nonblocking()
-    time.sleep(2.0)
-    cf.disarm()
-    time.sleep(2.0)
+    cf = Cognifly(drone_hostname="moderna.local")
+    print("before takeoff")
+    print_stuff(cf)
+    cf.takeoff()
+    print("after takeoff")
+    print_stuff(cf)
+    cf.forward(50)
+    print("after forward")
+    print_stuff(cf)
+    cf.cw(90)
+    print("after cw")
+    print_stuff(cf)
+    cf.forward(50)
+    print("after forward")
+    print_stuff(cf)
+    cf.up(30)
+    print("after up")
+    print_stuff(cf)
+    cf.go(0, 0, 0.5, 0)
+    print("after go")
+    print_stuff(cf)
+    cf.land()
+    print("after land")
+    print_stuff(cf)

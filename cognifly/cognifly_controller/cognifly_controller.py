@@ -154,7 +154,7 @@ class CogniflyController:
                  drone_hostname=None,
                  drone_port=8988,
                  print_screen=True,
-                 obs_loop_time=None,
+                 obs_loop_time=0.1,
                  trace_logs=True):
         """
         Custom controller and udp interface for Cognifly
@@ -225,6 +225,10 @@ class CogniflyController:
         # self.filter_w_z = Simple1DKalman(err_measure=0.2, q=0.9)
         self.filter_vel_z = Simple1DExponentialAverage(tau=0.2)
         self.filter_w_z = Simple1DExponentialAverage(tau=0.2)
+
+        self.telemetry = None
+        self.debug_flags = []
+        self._i_obs = 0
 
         self.start_time = time.time()
         self.trace_logs = trace_logs
@@ -406,6 +410,8 @@ class CogniflyController:
         screen.addstr(21, 0, f"vel_wf: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
         screen.addstr(22, 0, f"vel_df: [{vel_x_df: .5f},{vel_y_df: .5f},{vel_z_df: .5f}] m/s")
         screen.clrtoeol()
+
+        self.telemetry = (self.voltage, pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate, self.debug_flags)
 
         if self.current_flight_command is None:
             # ensure that rpy commands are at default:
@@ -644,14 +650,12 @@ class CogniflyController:
                                 self._udp_commands_handler(pkl.loads(cmd), board)
                         self._flight(board, screen)
                         self._batt_handler(board)
-
-                        # if self.obs_loop_time is not None:
-                        #     tick = time.time()
-                        #     if tick - self.last_obs_tick >= self.obs_loop_time:
-                        #         self.last_obs_tick = tick
-                        #         board.fast_read_altitude()
-                        #         self.altitude = board.SENSOR_DATA['altitude']
-                        #         self.udp_int.send_msg([self.altitude, self.voltage, tick])  # TODO: check sender_initialized
+                        if self.obs_loop_time is not None:
+                            tick = time.time()
+                            if tick - self.last_obs_tick >= self.obs_loop_time and self.sender_initialized:
+                                self.last_obs_tick = tick
+                                self._i_obs += 1
+                                self.udp_int.send(pkl.dumps(("OBS", self._i_obs, self.telemetry)))
                     #
                     # end of UDP recv non-blocking -----------------------------
                     #
@@ -812,7 +816,8 @@ class CogniflyController:
                                 screen.addstr(5, 0, "ARMED: {}".format(armed), curses.A_BOLD)
                                 screen.clrtoeol()
 
-                                screen.addstr(5, 50, "armingDisableFlags: {}".format(board.process_armingDisableFlags(board.CONFIG['armingDisableFlags'])))
+                                self.debug_flags = board.process_armingDisableFlags(board.CONFIG['armingDisableFlags'])
+                                screen.addstr(5, 50, "armingDisableFlags: {}".format(self.debug_flags))
                                 screen.clrtoeol()
 
                                 screen.addstr(6, 0, "cpuload: {}".format(board.CONFIG['cpuload']))
