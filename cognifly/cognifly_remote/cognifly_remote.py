@@ -426,9 +426,8 @@ class Cognifly:
 
     def get_telemetry(self):
         """
-        Gets a tuple of floats that describe the state of the drone in the world frame.
+        Gets a tuple that describe the state of the drone in the world frame.
         Angles are in radians.
-        health_flags is an empty list when the drone is healty.
         Returns:
             telemetry: Tuple: (battery_voltage: float,
                                x: float,
@@ -485,7 +484,7 @@ class Cognifly:
     def get_health(self):
         """
         Returns:
-            health_flags: list os strings: empty when the drone is healthy
+            health_flags: list os strings: useful flags for debugging
         """
         telemetry = self.get_telemetry()
         return telemetry[9]
@@ -526,6 +525,7 @@ def print_stuff(drone):
     print(f"position:{drone.get_position()}")
     print(f"speed:{drone.get_speed()}")
     print(f"height:{drone.get_height()}")
+    print(f"health:{drone.get_health()}")
 
 if __name__ == '__main__':
     cf = Cognifly(drone_hostname="moderna.local")
