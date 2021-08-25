@@ -27,6 +27,7 @@ from pathlib import Path
 from cognifly.cognifly_controller.YAMSPy.yamspy import MSPy
 # from picamera_AIY_object_detection import MyAIYInterface
 from cognifly.utils.udp_interface import UDPInterface
+from cognifly.utils.tcp_video_interface import TCPVideoInterface
 from cognifly.utils.ip_tools import extract_ip
 from cognifly.utils.pid import PID
 from cognifly.utils.filters import Simple1DKalman, Simple1DExponentialAverage
@@ -132,25 +133,9 @@ def smallest_angle_diff_rad(theta_new, theta_old):
     return mod_p if abs(mod_p) < abs(mod_n) else mod_n
 
 
-def _benchmark_read(board):
-    """
-    here for debugging purpose, will be removed
-    """
-    t_1 = time.time()
-    for _ in range(100):
-        board.send_RAW_msg(MSPy.MSPCodes['MSP_DEBUG'], data=[])
-        data_handler = board.receive_msg()
-        board.process_recv_data(data_handler)
-    t_2 = time.time()
-    for _ in range(100):
-        board.fast_read_altitude()
-    t_3 = time.time()
-    return t_2 - t_1, t_3 - t_2
-
-
 class CogniflyController:
     def __init__(self,
-                 udp_server=True,
+                 network=True,
                  drone_hostname=None,
                  drone_port=8988,
                  print_screen=True,
@@ -159,7 +144,7 @@ class CogniflyController:
         """
         Custom controller and udp interface for Cognifly
         Args:
-            udp_server: bool: if False, the drone will not run a udp server (True is needed for remote control)
+            network: bool: if False, the drone will not run a udp server (True is needed for remote control)
             drone_hostname: str (optional): can be an IP. If None, the ip is extracted automatically.
             drone_port: int (optional): port used to receive commands from the udp controller
             print_screen: bool (optional):
@@ -170,9 +155,10 @@ class CogniflyController:
                 else, an observation is sent bu UDP every obs_loop_time seconds
             trace_logs: bool (optional): if True, flight telemetry will be printed in a CSV-like log file
         """
-        self.udp_server = udp_server
-        if not self.udp_server:
+        self.network = network
+        if not self.network:
             self.udp_int = None
+            self.tcp_video_int = None
             self.drone_hostname = None
             self.drone_port = None
         else:
@@ -181,6 +167,7 @@ class CogniflyController:
             self.drone_ip = socket.gethostbyname(self.drone_hostname) if drone_hostname is not None else extract_ip()
             self.drone_port = drone_port
             self.udp_int.init_receiver(ip=self.drone_ip, port=self.drone_port)
+            self.tcp_video_int = TCPVideoInterface()
         self.sender_initialized = False  # sender is initialized only when a reset message is received
         self.print_screen = print_screen
         self.obs_loop_time = obs_loop_time
@@ -309,7 +296,11 @@ class CogniflyController:
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
                 elif command[2][0] in ("PDF", "PWF"):  # position
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], command[2][5], command[2][6], time.time() + command[2][7]]
-                self.udp_int.send(pkl.dumps(("ACK", identifier)))
+            elif command[0] == "ST1":  # stream on
+                self.tcp_video_int.start_streaming(ip_dest=command[2][0], port_dest=command[2][1], resolution=command[2][2], fps=command[2][3])
+            elif command[0] == "ST0":  # stream off
+                self.tcp_video_int.stop_streaming()
+            self.udp_int.send(pkl.dumps(("ACK", identifier)))
 
     def _compute_z_vel(self, pos_z_wf):
         if self.prev_alt_prime_ts is None:
@@ -404,12 +395,13 @@ class CogniflyController:
             self.x_tracer.write_line(f"{now};{pos_x_wf};{vel_x_wf};{vel_x_df}")
             self.y_tracer.write_line(f"{now};{pos_y_wf};{vel_y_wf};{vel_y_df}")
 
-        screen.addstr(18, 0, f"yaw: {yaw/np.pi: .5f} pi rad")
-        screen.addstr(19, 0, f"yaw rate: {yaw_rate/np.pi: .5f} pi rad/s")
-        screen.addstr(20, 0, f"pos_wf: [{pos_x_wf: .5f},{pos_y_wf: .5f},{pos_z_wf: .5f}] m")
-        screen.addstr(21, 0, f"vel_wf: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
-        screen.addstr(22, 0, f"vel_df: [{vel_x_df: .5f},{vel_y_df: .5f},{vel_z_df: .5f}] m/s")
-        screen.clrtoeol()
+        if self.print_screen:
+            screen.addstr(18, 0, f"yaw: {yaw/np.pi: .5f} pi rad")
+            screen.addstr(19, 0, f"yaw rate: {yaw_rate/np.pi: .5f} pi rad/s")
+            screen.addstr(20, 0, f"pos_wf: [{pos_x_wf: .5f},{pos_y_wf: .5f},{pos_z_wf: .5f}] m")
+            screen.addstr(21, 0, f"vel_wf: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
+            screen.addstr(22, 0, f"vel_df: [{vel_x_df: .5f},{vel_y_df: .5f},{vel_z_df: .5f}] m/s")
+            screen.clrtoeol()
 
         self.telemetry = (self.voltage, pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate, self.debug_flags)
 
@@ -631,10 +623,6 @@ class CogniflyController:
 
                 cursor_msg = ""
 
-                t1, t2 = _benchmark_read(board)
-                screen.addstr(15, 0, f"t1:{t1}, t2:{t2}", curses.A_BOLD)
-                screen.clrtoeol()
-
                 last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
                 while True:
                     start_time = time.time()
@@ -817,6 +805,9 @@ class CogniflyController:
                                 screen.clrtoeol()
 
                                 self.debug_flags = board.process_armingDisableFlags(board.CONFIG['armingDisableFlags'])
+                                cam_err, cam_exp = self.tcp_video_int.get_camera_error()
+                                if cam_err:
+                                    self.debug_flags.append("CAMERA_ERROR")
                                 screen.addstr(5, 50, "armingDisableFlags: {}".format(self.debug_flags))
                                 screen.clrtoeol()
 

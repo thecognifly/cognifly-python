@@ -7,6 +7,7 @@ import time
 import numpy as np
 
 from cognifly.utils.udp_interface import UDPInterface
+from cognifly.utils.tcp_video_interface import TCPVideoInterface
 from cognifly.utils.ip_tools import extract_ip
 from cognifly.utils.functions import clip
 
@@ -39,6 +40,7 @@ class Cognifly:
                  local_hostname=None,
                  send_port=8988,
                  recv_port=8989,
+                 recv_port_video=8990,
                  wait_for_first_obs=True,
                  wait_for_first_obs_sleep_duration=0.1,
                  wait_ack_duration=1.0):
@@ -56,10 +58,12 @@ class Cognifly:
         self.drone_hostname = drone_hostname
         self.send_port = send_port
         self.recv_port = recv_port
+        self.recv_port_video = recv_port_video
         self.wait_for_first_obs = wait_for_first_obs
         self.wait_for_first_obs_sleep_duration = wait_for_first_obs_sleep_duration
 
         self.udp_int = UDPInterface()
+        self.tcp_video_int = TCPVideoInterface()
 
         self.local_hostname = socket.gethostname() if local_hostname is None else local_hostname
         self.local_ip = socket.gethostbyname(self.local_hostname) if local_hostname is not None else extract_ip()
@@ -414,9 +418,13 @@ class Cognifly:
 
     # ==================================================================================================================
 
-    # Common API:
-    # The following getters are common to both the pro and the school API.
-    # You can (and should) use only get_telemetry() except for school purpose, because each call locks a Lock.
+    # Methods common to both APIs:
+
+    def streamon(self, resolution='VGA', fps=5, display=True):
+        self.tcp_video_int.start_receiver(self.recv_port_video, display)
+        self.send(msg_type="ST1", msg=(self.local_ip, self.recv_port_video, resolution, fps))
+    def streamoff(self):
+        self.send(msg_type="ST0")
 
     def get_time(self):
         """
@@ -531,6 +539,8 @@ if __name__ == '__main__':
     cf = Cognifly(drone_hostname="moderna.local")
     print("before takeoff")
     print_stuff(cf)
+    cf.streamon()
+    time.sleep(10.0)
     cf.takeoff()
     print("after takeoff")
     print_stuff(cf)
@@ -552,3 +562,5 @@ if __name__ == '__main__':
     cf.land()
     print("after land")
     print_stuff(cf)
+    cf.streamoff()
+

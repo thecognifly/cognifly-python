@@ -1,9 +1,22 @@
 from setuptools import setup, find_packages
 
 
+def is_raspberrypi():
+    try:
+        with io.open('/sys/firmware/devicetree/base/model', 'r') as m:
+            if 'raspberry pi' in m.read().lower(): return True
+    except Exception: pass
+    return False
+
+
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+deps = ['numpy', ]
+if is_raspberrypi():
+    deps.append(['picamera'])
+else:
+    deps.append(['Pillow'])
 
 setup(name='cognifly',
       packages=[package for package in find_packages()],
@@ -16,7 +29,7 @@ setup(name='cognifly',
       url='',
       download_url='',
       keywords=['cognifly', 'drone', 'remote', 'control'],
-      install_requires=['numpy'],
+      install_requires=deps,
       classifiers=[
           'Development Status :: 5 - Production/Stable',
           'Intended Audience :: Developers',
