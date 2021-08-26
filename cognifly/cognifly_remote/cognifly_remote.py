@@ -126,8 +126,12 @@ class Cognifly:
                     self._lock.acquire()
                     self.__wait_ack_reset = False
                     self._lock.release()
+                elif m[0] == "DON":  # 'done' signal from position control
+                    self._lock.acquire()
+                    self.__wait_done = False
+                    self._lock.release()
                 elif m[0] == "BBT":  # bad battery state
-                    print(f"Low battery: {m[1]}V, drone will refuse to move")
+                    print(f"Low battery: {m[1]}V, the drone will soon refuse to move.")
 
     def __resender_thread(self):
         """
@@ -289,7 +293,7 @@ class Cognifly:
     # (don't use along the pro API, otherwise weird things will happen with altitude)
     # (sleeps after calls, uses cm instead of m, and uses degrees instead of rad):
 
-    def takeoff(self, max_duration=10.0):
+    def takeoff(self, altitude=EASY_API_TAKEOFF_ALTITUDE, max_duration=10.0):
         """
         Arms the drone and takes off
         """
@@ -298,7 +302,7 @@ class Cognifly:
         time.sleep(1.0)
         # the takeoff altitude might depend on the battery with this and Z will only be defined properly later:
         # self.takeoff_nonblocking()
-        self.easy_api_cur_z = EASY_API_TAKEOFF_ALTITUDE
+        self.easy_api_cur_z = altitude
         # this instead works (Z properly defined) but it is a bit violent and maybe not very stable:
         self.set_position_nonblocking(x=0.0, y=0.0, z=self.easy_api_cur_z, yaw=0.0,
                                       max_velocity=EASY_API_SPEED,
@@ -452,8 +456,10 @@ class Cognifly:
         """
         if speed is not None:
             speed = speed / 100.0  # convert to m/s
+            speed = max(speed, 0.0)
         if yaw_rate is not None:
             yaw_rate = yaw_rate * np.pi / 180.0  # convert to rad/s
+            yaw_rate = max(yaw_rate, 0.0)
         remaining_duration = max_duration
         t_start = time.time()
         for elt in sequence:
@@ -478,7 +484,7 @@ class Cognifly:
         2-positions roadmap.
         This is an alias for position_sequence(sequence=[[x1, y1, z1],[x2, y2, z2]], speed=speed).
         """
-        self.position_sequence(self, sequence=[[x1, y1, z1],[x2, y2, z2]], speed=speed)
+        self.position_sequence(sequence=[[x1, y1, z1],[x2, y2, z2]], speed=speed)
 
     # ==================================================================================================================
 
