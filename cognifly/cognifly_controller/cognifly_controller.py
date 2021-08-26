@@ -108,6 +108,9 @@ BATT_TOO_HIGH = 1
 BATT_WARNING = 2
 BATT_TOO_LOW = 3
 
+EPSILON_DIST_TO_TARGET = 0.01  # (m)
+EPSILON_ANGLE_TO_TARGET = np.pi / 180.0  # (rad)
+
 
 class SignalTracer:
     """
@@ -216,6 +219,7 @@ class CogniflyController:
         self.telemetry = None
         self.debug_flags = []
         self._i_obs = 0
+        self.target_flag = False
 
         self.start_time = time.time()
         self.trace_logs = trace_logs
@@ -295,6 +299,7 @@ class CogniflyController:
                 elif command[2][0] in ("VDF", "VWF"):  # velocity
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
                 elif command[2][0] in ("PDF", "PWF"):  # position
+                    self.target_flag = True
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], command[2][5], command[2][6], time.time() + command[2][7]]
             elif command[0] == "ST1":  # stream on
                 self.tcp_video_int.start_streaming(ip_dest=command[2][0], port_dest=command[2][1], resolution=command[2][2], fps=command[2][3])
@@ -484,6 +489,13 @@ class CogniflyController:
                     y_vector = y_goal - pos_y_wf
                     z_vector = z_goal - pos_z_wf
                     yaw_vector = smallest_angle_diff_rad(yaw_goal, yaw) if yaw_goal is not None else None
+                    if self.target:  # check whether target is reached
+                        dist_condition = np.linalg.norm([x_vector, y_vector, z_vector]) <= EPSILON_DIST_TO_TARGET
+                        angle_condition = True if yaw_vector is None else abs(yaw_vector) <= EPSILON_ANGLE_TO_TARGET
+                        if dist_condition and angle_condition:
+                            self.target = False  # disable the flag
+                            if self.sender_initialized:
+                                self.udp_int.send(pkl.dumps(("DON", )))  # notify the remote control
                     # convert x and y to the drone frame:
                     x_vector_df = x_vector * cos + y_vector * sin
                     y_vector_df = y_vector * cos - x_vector * sin

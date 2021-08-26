@@ -3,6 +3,8 @@ Control the CogniFly open-source drone remotely from your python script.
 
 ## Installation
 
+TODO
+
 ```bash
 pip install --upgrade pip
 pip install cognifly

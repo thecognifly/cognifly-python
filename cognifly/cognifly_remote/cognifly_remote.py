@@ -88,6 +88,7 @@ class Cognifly:
         self.__last_sent = None
         self.__wait_ack_reset = True
         self.__last_i_obs = 0
+        self.__wait_done = False
 
         self._listener_thread = Thread(target=self.__listener_thread)
         self._listener_thread.setDaemon(True)  # thread will be terminated at exit
@@ -148,7 +149,6 @@ class Cognifly:
         Args:
             msg_type: string in ["RES", ACT"]
             msg: tuple of the form (str:command, ...:args)
-        If
         """
         self._lock.acquire()
         self.__last_sent_id += 1
@@ -158,6 +158,24 @@ class Cognifly:
         self.__last_sent = data_s
         self._lock.release()
         self.udp_int.send(data_s)
+
+    def sleep_until_done(self, max_duration, granularity=0.05):
+        """
+        Sleeps until either max_duration is elapsed or a 'done" signal is received from the position control API.
+        """
+        timeout_t = time.time() + max_duration
+        while True:
+            time.sleep(granularity)
+            self._lock.acquire()
+            c = self.__wait_done
+            self._lock.release()
+            t = time.time()
+            if not c or t >= timeout_t:
+                if c:
+                    self._lock.acquire()
+                    self.__wait_done = False
+                    self._lock.release()
+                break
 
     # ==================================================================================================================
 
@@ -260,6 +278,9 @@ class Cognifly:
             frame_str = "PDF"
         else:
             frame_str = "PWF"
+        self._lock.acquire()
+        self.__wait_done = True
+        self._lock.release()
         self.send(msg_type="ACT", msg=(frame_str, x, y, z, yaw, max_velocity, max_yaw_rate, max_duration))
 
     # ==================================================================================================================
@@ -268,7 +289,7 @@ class Cognifly:
     # (don't use along the pro API, otherwise weird things will happen with altitude)
     # (sleeps after calls, uses cm instead of m, and uses degrees instead of rad):
 
-    def takeoff(self, sleep_duration=10.0):
+    def takeoff(self, max_duration=10.0):
         """
         Arms the drone and takes off
         """
@@ -282,9 +303,9 @@ class Cognifly:
         self.set_position_nonblocking(x=0.0, y=0.0, z=self.easy_api_cur_z, yaw=0.0,
                                       max_velocity=EASY_API_SPEED,
                                       max_yaw_rate=EASY_API_YAW_RATE,
-                                      max_duration=sleep_duration,
+                                      max_duration=max_duration,
                                       relative=False)
-        time.sleep(sleep_duration)
+        sleep_until_done(max_duration)
 
     def land(self, sleep_duration=5.0):
         """
@@ -306,7 +327,7 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        time.sleep(duration)
+        sleep_until_done(duration)
 
     def backward(self, val_cm):
         """
@@ -319,7 +340,7 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        time.sleep(duration)
+        sleep_until_done(duration)
 
     def right(self, val_cm):
         """
@@ -332,7 +353,7 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        time.sleep(duration)
+        sleep_until_done(duration)
 
     def left(self, val_cm):
         """
@@ -345,7 +366,7 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        time.sleep(duration)
+        sleep_until_done(duration)
 
     def up(self, val_cm):
         """
@@ -360,7 +381,7 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        time.sleep(duration)
+        sleep_until_done(duration)
 
     def down(self, val_cm):
         """
@@ -375,7 +396,7 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        time.sleep(duration)
+        sleep_until_done(duration)
 
     def cw(self, val_deg):
         """
@@ -388,7 +409,7 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        time.sleep(duration)
+        sleep_until_done(duration)
 
     def ccw(self, val_deg):
         """
@@ -401,9 +422,9 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        time.sleep(duration)
+        sleep_until_done(duration)
 
-    def go(self, x, y, z, yaw=None, duration=10.0):
+    def go(self, x, y, z, yaw=None, max_duration=10.0):
         """
         Goes to the requested position and yaw targets.
         If yaw is None, no yaw target is set.
@@ -412,9 +433,52 @@ class Cognifly:
         self.set_position_nonblocking(x=x, y=y, z=self.easy_api_cur_z, yaw=yaw,
                                       max_velocity=EASY_API_SPEED,
                                       max_yaw_rate=EASY_API_YAW_RATE,
-                                      max_duration=duration,
+                                      max_duration=max_duration,
                                       relative=False)
-        time.sleep(duration)
+        sleep_until_done(max_duration)
+
+    def position_sequence(self, sequence, max_duration=60.0, relative=False, speed=None, yaw_rate=None):
+        """
+        The drone follows a roadmap defined by a sequence of targets
+        Args:
+            sequence: a sequence of sequence-like elements, each of length 3 or 4 (mixing 3 and 4 is possible).
+                If the length of an element is 3, it is interpreted as (x, y, z).
+                If the length of an element is 4, it is interpreted as (x, y, z, yaw).
+            max_duration: float: maximum duration of the whole command.
+            relative: bool: whether x, y, z and yaw have to be interpreted in the drone frame (True)
+                or in the world frame (False, default).
+            speed: float: if not None, target speed in cm/s, else the default is used.
+            yaw_rate: float: if not None, target yaw rate in deg/s, else the default is used.
+        """
+        if speed is not None:
+            speed = speed / 100.0  # convert to m/s
+        if yaw_rate is not None:
+            yaw_rate = yaw_rate * np.pi / 180.0  # convert to rad/s
+        remaining_duration = max_duration
+        t_start = time.time()
+        for elt in sequence:
+            if 3 <= len(elt) <= 4 and remaining_duration > 0:
+                x = elt[0]
+                y = elt[1]
+                z = elt[2]
+                yaw = elt[3] if len(elt) == 4 else None
+
+                self.easy_api_cur_z = clip(z, EASY_API_MIN_ALTITUDE, EASY_API_MAX_ALTITUDE)
+                self.set_position_nonblocking(x=x, y=y, z=self.easy_api_cur_z, yaw=yaw,
+                                              max_velocity=EASY_API_SPEED if speed is None else speed,
+                                              max_yaw_rate=EASY_API_YAW_RATE if yaw_rate is None else yaw_rate,
+                                              max_duration=remaining_duration,
+                                              relative=relative)
+                sleep_until_done(remaining_duration)
+                elapsed_time = time.time() - t_start
+                remaining_duration -= elapsed_time
+
+    def curve(self, x1, y1, z1, x2, y2, z2, speed):
+        """
+        2-positions roadmap.
+        This is an alias for position_sequence(sequence=[[x1, y1, z1],[x2, y2, z2]], speed=speed).
+        """
+        self.position_sequence(self, sequence=[[x1, y1, z1],[x2, y2, z2]], speed=speed)
 
     # ==================================================================================================================
 
