@@ -276,7 +276,7 @@ class Cognifly:
         self.arm()
         time.sleep(1.0)
         # the takeoff altitude might depend on the battery with this and Z will only be defined properly later:
-        self.takeoff_nonblocking()
+        # self.takeoff_nonblocking()
         self.easy_api_cur_z = EASY_API_TAKEOFF_ALTITUDE
         # this instead works (Z properly defined) but it is a bit violent and maybe not very stable:
         self.set_position_nonblocking(x=0.0, y=0.0, z=self.easy_api_cur_z, yaw=0.0,
@@ -434,7 +434,7 @@ class Cognifly:
                 mostly for debugging purpose: this may output warnings or not work depending on opencv installation,
                 in particular, the window is created and updated in the receiver thread.
         """
-        self.tcp_video_int.start_receiver(self.recv_port_video)
+        self.tcp_video_int.start_receiver(self.recv_port_video, display)
         time.sleep(1.0) # sleep a bit so the server starts before the drone tries to connect
         self.send(msg_type="ST1", msg=(self.local_ip, self.recv_port_video, resolution, fps))
 
@@ -556,34 +556,35 @@ def print_stuff(drone):
 if __name__ == '__main__':
     cf = Cognifly(drone_hostname="moderna.local")
 
+    print("streamon")
+    cf.streamon(fps=30)
+
+    time.sleep(10.0)
+
     print("before takeoff")
     print_stuff(cf)
-    # cf.takeoff()
-    # print("after takeoff")
-    # print_stuff(cf)
+    cf.takeoff()
+    print("after takeoff")
+    print_stuff(cf)
 
-    print("streamon")
-    cf.streamon()
-    time.sleep(100.0)
-
-    # cf.forward(50)
-    # print("after forward")
-    # print_stuff(cf)
-    # cf.cw(90)
-    # print("after cw")
-    # print_stuff(cf)
-    # cf.forward(50)
-    # print("after forward")
-    # print_stuff(cf)
-    # cf.up(30)
-    # print("after up")
-    # print_stuff(cf)
-    # cf.go(0, 0, 0.5, 0)
-    # print("after go")
-    # print_stuff(cf)
-    # cf.land()
-    # print("after land")
-    # print_stuff(cf)
+    cf.forward(50)
+    print("after forward")
+    print_stuff(cf)
+    cf.cw(90)
+    print("after cw")
+    print_stuff(cf)
+    cf.forward(50)
+    print("after forward")
+    print_stuff(cf)
+    cf.up(30)
+    print("after up")
+    print_stuff(cf)
+    cf.go(0, 0, 0.5, 0)
+    print("after go")
+    print_stuff(cf)
+    cf.land()
+    print("after land")
+    print_stuff(cf)
 
     print("streamoff")
     cf.streamoff()

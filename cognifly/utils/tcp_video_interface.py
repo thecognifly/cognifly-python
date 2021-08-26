@@ -82,11 +82,12 @@ class TCPVideoInterface(object):
             if client_socket is not None:
                 client_socket.close()
         except Exception as e:
-            if type(e) != OSError and type(e) != BrokenPipeError:
+            t_e = type(e)
+            if t_e != OSError and not issubclass(t_e, ConnectionError):
                 with self.__lock:
                     self.__camera_error = True
                     self.__camera_exception = str(e)
-                raise e
+                # raise e
         finally:
             if camera is not None:
                 camera.close()
@@ -117,12 +118,13 @@ class TCPVideoInterface(object):
         with self.__lock:
             self.__record = False
 
-    def __stream_receiver_thread(self, port):
+    def __stream_receiver_thread(self, port, display):
         """
         TCP server, should be running prior to the client
         """
         import numpy as np
-        import cv2
+        if display:
+            import cv2
 
         server_socket = socket.socket()
         server_socket.bind(('0.0.0.0', port))
@@ -149,13 +151,11 @@ class TCPVideoInterface(object):
                 # image.verify()
 
                 # image.show()
-
-                open_cv_image = np.array(image)
-                print(f"DEBUG: open_cv_image.shape:{open_cv_image.shape}")
-                im = open_cv_image[:, :, ::-1].copy()
-
-                cv2.imshow("Stream", im)
-                cv2.waitKey(1)
+                if display:
+                    open_cv_image = np.array(image)
+                    im = open_cv_image[:, :, ::-1].copy()
+                    cv2.imshow("Stream", im)
+                    cv2.waitKey(1)
 
                 # # Construct a numpy array from the stream
                 # data = np.fromstring(image_stream.getvalue(), dtype=np.uint8)
@@ -168,21 +168,22 @@ class TCPVideoInterface(object):
 
                 with self.__lock:
                     self.__image_i += 1
-                    print(f"received image {self.__image_i}")
+                    # print(f"received image {self.__image_i}")
                     self.__image = image
         finally:
-            cv2.destroyAllWindows()
+            if display:
+                cv2.destroyAllWindows()
             connection.close()
             server_socket.close()
             with self.__lock:
                 self.__receiver_running = False
 
-    def start_receiver(self, port):
+    def start_receiver(self, port, display):
         with self.__lock:
             receiver_running = self.__receiver_running
             self.__receiver_running = True
         if not receiver_running:
-            receiver_thread = Thread(target=self.__stream_receiver_thread, args=(port, ))
+            receiver_thread = Thread(target=self.__stream_receiver_thread, args=(port, display))
             receiver_thread.setDaemon(True)  # thread will be terminated at exit
             receiver_thread.start()
 
