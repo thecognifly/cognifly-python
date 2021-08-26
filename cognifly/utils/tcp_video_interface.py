@@ -10,8 +10,8 @@ from threading import Thread, Lock
 
 
 class SplitFrames(object):
-    def __init__(self, conn):
-        self.connection = conn
+    def __init__(self, connection):
+        self.connection = connection
         self.stream = io.BytesIO()
         self.count = 0
 
@@ -31,7 +31,7 @@ class SplitFrames(object):
 
 
 class TCPVideoInterface(object):
-    def __init__(self):
+    def __init__(self, camera=None):
         self.ip_send = None
         self.port_send = None
         self.__buffersize = None
@@ -44,6 +44,7 @@ class TCPVideoInterface(object):
         self.__camera_exception = None
         self.__image = None
         self.__image_i = -1
+        self.camera = camera
 
     def get_camera_error(self):
         with self.__lock:
@@ -53,17 +54,20 @@ class TCPVideoInterface(object):
 
     def __streaming_thread(self, ip, port, wait_duration, resolution, fps):
         camera_error = False
-        client_socket = socket.socket()
-        client_socket.connect((ip, port))
-        connection = client_socket.makefile('wb')
+        connection = None
+        client_socket = None
+        camera = None
         try:
             import picamera  # can be imported only on the raspberry pi
+            client_socket = socket.socket()
+            client_socket.connect((ip, port))
+            connection = client_socket.makefile('wb')
             output = SplitFrames(connection)
-            with self.__lock:
-                self.__record = True
-                record = self.__record
             with picamera.PiCamera(resolution=resolution, framerate=fps) as camera:
                 time.sleep(2)
+                with self.__lock:
+                    self.__record = True
+                    record = True
                 camera.start_recording(output, format='mjpeg')
                 while record:
                     camera.wait_recording(wait_duration)
@@ -73,20 +77,27 @@ class TCPVideoInterface(object):
                 # Write the terminating 0-length to the connection to let the
                 # server know we're done
                 connection.write(struct.pack('<L', 0))
+            if connection is not None:
+                connection.close()
+            if client_socket is not None:
+                client_socket.close()
         except Exception as e:
-            with self.__lock:
-                self.__camera_error = True
-                self.__camera_exception = str(e)
+            if type(e) != OSError and type(e) != BrokenPipeError:
+                with self.__lock:
+                    self.__camera_error = True
+                    self.__camera_exception = str(e)
+                raise e
         finally:
+            if camera is not None:
+                camera.close()
             with self.__lock:
                 self.__stream_running = False
                 self.__record = False
-            connection.close()
-            client_socket.close()
 
-    def start_streaming(self, ip_dest, port_dest, wait_duration=1.0, resolution='VGA', fps=5):
+    def start_streaming(self, ip_dest, port_dest, wait_duration=1.0, resolution='VGA', fps=10):
         """
-        Starts the streaming thread on the drone
+        Starts the streaming thread on the drone.
+        Caution: stop_streaming() must be called between calls to start_streaming().
         """
         with self.__lock:
             streaming_started = self.__stream_running
@@ -96,6 +107,8 @@ class TCPVideoInterface(object):
             start_streaming_thread = Thread(target=self.__streaming_thread, args=(ip_dest, port_dest, wait_duration, resolution, fps))
             start_streaming_thread.setDaemon(True)  # thread will be terminated at exit
             start_streaming_thread.start()
+        else:
+            logging.info("start_streaming() called although streaming is already started.")
 
     def stop_streaming(self):
         """
@@ -104,11 +117,12 @@ class TCPVideoInterface(object):
         with self.__lock:
             self.__record = False
 
-    def __stream_receiver_thread(self, port, display):
+    def __stream_receiver_thread(self, port):
         """
         TCP server, should be running prior to the client
         """
         import numpy as np
+        import cv2
 
         server_socket = socket.socket()
         server_socket.bind(('0.0.0.0', port))
@@ -132,35 +146,43 @@ class TCPVideoInterface(object):
 
                 image_stream.seek(0)
                 image = Image.open(image_stream)
-                image.verify()
+                # image.verify()
+
+                # image.show()
+
+                open_cv_image = np.array(image)
+                print(f"DEBUG: open_cv_image.shape:{open_cv_image.shape}")
+                im = open_cv_image[:, :, ::-1].copy()
+
+                cv2.imshow("Stream", im)
+                cv2.waitKey(1)
 
                 # # Construct a numpy array from the stream
                 # data = np.fromstring(image_stream.getvalue(), dtype=np.uint8)
+                # # image = data
                 # # "Decode" the image from the array, preserving colour
                 # image = cv2.imdecode(data, 1)
                 # # OpenCV returns an array with data in BGR order. If you want RGB instead
                 # # use the following...
                 # image = image[:, :, ::-1]
 
-                if display:
-                    image.show()
-
                 with self.__lock:
                     self.__image_i += 1
                     print(f"received image {self.__image_i}")
                     self.__image = image
         finally:
-            with self.__lock:
-                self.__receiver_running = False
+            cv2.destroyAllWindows()
             connection.close()
             server_socket.close()
+            with self.__lock:
+                self.__receiver_running = False
 
-    def start_receiver(self, port, display=False):
+    def start_receiver(self, port):
         with self.__lock:
             receiver_running = self.__receiver_running
             self.__receiver_running = True
         if not receiver_running:
-            receiver_thread = Thread(target=self.__stream_receiver_thread, args=(port, display))
+            receiver_thread = Thread(target=self.__stream_receiver_thread, args=(port, ))
             receiver_thread.setDaemon(True)  # thread will be terminated at exit
             receiver_thread.start()
 
@@ -175,9 +197,19 @@ class TCPVideoInterface(object):
         """
         with self.__lock:
             im_i = self.__image_i
-            im = deepcopy(self.__image) if im_i > min_image_i else None
+            data = deepcopy(self.__image) if im_i > min_image_i else None
+        if data is not None:
+            im = data
+            pil_image = data.convert('RGB')
+            open_cv_image = numpy.array(pil_image)
+            im = open_cv_image[:, :, ::-1].copy()
+        else:
+            im = None
         return im, im_i
 
     def __del__(self):
         if self.__sockO:
-            self.__sockO.close()
+            try:
+                self.__sockO.close()
+            except BrokenPipeError:
+                pass

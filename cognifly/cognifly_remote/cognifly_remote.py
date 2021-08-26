@@ -420,10 +420,28 @@ class Cognifly:
 
     # Methods common to both APIs:
 
-    def streamon(self, resolution='VGA', fps=5, display=True):
-        self.tcp_video_int.start_receiver(self.recv_port_video, display)
+    def streamon(self, resolution="VGA", fps=5, display=True):
+        """
+        Starts camera streaming.
+        CAUTION: This will slow the frequency of the onboard controller down and may make the drone unstable!
+        In particular, we recommend not having the stream on during takeoff when using the school API.
+        The highest resolution and fps are, the worst the influence on the onboard controller.
+        The image transfers happens over TCP, which comes with a noticeable delay.
+        Args:
+            resolution: Tuple(float: height, float: width): resolution of the captured images.
+            fps: integer: maximum framerate (may not be attained),
+            display: boolean: whether to display the stream in an OpenCV window,
+                mostly for debugging purpose: this may output warnings or not work depending on opencv installation,
+                in particular, the window is created and updated in the receiver thread.
+        """
+        self.tcp_video_int.start_receiver(self.recv_port_video)
+        time.sleep(1.0) # sleep a bit so the server starts before the drone tries to connect
         self.send(msg_type="ST1", msg=(self.local_ip, self.recv_port_video, resolution, fps))
+
     def streamoff(self):
+        """
+        Stops camera streaming
+        """
         self.send(msg_type="ST0")
 
     def get_time(self):
@@ -537,30 +555,37 @@ def print_stuff(drone):
 
 if __name__ == '__main__':
     cf = Cognifly(drone_hostname="moderna.local")
+
     print("before takeoff")
     print_stuff(cf)
+    # cf.takeoff()
+    # print("after takeoff")
+    # print_stuff(cf)
+
+    print("streamon")
     cf.streamon()
-    time.sleep(10.0)
-    cf.takeoff()
-    print("after takeoff")
-    print_stuff(cf)
-    cf.forward(50)
-    print("after forward")
-    print_stuff(cf)
-    cf.cw(90)
-    print("after cw")
-    print_stuff(cf)
-    cf.forward(50)
-    print("after forward")
-    print_stuff(cf)
-    cf.up(30)
-    print("after up")
-    print_stuff(cf)
-    cf.go(0, 0, 0.5, 0)
-    print("after go")
-    print_stuff(cf)
-    cf.land()
-    print("after land")
-    print_stuff(cf)
+    time.sleep(100.0)
+
+    # cf.forward(50)
+    # print("after forward")
+    # print_stuff(cf)
+    # cf.cw(90)
+    # print("after cw")
+    # print_stuff(cf)
+    # cf.forward(50)
+    # print("after forward")
+    # print_stuff(cf)
+    # cf.up(30)
+    # print("after up")
+    # print_stuff(cf)
+    # cf.go(0, 0, 0.5, 0)
+    # print("after go")
+    # print_stuff(cf)
+    # cf.land()
+    # print("after land")
+    # print_stuff(cf)
+
+    print("streamoff")
     cf.streamoff()
+    time.sleep(2.0)
 

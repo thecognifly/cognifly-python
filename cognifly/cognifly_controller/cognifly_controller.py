@@ -808,6 +808,8 @@ class CogniflyController:
                                 cam_err, cam_exp = self.tcp_video_int.get_camera_error()
                                 if cam_err:
                                     self.debug_flags.append("CAMERA_ERROR")
+                                    screen.addstr(12, 0, f"CAMERA ERROR: {cam_exp}")
+                                    screen.clrtoeol()
                                 screen.addstr(5, 50, "armingDisableFlags: {}".format(self.debug_flags))
                                 screen.clrtoeol()
 

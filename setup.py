@@ -16,7 +16,7 @@ deps = ['numpy', ]
 if is_raspberrypi():
     deps.append(['picamera'])
 else:
-    deps.append(['Pillow'])
+    deps.append(['opencv-contrib-python'])
 
 setup(name='cognifly',
       packages=[package for package in find_packages()],
