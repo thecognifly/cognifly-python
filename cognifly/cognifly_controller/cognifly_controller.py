@@ -108,8 +108,8 @@ BATT_TOO_HIGH = 1
 BATT_WARNING = 2
 BATT_TOO_LOW = 3
 
-EPSILON_DIST_TO_TARGET = 0.01  # (m)
-EPSILON_ANGLE_TO_TARGET = np.pi / 180.0  # (rad)
+EPSILON_DIST_TO_TARGET = 0.05  # (m)
+EPSILON_ANGLE_TO_TARGET = 2 * np.pi / 180.0  # (rad)
 
 
 class SignalTracer:
@@ -203,23 +203,53 @@ class CogniflyController:
         self._flight_origin = None
         self.prev_yaw_prime_ts = None
         self.prev_alt_prime_ts = None
-        self.pid_vel_x = PID(kp=750.0, ki=400.0, kd=50.0, sample_time=0.01, output_limits=(-500, +500), auto_mode=False)
-        self.pid_vel_y = PID(kp=750.0, ki=400.0, kd=50.0, sample_time=0.01, output_limits=(-500, +500), auto_mode=False)
-        self.pid_vel_z = PID(kp=50.0, ki=20.0, kd=5.0, sample_time=0.01, output_limits=(-500, +500), auto_mode=False)
-        self.pid_w_z = PID(kp=500.0, ki=100.0, kd=0.0, sample_time=0.01, output_limits=(-500, +500), auto_mode=False)
-        self.x_vel_gain = 1
-        self.y_vel_gain = 1
-        self.z_vel_gain = 1
-        self.w_gain = 0.5
-        # self.filter_vel_z = Simple1DKalman(err_measure=0.3, q=0.9)
-        # self.filter_w_z = Simple1DKalman(err_measure=0.2, q=0.9)
-        self.filter_vel_z = Simple1DExponentialAverage(tau=0.2)
-        self.filter_w_z = Simple1DExponentialAverage(tau=0.2)
 
         self.telemetry = None
         self.debug_flags = []
         self._i_obs = 0
         self.target_flag = False
+        self.target_id = None
+
+        # PID values:
+
+        self.pid_limits_xy = (-500, +500)
+        self.pid_limits_z = (-500, +500)
+        self.pid_limits_w = (-500, +500)
+
+        self.vel_x_kp = 750.0
+        self.vel_x_ki = 400.0
+        self.vel_x_kd = 50.0
+
+        self.vel_y_kp = 750.0
+        self.vel_y_ki = 400.0
+        self.vel_y_kd = 50.0
+
+        self.vel_z_kp = 50.0
+        self.vel_z_ki = 20.0
+        self.vel_z_kd = 5.0
+
+        self.vel_w_kp = 500.0
+        self.vel_w_ki = 100.0
+        self.vel_w_kd = 0.0
+
+        self.pid_vel_x = None
+        self.pid_vel_y = None
+        self.pid_vel_z = None
+        self.pid_w_z = None
+
+        self.x_vel_gain = 1
+        self.y_vel_gain = 1
+        self.z_vel_gain = 1
+        self.w_gain = 0.5
+
+        # filters:
+
+        # self.filter_vel_z = Simple1DKalman(err_measure=0.3, q=0.9)
+        # self.filter_w_z = Simple1DKalman(err_measure=0.2, q=0.9)
+        self.filter_vel_z = Simple1DExponentialAverage(tau=0.2)
+        self.filter_w_z = Simple1DExponentialAverage(tau=0.2)
+
+        # tracer:
 
         self.start_time = time.time()
         self.trace_logs = trace_logs
@@ -280,6 +310,11 @@ class CogniflyController:
         elif self.sender_initialized:  # do not take any udp order unless reset has been called
             identifier = command[1]
             if command[0] == "ACT":  # action
+                # hard-reset all PIDs (FIXME: this is to avoid a bug in the PID framework that seems to retain unsuitable values otherwise, correct this in the future)
+                self.pid_vel_x = PID(kp=self.vel_x_kp, ki=self.vel_x_ki, kd=self.vel_x_kd, sample_time=0.01, output_limits=self.pid_limits_xy, auto_mode=False)
+                self.pid_vel_y = PID(kp=self.vel_y_kp, ki=self.vel_y_ki, kd=self.vel_y_kd, sample_time=0.01, output_limits=self.pid_limits_xy, auto_mode=False)
+                self.pid_vel_z = PID(kp=self.vel_z_kp, ki=self.vel_z_ki, kd=self.vel_z_kd, sample_time=0.01, output_limits=self.pid_limits_z, auto_mode=False)
+                self.pid_w_z = PID(kp=self.vel_w_kp, ki=self.vel_w_ki, kd=self.vel_w_kd, sample_time=0.01, output_limits=self.pid_limits_w, auto_mode=False)
                 if command[2][0] == "DISARM":
                     self.CMDS["aux1"] = DISARMED
                     self.current_flight_command = None
@@ -300,6 +335,7 @@ class CogniflyController:
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
                 elif command[2][0] in ("PDF", "PWF"):  # position
                     self.target_flag = True
+                    self.target_id = identifier
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], command[2][5], command[2][6], time.time() + command[2][7]]
             elif command[0] == "ST1":  # stream on
                 self.tcp_video_int.start_streaming(ip_dest=command[2][0], port_dest=command[2][1], resolution=command[2][2], fps=command[2][3])
@@ -489,13 +525,13 @@ class CogniflyController:
                     y_vector = y_goal - pos_y_wf
                     z_vector = z_goal - pos_z_wf
                     yaw_vector = smallest_angle_diff_rad(yaw_goal, yaw) if yaw_goal is not None else None
-                    if self.target:  # check whether target is reached
+                    if self.target_flag:  # check whether position target is reached
                         dist_condition = np.linalg.norm([x_vector, y_vector, z_vector]) <= EPSILON_DIST_TO_TARGET
                         angle_condition = True if yaw_vector is None else abs(yaw_vector) <= EPSILON_ANGLE_TO_TARGET
                         if dist_condition and angle_condition:
-                            self.target = False  # disable the flag
+                            self.target_flag = False  # disable the flag
                             if self.sender_initialized:
-                                self.udp_int.send(pkl.dumps(("DON", )))  # notify the remote control
+                                self.udp_int.send(pkl.dumps(("DON", self.target_id)))  # notify the remote control
                     # convert x and y to the drone frame:
                     x_vector_df = x_vector * cos + y_vector * sin
                     y_vector_df = y_vector * cos - x_vector * sin

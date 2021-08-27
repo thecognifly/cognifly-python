@@ -9,7 +9,7 @@ import numpy as np
 from cognifly.utils.udp_interface import UDPInterface
 from cognifly.utils.tcp_video_interface import TCPVideoInterface
 from cognifly.utils.ip_tools import extract_ip
-from cognifly.utils.functions import clip
+from cognifly.utils.functions import clip, get_angle_sequence_rad
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -21,8 +21,8 @@ EASY_API_SPEED = 0.2  # (m/s)
 EASY_API_YAW_RATE = 0.5  # (rad/s)
 EASY_API_ADDITIONAL_DURATION = 5.0  # (s)
 EASY_API_TAKEOFF_ALTITUDE = 0.5  # should be roughly the same as default takeoff altitude (m)
-EASY_API_MAX_ALTITUDE = 0.9  # max altitude will be clipped at this value (m)
-EASY_API_MIN_ALTITUDE = 0.35  # min altitude will be clipped at this value (m)
+EASY_API_MAX_ALTITUDE = 0.9
+EASY_API_MIN_ALTITUDE = 0.35
 
 
 # Remote controller class
@@ -43,7 +43,7 @@ class Cognifly:
                  recv_port_video=8990,
                  wait_for_first_obs=True,
                  wait_for_first_obs_sleep_duration=0.1,
-                 wait_ack_duration=1.0):
+                 wait_ack_duration=0.2):
         """
         Args:
             drone_hostname: string: name of the drone (can be an ip address).
@@ -128,10 +128,12 @@ class Cognifly:
                     self._lock.release()
                 elif m[0] == "DON":  # 'done' signal from position control
                     self._lock.acquire()
-                    self.__wait_done = False
+                    if self.__last_sent_id == m[1]:
+                        self.__wait_done = False
                     self._lock.release()
                 elif m[0] == "BBT":  # bad battery state
-                    print(f"Low battery: {m[1]}V, the drone will soon refuse to move.")
+                    pass
+                    # print(f"Low battery: {m[1]}V, the drone will soon refuse to move.")
 
     def __resender_thread(self):
         """
@@ -267,6 +269,7 @@ class Cognifly:
         Sets a position target for the drone.
         If relative is False (default), the target is relative to the world axis.
         If relative is True, the target is relative to the drone frame.
+        Note: z is always in the world frame.
         The drone needs to be armed.
         Args:
             x: float: x target (m)
@@ -293,7 +296,7 @@ class Cognifly:
     # (don't use along the pro API, otherwise weird things will happen with altitude)
     # (sleeps after calls, uses cm instead of m, and uses degrees instead of rad):
 
-    def takeoff(self, altitude=EASY_API_TAKEOFF_ALTITUDE, max_duration=10.0):
+    def takeoff(self, altitude=EASY_API_TAKEOFF_ALTITUDE, alt_duration=10.0):
         """
         Arms the drone and takes off
         """
@@ -301,15 +304,16 @@ class Cognifly:
         self.arm()
         time.sleep(1.0)
         # the takeoff altitude might depend on the battery with this and Z will only be defined properly later:
-        # self.takeoff_nonblocking()
+        self.takeoff_nonblocking()
+        time.sleep(10.0)
         self.easy_api_cur_z = altitude
-        # this instead works (Z properly defined) but it is a bit violent and maybe not very stable:
+        # this works (Z properly defined) but when done from the ground it is a bit violent and not very stable:
         self.set_position_nonblocking(x=0.0, y=0.0, z=self.easy_api_cur_z, yaw=0.0,
                                       max_velocity=EASY_API_SPEED,
                                       max_yaw_rate=EASY_API_YAW_RATE,
-                                      max_duration=max_duration,
+                                      max_duration=alt_duration,
                                       relative=False)
-        sleep_until_done(max_duration)
+        self.sleep_until_done(alt_duration)
 
     def land(self, sleep_duration=5.0):
         """
@@ -331,7 +335,7 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        sleep_until_done(duration)
+        self.sleep_until_done(duration)
 
     def backward(self, val_cm):
         """
@@ -344,7 +348,7 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        sleep_until_done(duration)
+        self.sleep_until_done(duration)
 
     def right(self, val_cm):
         """
@@ -357,7 +361,7 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        sleep_until_done(duration)
+        self.sleep_until_done(duration)
 
     def left(self, val_cm):
         """
@@ -370,7 +374,7 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        sleep_until_done(duration)
+        self.sleep_until_done(duration)
 
     def up(self, val_cm):
         """
@@ -385,7 +389,7 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        sleep_until_done(duration)
+        self.sleep_until_done(duration)
 
     def down(self, val_cm):
         """
@@ -400,12 +404,21 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        sleep_until_done(duration)
+        self.sleep_until_done(duration)
 
     def cw(self, val_deg):
         """
-        Rotates clockwise by number of degrees (range 0-180)
+        Rotates clockwise by number of degrees (range 0 - 180).
+        Note: the drone takes the shortest path, direction is not guaranteed for angles close to 180.
         """
+        # val_rad = max(val_deg * np.pi / 180.0, 0.0)
+        # duration = val_rad / EASY_API_YAW_RATE + EASY_API_ADDITIONAL_DURATION
+        # seq_angles = get_angle_sequence_rad(val_rad)
+        # seq = []
+        # for sa in seq_angles:
+        #     seq.append([0, 0, self.easy_api_cur_z, sa])
+        # self.position_sequence(sequence=seq, max_duration=duration, relative=True)
+
         val_rad = np.pi if val_deg == 180 else (val_deg % 180) * np.pi / 180.0
         duration = val_rad / EASY_API_YAW_RATE + EASY_API_ADDITIONAL_DURATION
         self.set_position_nonblocking(x=0.0, y=0.0, z=self.easy_api_cur_z, yaw=val_rad,
@@ -413,12 +426,22 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        sleep_until_done(duration)
+        self.sleep_until_done(duration)
 
     def ccw(self, val_deg):
         """
-        Rotates counter-clockwise by number of degrees (range 0-180)
+        Rotates counter-clockwise by number of degrees (range 0 - 180).
+        Note: the drone takes the shortest path, direction is not guaranteed for angles close to 180.
         """
+        # val_rad = max(val_deg * np.pi / 180.0, 0.0)
+        # duration = val_rad / EASY_API_YAW_RATE + EASY_API_ADDITIONAL_DURATION
+        # val_rad = - val_rad
+        # seq_angles = get_angle_sequence_rad(val_rad)
+        # seq = []
+        # for sa in seq_angles:
+        #     seq.append([0, 0, self.easy_api_cur_z, sa])
+        # self.position_sequence(sequence=seq, max_duration=duration, relative=True)
+
         val_rad = np.pi if val_deg == 180 else (val_deg % 180) * np.pi / 180.0
         duration = val_rad / EASY_API_YAW_RATE + EASY_API_ADDITIONAL_DURATION
         self.set_position_nonblocking(x=0.0, y=0.0, z=self.easy_api_cur_z, yaw=-val_rad,
@@ -426,7 +449,7 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=duration,
                                       relative=True)
-        sleep_until_done(duration)
+        self.sleep_until_done(duration)
 
     def go(self, x, y, z, yaw=None, max_duration=10.0):
         """
@@ -439,18 +462,19 @@ class Cognifly:
                                       max_yaw_rate=EASY_API_YAW_RATE,
                                       max_duration=max_duration,
                                       relative=False)
-        sleep_until_done(max_duration)
+        self.sleep_until_done(max_duration)
 
     def position_sequence(self, sequence, max_duration=60.0, relative=False, speed=None, yaw_rate=None):
         """
-        The drone follows a roadmap defined by a sequence of targets
+        The drone follows a roadmap defined by a sequence of targets.
         Args:
             sequence: a sequence of sequence-like elements, each of length 3 or 4 (mixing 3 and 4 is possible).
                 If the length of an element is 3, it is interpreted as (x, y, z).
                 If the length of an element is 4, it is interpreted as (x, y, z, yaw).
             max_duration: float: maximum duration of the whole command.
-            relative: bool: whether x, y, z and yaw have to be interpreted in the drone frame (True)
+            relative: bool: whether x, y and yaw have to be interpreted in the drone frame (True)
                 or in the world frame (False, default).
+                Note: z is always in the world frame.
             speed: float: if not None, target speed in cm/s, else the default is used.
             yaw_rate: float: if not None, target yaw rate in deg/s, else the default is used.
         """
@@ -475,7 +499,7 @@ class Cognifly:
                                               max_yaw_rate=EASY_API_YAW_RATE if yaw_rate is None else yaw_rate,
                                               max_duration=remaining_duration,
                                               relative=relative)
-                sleep_until_done(remaining_duration)
+                self.sleep_until_done(remaining_duration)
                 elapsed_time = time.time() - t_start
                 remaining_duration -= elapsed_time
 
@@ -552,30 +576,30 @@ class Cognifly:
     def get_position(self):
         """
         Returns:
-            x: float: in m
-            y: float: in m
-            z: float: in m
+            x: float: in cm
+            y: float: in cm
+            z: float: in cm
         """
         telemetry = self.get_telemetry()
-        return telemetry[1], telemetry[2], telemetry[3]
+        return telemetry[1] * 100, telemetry[2] * 100, telemetry[3] * 100
 
     def get_yaw(self):
         """
         Returns:
-            x: float: yaw, in rad
+            x: float: yaw, in deg
         """
         telemetry = self.get_telemetry()
-        return telemetry[4]
+        return telemetry[4] * 180.0 / np.pi
 
     def get_velocity(self):
         """
         Returns:
-            v_x: float: in m
-            v_y: float: in m
-            v_z: float: in m
+            v_x: float: in cm/s
+            v_y: float: in cm/s
+            v_z: float: in cm/s
         """
         telemetry = self.get_telemetry()
-        return telemetry[5], telemetry[6], telemetry[7]
+        return telemetry[5] * 100, telemetry[6] * 100, telemetry[7] * 100
 
     def get_health(self):
         """
@@ -591,12 +615,12 @@ class Cognifly:
             w: float: yaw rate in rad/s
         """
         telemetry = self.get_telemetry()
-        return telemetry[8]
+        return telemetry[8] * 180.0 / np.pi
 
     def get_tof(self):
         """
         Returns:
-            h: float: altitude in m
+            h: float: altitude in cm
         """
         _, _, res = self.get_position()
         return res
@@ -610,51 +634,26 @@ class Cognifly:
     def get_speed(self):
         """
         Returns:
-            speed: float: norm of the velocity, in m
+            speed: float: norm of the velocity, in cm/s
         """
         v_x, v_y, v_z = self.get_velocity()
-        return np.linalg.norm([v_x, v_y, v_z])
+        return np.linalg.norm([v_x, v_y, v_z]) * 100
 
-
-def print_stuff(drone):
-    print(f"battery:{drone.get_battery()}V")
-    print(f"position:{drone.get_position()}")
-    print(f"speed:{drone.get_speed()}")
-    print(f"height:{drone.get_height()}")
-    print(f"health:{drone.get_health()}")
 
 if __name__ == '__main__':
     cf = Cognifly(drone_hostname="moderna.local")
 
-    print("streamon")
-    cf.streamon(fps=30)
-
-    time.sleep(10.0)
-
-    print("before takeoff")
-    print_stuff(cf)
     cf.takeoff()
-    print("after takeoff")
-    print_stuff(cf)
+
+    # print("streamon")
+    # cf.streamon(fps=5)
 
     cf.forward(50)
-    print("after forward")
-    print_stuff(cf)
     cf.cw(90)
-    print("after cw")
-    print_stuff(cf)
     cf.forward(50)
-    print("after forward")
-    print_stuff(cf)
     cf.up(30)
-    print("after up")
-    print_stuff(cf)
     cf.go(0, 0, 0.5, 0)
-    print("after go")
-    print_stuff(cf)
     cf.land()
-    print("after land")
-    print_stuff(cf)
 
     print("streamoff")
     cf.streamoff()
