@@ -909,23 +909,10 @@ class CogniflyController:
             print("Bye!")
 
 
-def main(args):
-    # ip_send = args.ipsend
-    # ip_recv = args.iprecv
-    # port_send = args.portsend
-    # port_recv = args.portrecv
-    # obs_loop_time = args.obslooptime
+def run_controller():
     cc = CogniflyController()
     cc.run_curses()
 
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    # parser.add_argument('--ipsend', type=str, default=None, help='IP address of the drone if any.')
-    # parser.add_argument('--iprecv', type=str, default=None, help='local IP address if any.')
-    # parser.add_argument('--portsend', type=int, default=8989, help='Port to send udp messages to.')
-    # parser.add_argument('--portrecv', type=int, default=8989, help='Port to reveive udp messages from.')
-    # parser.add_argument('--obslooptime', type=float, default=None, help='Duration between sending UDP observations.')
-    main_args = parser.parse_args()
-    main(main_args)
+    run_controller()

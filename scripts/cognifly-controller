@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# launch the onboard python controller for the cognifly remote control library
+# usage:
+#   cognifly-controller
+#
+# special bash strings e.g. `&>>` need to be quoted
+
+set -e # exit in case somethings fails
+
+echo "Starting cognifly_controller.py"  # echo the original command
+
+python3 -m cognifly controller

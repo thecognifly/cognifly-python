@@ -688,19 +688,27 @@ class Cognifly:
 if __name__ == '__main__':
     cf = Cognifly(drone_hostname="moderna.local")
 
+    # take off:
     cf.takeoff()
 
-    print("streamon")
-    cf.stream(fps=5)
+    # display the stream:
+    cf.stream()
+    time.sleep(10.0)
 
-    cf.forward(50)
-    cf.cw(90)
-    cf.forward(50)
-    cf.up(30)
-    cf.go(0, 0, 0.5, 0)
+    # stop the stream:
+    cf.streamoff()
+    time.sleep(5.0)
+
+    # turn the stream on with no display:
+    cf.streamon()
+
+    # retrieve a frame for processing:
+    numpy_image = cf.get_frame()
+
+    # turn the stream off:
+    cf.streamon()
+
+    # land:
     cf.land()
 
-    print("streamoff")
-    cf.streamoff()
-    time.sleep(2.0)
 
