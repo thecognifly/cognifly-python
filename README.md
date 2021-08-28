@@ -24,12 +24,16 @@ pip3 install cognifly
 ## Precautions and usage
 
 In order to use the installed library, the `cognifly_controller.py` script must first be running on Cognifly.
-At the moment, this can be done by SSH-ing the drone, and executing the `cognifly-controller` command.
+At the moment, this can be done by SSH-ing the drone, and executing the following command:
+
+```bash
+cognifly-controller
+```
 
 ### Precautions and manual control
 
-In the future, we may set a service to launch this script automatically on the drone at startup, so that the user doesn't need to SSH the drone.
-HOWEVER, this will require us to build a GUI that you can use to remotely disarm the drone with a mouse click in the event of an emergency or unexpected behavior (these do happen!).
+In the future, we may set a service to launch this script automatically on Cognifly at startup, so that the user doesn't need to SSH the drone.
+HOWEVER, this first requires us to build a GUI that you can use to remotely disarm the drone in the event of an emergency or unexpected behavior (these do happen!).
 
 For now, in the event of an emergency, the SSH window in which the `cognifly_controller.py` script is running must be focused and the `D` key must be pressed to disarm the drone.
 
@@ -45,6 +49,8 @@ Note that other keys are available if you wish to manually control the drone wit
 - `9`: right
 - `4`: left yaw
 - `6`: right yaw
+- `pageup`: up
+- `pagedown`: down
 - `R`: reset the board and exit the script
 
 ### Remote control
@@ -54,11 +60,12 @@ It is divided into a "pro" and a "school" API.
 
 #### Pro API
 
-The "pro" API is fairly simple and is what you should use for serious purpose.
-It enables the user to control Cognifly either by velocity or by position, in the world frame (X and Y relative to the starting point of the drone, Yaw relative to the starting orientation of the drone, and Z relative to the ground),
-or in the drone frame (X, Y and Yaw relative to the current position and orientation of the drone, and Z relative to the ground).
+The "pro" API is fairly simple and is what you should use for serious applications.
+It enables the user to control Cognifly either by velocity or by position, in two possible coordinate systems:
+- world frame: X and Y relative to the starting point of the drone, Yaw relative to the starting orientation of the drone, and Z relative to the ground,
+- drone frame: X, Y and Yaw relative to the current position and orientation of the drone, and Z relative to the ground.
 
-A script example using the "pro" API for control is:
+Example-script using the "pro" API for control:
 
 ```python
 import time
@@ -92,7 +99,7 @@ cf.set_position_nonblocking(x=-0.5, y=-0.5, z=0.5, yaw=0.0,
                             max_velocity=0.25, max_yaw_rate=0.5, max_duration=10.0, relative=False)
 time.sleep(5.0)
 
-# go frontward for 0.5 m at 0.25 m/s, statying at an altitude of 0.5 m:
+# go frontward for 0.5 m at 0.25 m/s, staying at an altitude of 0.5 m:
 cf.set_position_nonblocking(x=0.5, y=0.0, z=0.5, yaw=0.0,
                             max_velocity=0.25, max_yaw_rate=0.5, max_duration=10.0, relative=True)
 time.sleep(5.0)
@@ -109,7 +116,7 @@ time.sleep(2.0)
 # disarm the drone
 cf.disarm()
 
-# reset the drone (reinitialize coordinate system):
+# reset the drone (reinitializes coordinate system):
 cf.reset()
 ```
 
@@ -119,7 +126,7 @@ Note that this API is non-blocking, a new call will override the previous call
 #### School API
 
 The "school" API is an overlay of the "pro" API, built for students who need an easy and relatively safe API for class purpose.
-It is vastly inspired from the `easytello` library, from which it reproduces most of the interface, adapted to Cognifly.
+It is vastly inspired from the `easytello` library, of which it reproduces most of the interface, adapted to Cognifly.
 Contrary to the "pro" API, calls to the "school" API are blocking and return only when the command has been fully performed (or when it times out).
 It mostly consists of hidden calls to the position control "pro" API with an additional hidden callback through the `sleep_until_done` method (see the code to reproduce similar behavior with the "pro" API).
 
@@ -132,7 +139,7 @@ from cognifly import Cognifly
 # create a Cognifly object (resets the controller):
 cf = Cognifly(drone_hostname="my_drone_name.local")
 
-# take off (resets the drone)
+# take off (resets the controller):
 cf.takeoff()
 
 # go forward for 50 cm:
@@ -151,7 +158,7 @@ cf.down(20)
 cf.right(20)
 cf.left(10)
 
-# go to (0, 0, 0.5) (cm) with a yaw of 90° counter-clockwise compoared to the initial orientation
+# go to (0, 0, 0.5) (cm) with a yaw of 90° counter-clockwise compared to the initial orientation
 cf.go(0, 0, 0.5, -90)
 
 # sequence of position targets (when 4 items, the last is yaw):
@@ -173,7 +180,7 @@ cf.land()
 #### Streaming
 
 Cognifly can stream from the raspberry pi camera.
-For this, first make sure that the camera is enabled in the raspberry pi, and that is works correctly.
+For this, first make sure that the camera is enabled in the raspberry pi, and that it works correctly.
 It is then possible to display the video or to retrieve frames for processing:
 
 ```python
@@ -182,7 +189,7 @@ from cognifly import Cognifly
 # create a Cognifly object (resets the controller):
 cf = Cognifly(drone_hostname="my_drone_name.local")
 
-# take off:
+# take off (resets the controller):
 cf.takeoff()
 
 # display the stream:
