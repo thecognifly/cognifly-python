@@ -143,7 +143,7 @@ class CogniflyController:
                  drone_port=8988,
                  print_screen=True,
                  obs_loop_time=0.1,
-                 trace_logs=True):
+                 trace_logs=False):
         """
         Custom controller and udp interface for Cognifly
         Args:
