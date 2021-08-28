@@ -7,6 +7,8 @@ import time
 import logging
 from PIL import Image
 from threading import Thread, Lock
+from copy import deepcopy
+import numpy as np
 
 
 class SplitFrames(object):
@@ -44,6 +46,7 @@ class TCPVideoInterface(object):
         self.__camera_exception = None
         self.__image = None
         self.__image_i = -1
+        self.__receive = False
         self.camera = camera
 
     def get_camera_error(self):
@@ -60,6 +63,7 @@ class TCPVideoInterface(object):
         try:
             import picamera  # can be imported only on the raspberry pi
             client_socket = socket.socket()
+            client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             client_socket.connect((ip, port))
             connection = client_socket.makefile('wb')
             output = SplitFrames(connection)
@@ -122,11 +126,11 @@ class TCPVideoInterface(object):
         """
         TCP server, should be running prior to the client
         """
-        import numpy as np
         if display:
             import cv2
 
         server_socket = socket.socket()
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind(('0.0.0.0', port))
         server_socket.listen(0)
 
@@ -145,31 +149,21 @@ class TCPVideoInterface(object):
                 image_stream.write(connection.read(image_len))
                 # Rewind the stream, open it as an image with PIL and do some
                 # processing on it
-
                 image_stream.seek(0)
                 image = Image.open(image_stream)
-                # image.verify()
 
-                # image.show()
                 if display:
                     open_cv_image = np.array(image)
                     im = open_cv_image[:, :, ::-1].copy()
                     cv2.imshow("Stream", im)
                     cv2.waitKey(1)
 
-                # # Construct a numpy array from the stream
-                # data = np.fromstring(image_stream.getvalue(), dtype=np.uint8)
-                # # image = data
-                # # "Decode" the image from the array, preserving colour
-                # image = cv2.imdecode(data, 1)
-                # # OpenCV returns an array with data in BGR order. If you want RGB instead
-                # # use the following...
-                # image = image[:, :, ::-1]
-
                 with self.__lock:
                     self.__image_i += 1
-                    # print(f"received image {self.__image_i}")
                     self.__image = image
+                    receive = self.__receive
+                if not receive:
+                    break
         finally:
             if display:
                 cv2.destroyAllWindows()
@@ -180,6 +174,7 @@ class TCPVideoInterface(object):
 
     def start_receiver(self, port, display):
         with self.__lock:
+            self.__receive = True
             receiver_running = self.__receiver_running
             self.__receiver_running = True
         if not receiver_running:
@@ -187,11 +182,21 @@ class TCPVideoInterface(object):
             receiver_thread.setDaemon(True)  # thread will be terminated at exit
             receiver_thread.start()
 
-    def get_last_image(self, inf_image_i=-1):
+    def stop_receiver(self):
+        with self.__lock:
+            self.__receive = False
+            receiver_running = self.__receiver_running
+        while receiver_running:
+            with self.__lock:
+                receiver_running = self.__receiver_running
+            if receiver_running:
+                time.sleep(0.01)
+
+    def get_last_image(self, min_image_i=-1):
         """
         Outputs the last image and its identifier when it is more recent than the image with the inf_image_i identifier
         Args:
-            inf_image_i: int: identifier of the previously received image (starts at 0 and increases)
+            min_image_i: int: identifier of the previously received image (starts at 0 and increases)
         Returns:
             im: PIL.Image or None: None when the current identifier is not > inf_image_i
             im_i: int: identifier
@@ -202,7 +207,7 @@ class TCPVideoInterface(object):
         if data is not None:
             im = data
             pil_image = data.convert('RGB')
-            open_cv_image = numpy.array(pil_image)
+            open_cv_image = np.array(pil_image)
             im = open_cv_image[:, :, ::-1].copy()
         else:
             im = None
@@ -214,3 +219,4 @@ class TCPVideoInterface(object):
                 self.__sockO.close()
             except BrokenPipeError:
                 pass
+        self.stop_receiver()

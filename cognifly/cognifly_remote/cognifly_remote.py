@@ -19,7 +19,7 @@ logger.setLevel(logging.WARNING)
 
 EASY_API_SPEED = 0.2  # (m/s)
 EASY_API_YAW_RATE = 0.5  # (rad/s)
-EASY_API_ADDITIONAL_DURATION = 5.0  # (s)
+EASY_API_ADDITIONAL_DURATION = 10.0  # (s)
 EASY_API_TAKEOFF_ALTITUDE = 0.5  # should be roughly the same as default takeoff altitude (m)
 EASY_API_MAX_ALTITUDE = 0.9
 EASY_API_MIN_ALTITUDE = 0.35
@@ -76,6 +76,8 @@ class Cognifly:
         self.udp_int.init_receiver(self.local_ip, self.recv_port)
 
         self.wait_ack_duration = wait_ack_duration
+        self.last_im_id = -1
+
 
         self.easy_api_cur_z = 0.0
         self.time_takeoff = time.time()
@@ -296,10 +298,14 @@ class Cognifly:
     # (don't use along the pro API, otherwise weird things will happen with altitude)
     # (sleeps after calls, uses cm instead of m, and uses degrees instead of rad):
 
-    def takeoff(self, altitude=EASY_API_TAKEOFF_ALTITUDE, alt_duration=10.0):
+    def takeoff(self, altitude=None, alt_duration=10.0):
         """
         Arms the drone and takes off
+        Args:
+            altitude: float (optional): target altitude (cm)
+            alt_duration: float (optional): additional max duration to reach the target altitude
         """
+        altitude = altitude / 100.0 if altitude is not None else EASY_API_TAKEOFF_ALTITUDE
         self.reset()
         self.arm()
         time.sleep(1.0)
@@ -453,9 +459,13 @@ class Cognifly:
 
     def go(self, x, y, z, yaw=None, max_duration=10.0):
         """
-        Goes to the requested position and yaw targets.
+        Goes to the requested position (cm) and yaw (deg) targets.
         If yaw is None, no yaw target is set.
         """
+        x = x / 100.0
+        y = y / 100.0
+        z = z / 100.0
+        y = y * np.pi / 180.0
         self.easy_api_cur_z = clip(z, EASY_API_MIN_ALTITUDE, EASY_API_MAX_ALTITUDE)
         self.set_position_nonblocking(x=x, y=y, z=self.easy_api_cur_z, yaw=yaw,
                                       max_velocity=EASY_API_SPEED,
@@ -469,8 +479,8 @@ class Cognifly:
         The drone follows a roadmap defined by a sequence of targets.
         Args:
             sequence: a sequence of sequence-like elements, each of length 3 or 4 (mixing 3 and 4 is possible).
-                If the length of an element is 3, it is interpreted as (x, y, z).
-                If the length of an element is 4, it is interpreted as (x, y, z, yaw).
+                If the length of an element is 3, it is interpreted as (x, y, z) (cm).
+                If the length of an element is 4, it is interpreted as (x, y, z, yaw) (cm and deg).
             max_duration: float: maximum duration of the whole command.
             relative: bool: whether x, y and yaw have to be interpreted in the drone frame (True)
                 or in the world frame (False, default).
@@ -488,10 +498,10 @@ class Cognifly:
         t_start = time.time()
         for elt in sequence:
             if 3 <= len(elt) <= 4 and remaining_duration > 0:
-                x = elt[0]
-                y = elt[1]
-                z = elt[2]
-                yaw = elt[3] if len(elt) == 4 else None
+                x = elt[0] / 100.0  # convert to cm
+                y = elt[1] / 100.0  # convert to cm
+                z = elt[2] / 100.0  # convert to cm
+                yaw = elt[3] * np.pi / 180.0 if len(elt) == 4 else None  # convert to rad
 
                 self.easy_api_cur_z = clip(z, EASY_API_MIN_ALTITUDE, EASY_API_MAX_ALTITUDE)
                 self.set_position_nonblocking(x=x, y=y, z=self.easy_api_cur_z, yaw=yaw,
@@ -514,7 +524,7 @@ class Cognifly:
 
     # Methods common to both APIs:
 
-    def streamon(self, resolution="VGA", fps=5, display=True):
+    def streamon(self, resolution="VGA", fps=5, display=False, wait_first_frame=True):
         """
         Starts camera streaming.
         CAUTION: This will slow the frequency of the onboard controller down and may make the drone unstable!
@@ -527,16 +537,51 @@ class Cognifly:
             display: boolean: whether to display the stream in an OpenCV window,
                 mostly for debugging purpose: this may output warnings or not work depending on opencv installation,
                 in particular, the window is created and updated in the receiver thread.
+            wait_first_frame: boolean: whether to sleep until the first frame is available.
         """
         self.tcp_video_int.start_receiver(self.recv_port_video, display)
         time.sleep(1.0) # sleep a bit so the server starts before the drone tries to connect
         self.send(msg_type="ST1", msg=(self.local_ip, self.recv_port_video, resolution, fps))
+        if wait_first_frame:
+            _ = self.get_frame(wait_new_frame=True)
+
+    def stream(self, resolution="VGA", fps=5):
+        """
+        Alias for streamon(resolution, fps=5, display=True)
+        """
+        self.streamon(resolution, fps, display=True)
+
+    def get_frame(self, wait_new_frame=True, timeout=10.0, sleep_between_trials=0.05):
+        """
+        Retrieves a single frame from the stream.
+        Args:
+            wait_new_frame: boolean: if True, two consecutive calls to the fonction will not return identical frames.
+            timeout: after this duration without retrieving a frame, a TimeoutException will be raised.
+            sleep_between_trials: float: will sleep this amount of time between two consecutive trials or retrieval.
+        """
+        t_start = time.time()
+        im = None
+        im_id = self.last_im_id if wait_new_frame else -1
+        cond = True
+        while cond:
+            im, im_id = self.tcp_video_int.get_last_image()
+            cond1 = im is None and im_id <= self.last_im_id
+            cond = cond1 and time.time() - t_start < timeout
+            if cond:
+                time.sleep(sleep_between_trials)
+        if cond1:
+            raise TimeoutException("Could not retrieve frame from stream.")
+        else:
+            return im
 
     def streamoff(self):
         """
         Stops camera streaming
         """
         self.send(msg_type="ST0")
+        time.sleep(1.0)
+        self.tcp_video_int.stop_receiver()
+
 
     def get_time(self):
         """
@@ -645,8 +690,8 @@ if __name__ == '__main__':
 
     cf.takeoff()
 
-    # print("streamon")
-    # cf.streamon(fps=5)
+    print("streamon")
+    cf.stream(fps=5)
 
     cf.forward(50)
     cf.cw(90)

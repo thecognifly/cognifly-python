@@ -109,7 +109,7 @@ BATT_WARNING = 2
 BATT_TOO_LOW = 3
 
 EPSILON_DIST_TO_TARGET = 0.05  # (m)
-EPSILON_ANGLE_TO_TARGET = 2 * np.pi / 180.0  # (rad)
+EPSILON_ANGLE_TO_TARGET = 1 * np.pi / 180.0  # (rad)
 
 
 class SignalTracer:
@@ -228,8 +228,8 @@ class CogniflyController:
         self.vel_z_ki = 20.0
         self.vel_z_kd = 5.0
 
-        self.vel_w_kp = 500.0
-        self.vel_w_ki = 100.0
+        self.vel_w_kp = 400.0  # 500
+        self.vel_w_ki = 200.0  # 100
         self.vel_w_kd = 0.0
 
         self.pid_vel_x = None
