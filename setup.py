@@ -19,7 +19,7 @@ def is_raspberrypi():
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-deps = ['numpy', ]
+deps = ['numpy', 'Pillow']
 if is_raspberrypi():
     deps.append(['picamera'])
 else:
