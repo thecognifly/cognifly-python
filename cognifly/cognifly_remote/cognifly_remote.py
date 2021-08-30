@@ -570,7 +570,7 @@ class Cognifly:
             if cond:
                 time.sleep(sleep_between_trials)
         if cond1:
-            raise TimeoutException("Could not retrieve frame from stream.")
+            raise TimeoutError("Could not retrieve frame from stream.")
         else:
             return im
 
