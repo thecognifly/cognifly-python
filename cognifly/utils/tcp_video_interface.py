@@ -6,16 +6,19 @@ import struct
 import time
 import logging
 from PIL import Image
-from threading import Thread, Lock
+from threading import Thread, Lock, Condition
 from copy import deepcopy
 import numpy as np
 
 
 class SplitFrames(object):
-    def __init__(self, connection):
-        self.connection = connection
+    def __init__(self):  # , connection
+        # self.connection = connection
         self.stream = io.BytesIO()
         self.count = 0
+        self._condition = Condition()
+        self.__frame = None
+        self.__framelen = None
 
     def write(self, buf):
         if buf.startswith(b'\xff\xd8'):
@@ -23,10 +26,14 @@ class SplitFrames(object):
             # then the data
             size = self.stream.tell()
             if size > 0:
-                self.connection.write(struct.pack('<L', size))
-                self.connection.flush()
-                self.stream.seek(0)
-                self.connection.write(self.stream.read(size))
+                with self._condition:
+                    self.__framelen = size
+                    # self.connection.write(struct.pack('<L', size))
+                    # self.connection.flush()
+                    self.stream.seek(0)
+                    # self.connection.write(self.stream.read(size))
+                    self.__frame = self.stream.read(size)
+                    self._condition.notifyAll()
                 self.count += 1
                 self.stream.seek(0)
         self.stream.write(buf)
@@ -66,7 +73,7 @@ class TCPVideoInterface(object):
             client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             client_socket.connect((ip, port))
             connection = client_socket.makefile('wb')
-            output = SplitFrames(connection)
+            output = SplitFrames()  # connection
             with picamera.PiCamera(resolution=resolution, framerate=fps) as camera:
                 time.sleep(2)
                 with self.__lock:
@@ -74,7 +81,17 @@ class TCPVideoInterface(object):
                     record = True
                 camera.start_recording(output, format='mjpeg')
                 while record:
-                    camera.wait_recording(wait_duration)
+                    # retrieve freshest frame
+                    with output._condition:
+                        output._condition.wait()
+                        frame = output.__frame
+                        framelen = output.__framelen
+                    # send length and frame:
+                    connection.write(struct.pack('<L', framelen))
+                    connection.flush()
+                    connection.write(frame)
+                    # camera.wait_recording(wait_duration)
+                    # check whether we must keep recording:
                     with self.__lock:
                         record = self.__record
                 camera.stop_recording()
