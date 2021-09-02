@@ -2,7 +2,9 @@
 Control the CogniFly open-source drone remotely from your python script.
 
 ## Prerequisite
-- The drone must execute the [CogniFly branch](https://github.com/thecognifly/inav/tree/CogniFly) and be set in "EST_POS" debug mode for this library to work.
+- The drone must execute the [CogniFly branch](https://github.com/thecognifly/inav/tree/CogniFly). 
+
+- The drone must be set in "EST_POS" debug mode for this library to work.
 To ensure this, connect CogniFly to `inav-configurator`, go to the CLI tab, and execute the following:
 
 ```bash
