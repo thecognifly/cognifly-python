@@ -2,17 +2,15 @@
 Control the CogniFly open-source drone remotely from your python script.
 
 ## Prerequisite
-- The drone must execute the [CogniFly branch](https://github.com/thecognifly/inav/tree/CogniFly). 
-
+- The drone must execute the [CogniFly branch](https://github.com/thecognifly/inav/tree/CogniFly).
 - The drone must be set in "EST_POS" debug mode for this library to work.
 To ensure this, connect CogniFly to `inav-configurator`, go to the CLI tab, and execute the following:
-
 ```bash
 set debug_mode = EST_POS
 save
 ```
-
-- The `cognifly` library requires python >= 3.7 
+- If you wish to use streaming, a pi camera must be connected to the raspberry pi and working properly.
+- The library requires python >= 3.7 
 
 ## Installation
 
@@ -55,8 +53,23 @@ It is possible to manually control the drone with the keyboard via SSH, by focus
 
 ### Remote control
 
-The remote control API is defined in [cognifly_remote.py](https://github.com/thecognifly/cognifly-python/blob/main/cognifly/cognifly_remote/cognifly_remote.py) (please read the docstrings for documentation).
-It is divided into a "pro" and a "school" API.
+The remote control API is defined in [cognifly_remote.py](https://github.com/thecognifly/cognifly-python/blob/main/cognifly/cognifly_remote/cognifly_remote.py) (please read the docstrings for thorough documentation).
+
+Connecting to the drone is as simple as creating a `Cognifly` object.
+By default, this will also pop a simple Graphic User Interface, that can be used to disarm the drone in the event of an emergency, and to visualize the camera stream when activated:
+
+```python
+from cognifly import Cognifly
+
+# connect to the drone and pop the GUI:
+cf = Cognifly(drone_hostname="my_drone_name.local")
+
+time.sleep(10.0)
+```
+
+
+
+The API is divided into a "pro" and a "school" API.
 
 #### Pro API
 
@@ -192,22 +205,22 @@ cf = Cognifly(drone_hostname="my_drone_name.local")
 # take off (resets the controller):
 cf.takeoff()
 
-# display the stream:
-cf.stream()
+# display the stream at 24 fps:
+cf.stream(fps=24)
 time.sleep(10.0)
 
 # stop the stream:
 cf.streamoff()
 time.sleep(5.0)
 
-# turn the stream on with no display:
-cf.streamon()
+# turn the stream on at 5 fps, with no display:
+cf.streamon(fps=5)
 
 # retrieve a frame for processing:
-numpy_image = cf.get_frame()
+cv2_image = cf.get_frame()
 
 # turn the stream off:
-cf.streamon()
+cf.streamoff()
 
 # land:
 cf.land()
