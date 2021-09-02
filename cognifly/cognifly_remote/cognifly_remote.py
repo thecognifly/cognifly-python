@@ -55,7 +55,7 @@ class Cognifly:
             wait_for_first_obs_sleep_duration: float: used only if wait_for_first_obs is True
             wait_ack_duration: float: If > 0.0, the framework will wait this number of seconds for an acknowledgement before resending.
                 If <= 0.0, the resending feature is disabled.
-            gui: bool: if True, a gui window will pop up when the object is created (including emergency disarm).
+            gui: bool: if True, a gui window will pop when the object is created (emergency disarm, battery, streaming).
         """
         self.gui = gui
         self.drone_hostname = drone_hostname
@@ -114,15 +114,15 @@ class Cognifly:
         self.reset()
 
         if self.gui:
-            self._gui_thread = Thread(target=self.__gui_thread)
+            self._gui_thread = Thread(target=self.__gui_thread, args=(self.drone_hostname, ))
             self._gui_thread.setDaemon(True)  # thread will be terminated at exit
             self._gui_thread.start()
         else:
             self._gui_thread = None
 
-    def __gui_thread(self):
+    def __gui_thread(self, drone_name):
         """
-        Thread in charge of managine the Graphical User Interface
+        Thread in charge of managing the Graphical User Interface
         """
         import PySimpleGUI as sg
         import cv2
@@ -130,13 +130,16 @@ class Cognifly:
         layout = [[sg.Text('Battery:'), sg.Text('OK', size=(15, 1), key='-batt-')],
                   [sg.Button('DISARM')],
                   [sg.Image(filename='', key='-image-')]]
-        window = sg.Window('Pattern 2B', layout, keep_on_top=True)
+        window = sg.Window(drone_name,
+                           layout,
+                           keep_on_top=True,
+                           enable_close_attempted_event=True)
         image_elem = window['-image-']
         batt_elem = window['-batt-']
         try:
             while True:  # Event Loop
-                # check whether the display is on:
                 with self._display_lock:
+                    # check whether the display is on:
                     if self.__display:
                         event, values = window.read(0)
                         with self.tcp_video_int.condition_in:
@@ -146,10 +149,11 @@ class Cognifly:
                             imgbytes = cv2.imencode('.png', frame)[1].tobytes()  # ditto
                             image_elem.update(data=imgbytes)
                     else:
-                        event, values = window.read(100)  # 10 Hz to check change of __display
+                        event, values = window.read(200)  # 5 Hz to check change of self.__display
+                        image_elem.update(data=b'')
                 if event == 'DISARM':
                     self.disarm()  # thread-safe because the whole self.send procedure uses self._lock
-                if event == sg.WIN_CLOSED:
+                if event == sg.WINDOW_CLOSE_ATTEMPTED_EVENT and sg.popup_yes_no('Do you really want to exit?', keep_on_top=True) == 'Yes':
                     break
                 with self._batt_lock:
                     batt_elem.update(self.__batt_str)
@@ -576,7 +580,7 @@ class Cognifly:
 
     # Methods common to both APIs:
 
-    def streamon(self, resolution="VGA", fps=5, display=False, wait_first_frame=True):
+    def streamon(self, resolution="VGA", fps=24, display=False, wait_first_frame=True):
         """
         Starts camera streaming.
         CAUTION: This will slow the frequency of the onboard controller down and may make the drone unstable!
@@ -600,7 +604,7 @@ class Cognifly:
         self.__display = display
         self._display_lock.release()
 
-    def stream(self, resolution="VGA", fps=5):
+    def stream(self, resolution="VGA", fps=24):
         """
         Alias for streamon(resolution, fps=5, display=True)
         """
@@ -747,10 +751,10 @@ if __name__ == '__main__':
 
     cf = Cognifly(drone_hostname="moderna.local")
 
-    cf.stream(fps=5)
-
+    cf.streamon(fps=30)
 
     time.sleep(120.0)
 
-
     cf.streamoff()
+
+    time.sleep(10.0)

@@ -2,7 +2,7 @@
 Control the CogniFly open-source drone remotely from your python script.
 
 ## Prerequisite
-- The CogniFly drone must be set in "EST_POS" debug mode for this library to work.
+- The drone must execute the [CogniFly branch](https://github.com/thecognifly/inav/tree/CogniFly) and be set in "EST_POS" debug mode for this library to work.
 To ensure this, connect CogniFly to `inav-configurator`, go to the CLI tab, and execute the following:
 
 ```bash
@@ -21,7 +21,7 @@ pip3 install --upgrade pip
 pip3 install cognifly
 ```
 
-## Precautions and usage
+## Usage
 
 In order to use the installed library, the `cognifly_controller.py` script must first be running on Cognifly.
 At the moment, this can be done by SSH-ing the drone, and executing the following command:
@@ -30,14 +30,12 @@ At the moment, this can be done by SSH-ing the drone, and executing the followin
 cognifly-controller
 ```
 
-### Precautions and manual control
+A service may be set on the rapsberri pi to launch this script automatically on CogniFly at startup, so that the user doesn't need to SSH the drone.
 
-In the future, we may set a service to launch this script automatically on Cognifly at startup, so that the user doesn't need to SSH the drone.
-HOWEVER, this first requires us to build a GUI that you can use to remotely disarm the drone in the event of an emergency or unexpected behavior (these do happen!).
 
-For now, in the event of an emergency, the SSH window in which the `cognifly_controller.py` script is running must be focused and the `D` key must be pressed to disarm the drone.
+### Manual control (optional)
 
-Note that other keys are available if you wish to manually control the drone with your keyboard through SSH:
+It is possible to manually control the drone with the keyboard via SSH, by focusing the session that executes `cognifly_controller.py` on the raspberry pi:
 
 - `A`: arm
 - `D`: disarm
