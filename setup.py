@@ -20,21 +20,21 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 deps = ['numpy', 'Pillow']
-if is_raspberrypi():
+if is_raspberrypi():  # drone
     deps.append(['picamera'])
-else:
-    deps.append(['opencv-contrib-python'])
+else:  # remote
+    deps.append(['opencv-contrib-python', 'pysimplegui'])
 
 setup(name='cognifly',
       packages=[package for package in find_packages()],
-      version='0.0.2',
+      version='0.0.3',
       license='MIT',
       description='Control the CogniFly open-source drone from python',
       long_description=long_description,
       long_description_content_type="text/markdown",
       author='Yann Bouteiller',
       url='https://github.com/thecognifly/cognifly-python',
-      download_url='https://github.com/thecognifly/cognifly-python/archive/refs/tags/v0.0.2.tar.gz',
+      download_url='https://github.com/thecognifly/cognifly-python/archive/refs/tags/v0.0.3.tar.gz',
       keywords=['cognifly', 'drone', 'remote', 'control'],
       install_requires=deps,
       scripts=["scripts/cognifly-controller", ],

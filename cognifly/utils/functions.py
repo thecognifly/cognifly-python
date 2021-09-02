@@ -22,3 +22,13 @@ def get_angle_sequence_rad(angle):
         res = [aa, ]
     res = np.array(res) * np.sign(angle)
     return res.tolist()
+
+
+def smallest_angle_diff_rad(theta_new, theta_old):
+    """
+    computes theta_new - theta_old (radian)
+    """
+    diff = theta_new - theta_old
+    mod_p = diff % (2 * np.pi)
+    mod_n = diff % (-2 * np.pi)
+    return mod_p if abs(mod_p) < abs(mod_n) else mod_n

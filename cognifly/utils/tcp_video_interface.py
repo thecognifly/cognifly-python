@@ -9,6 +9,7 @@ from PIL import Image
 from threading import Thread, Lock, Condition
 from copy import deepcopy
 import numpy as np
+import traceback
 
 
 class SplitFrames(object):
@@ -16,7 +17,7 @@ class SplitFrames(object):
         # self.connection = connection
         self.stream = io.BytesIO()
         self.count = 0
-        self._condition = Condition()
+        self._condition_out = Condition()
         self.__frame = None
         self.__framelen = None
 
@@ -26,17 +27,20 @@ class SplitFrames(object):
             # then the data
             size = self.stream.tell()
             if size > 0:
-                with self._condition:
+                with self._condition_out:
                     self.__framelen = size
                     # self.connection.write(struct.pack('<L', size))
                     # self.connection.flush()
                     self.stream.seek(0)
                     # self.connection.write(self.stream.read(size))
                     self.__frame = self.stream.read(size)
-                    self._condition.notifyAll()
+                    self._condition_out.notifyAll()
                 self.count += 1
                 self.stream.seek(0)
         self.stream.write(buf)
+
+    def get_frame(self):
+        return self.__framelen, self.__frame
 
 
 class TCPVideoInterface(object):
@@ -51,16 +55,19 @@ class TCPVideoInterface(object):
         self.__receiver_running = False
         self.__camera_error = False
         self.__camera_exception = None
+        self.__camera_traceback = None
         self.__image = None
         self.__image_i = -1
         self.__receive = False
+        self.condition_in = Condition()
         self.camera = camera
 
     def get_camera_error(self):
         with self.__lock:
             err = self.__camera_error
             exc = self.__camera_exception
-        return err, exc
+            trace = self.__camera_traceback
+        return err, exc, trace
 
     def __streaming_thread(self, ip, port, wait_duration, resolution, fps):
         camera_error = False
@@ -82,10 +89,9 @@ class TCPVideoInterface(object):
                 camera.start_recording(output, format='mjpeg')
                 while record:
                     # retrieve freshest frame
-                    with output._condition:
-                        output._condition.wait()
-                        frame = output.__frame
-                        framelen = output.__framelen
+                    with output._condition_out:
+                        output._condition_out.wait()
+                        framelen, frame = output.get_frame()
                     # send length and frame:
                     connection.write(struct.pack('<L', framelen))
                     connection.flush()
@@ -103,11 +109,13 @@ class TCPVideoInterface(object):
             if client_socket is not None:
                 client_socket.close()
         except Exception as e:
+            logging.info("error")
             t_e = type(e)
             if t_e != OSError and not issubclass(t_e, ConnectionError):
                 with self.__lock:
                     self.__camera_error = True
                     self.__camera_exception = str(e)
+                    self.__camera_traceback = ''.join(traceback.format_tb(e.__traceback__))
                 # raise e
         finally:
             if camera is not None:
@@ -139,12 +147,12 @@ class TCPVideoInterface(object):
         with self.__lock:
             self.__record = False
 
-    def __stream_receiver_thread(self, port, display):
+    def __stream_receiver_thread(self, port):  # display=False
         """
         TCP server, should be running prior to the client
         """
-        if display:
-            import cv2
+        # if display:
+        #     import cv2
 
         server_socket = socket.socket()
         server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -169,21 +177,23 @@ class TCPVideoInterface(object):
                 image_stream.seek(0)
                 image = Image.open(image_stream)
 
-                if display:
-                    open_cv_image = np.array(image)
-                    im = open_cv_image[:, :, ::-1].copy()
-                    cv2.imshow("Stream", im)
-                    cv2.waitKey(1)
+                # if display:
+                #     open_cv_image = np.array(image)
+                #     im = open_cv_image[:, :, ::-1].copy()
+                #     cv2.imshow("Stream", im)
+                #     cv2.waitKey(1)
 
-                with self.__lock:
-                    self.__image_i += 1
-                    self.__image = image
-                    receive = self.__receive
+                with self.condition_in:
+                    with self.__lock:
+                        self.__image_i += 1
+                        self.__image = image
+                        receive = self.__receive
+                    self.condition_in.notifyAll()
                 if not receive:
                     break
         finally:
-            if display:
-                cv2.destroyAllWindows()
+            # if display:
+            #     cv2.destroyAllWindows()
             connection.close()
             server_socket.close()
             with self.__lock:
@@ -195,7 +205,7 @@ class TCPVideoInterface(object):
             receiver_running = self.__receiver_running
             self.__receiver_running = True
         if not receiver_running:
-            receiver_thread = Thread(target=self.__stream_receiver_thread, args=(port, display))
+            receiver_thread = Thread(target=self.__stream_receiver_thread, args=(port, ))
             receiver_thread.setDaemon(True)  # thread will be terminated at exit
             receiver_thread.start()
 

@@ -43,7 +43,8 @@ class Cognifly:
                  recv_port_video=8990,
                  wait_for_first_obs=True,
                  wait_for_first_obs_sleep_duration=0.1,
-                 wait_ack_duration=0.2):
+                 wait_ack_duration=0.2,
+                 gui=True):
         """
         Args:
             drone_hostname: string: name of the drone (can be an ip address).
@@ -54,7 +55,9 @@ class Cognifly:
             wait_for_first_obs_sleep_duration: float: used only if wait_for_first_obs is True
             wait_ack_duration: float: If > 0.0, the framework will wait this number of seconds for an acknowledgement before resending.
                 If <= 0.0, the resending feature is disabled.
+            gui: bool: if True, a gui window will pop up when the object is created (including emergency disarm).
         """
+        self.gui = gui
         self.drone_hostname = drone_hostname
         self.send_port = send_port
         self.recv_port = recv_port
@@ -92,6 +95,12 @@ class Cognifly:
         self.__last_i_obs = 0
         self.__wait_done = False
 
+        self._display_lock = Lock()
+        self.__display = False
+
+        self._batt_lock = Lock()
+        self.__batt_str = "OK"
+
         self._listener_thread = Thread(target=self.__listener_thread)
         self._listener_thread.setDaemon(True)  # thread will be terminated at exit
         self._listener_thread.start()
@@ -103,6 +112,49 @@ class Cognifly:
             self._resender_thread = None
 
         self.reset()
+
+        if self.gui:
+            self._gui_thread = Thread(target=self.__gui_thread)
+            self._gui_thread.setDaemon(True)  # thread will be terminated at exit
+            self._gui_thread.start()
+        else:
+            self._gui_thread = None
+
+    def __gui_thread(self):
+        """
+        Thread in charge of managine the Graphical User Interface
+        """
+        import PySimpleGUI as sg
+        import cv2
+        sg.theme('BluePurple')
+        layout = [[sg.Text('Battery:'), sg.Text('OK', size=(15, 1), key='-batt-')],
+                  [sg.Button('DISARM')],
+                  [sg.Image(filename='', key='-image-')]]
+        window = sg.Window('Pattern 2B', layout, keep_on_top=True)
+        image_elem = window['-image-']
+        batt_elem = window['-batt-']
+        try:
+            while True:  # Event Loop
+                # check whether the display is on:
+                with self._display_lock:
+                    if self.__display:
+                        event, values = window.read(0)
+                        with self.tcp_video_int.condition_in:
+                            self.tcp_video_int.condition_in.wait()  # wait for new frame
+                            frame, _ = self.tcp_video_int.get_last_image()
+                        if frame is not None:  # should not be None but let's be cautious
+                            imgbytes = cv2.imencode('.png', frame)[1].tobytes()  # ditto
+                            image_elem.update(data=imgbytes)
+                    else:
+                        event, values = window.read(100)  # 10 Hz to check change of __display
+                if event == 'DISARM':
+                    self.disarm()  # thread-safe because the whole self.send procedure uses self._lock
+                if event == sg.WIN_CLOSED:
+                    break
+                with self._batt_lock:
+                    batt_elem.update(self.__batt_str)
+        finally:
+            window.close()
 
     def __listener_thread(self):
         """
@@ -134,8 +186,8 @@ class Cognifly:
                         self.__wait_done = False
                     self._lock.release()
                 elif m[0] == "BBT":  # bad battery state
-                    pass
-                    # print(f"Low battery: {m[1]}V, the drone will soon refuse to move.")
+                    with self._batt_lock:
+                        self.__batt_str = "LOW!"
 
     def __resender_thread(self):
         """
@@ -155,8 +207,8 @@ class Cognifly:
         """
         Send an UDP message to the drone.
         Args:
-            msg_type: string in ["RES", ACT"]
-            msg: tuple of the form (str:command, ...:args)
+            msg_type: string in ["RES", ACT"].
+            msg: tuple of the form (str:command, ...:args).
         """
         self._lock.acquire()
         self.__last_sent_id += 1
@@ -164,8 +216,8 @@ class Cognifly:
         data = (msg_type, self.__last_sent_id, msg) if msg is not None else (msg_type, self.__last_sent_id)
         data_s = pkl.dumps(data)
         self.__last_sent = data_s
-        self._lock.release()
         self.udp_int.send(data_s)
+        self._lock.release()
 
     def sleep_until_done(self, max_duration, granularity=0.05):
         """
@@ -544,6 +596,9 @@ class Cognifly:
         self.send(msg_type="ST1", msg=(self.local_ip, self.recv_port_video, resolution, fps))
         if wait_first_frame:
             _ = self.get_frame(wait_new_frame=True)
+        self._display_lock.acquire()
+        self.__display = display
+        self._display_lock.release()
 
     def stream(self, resolution="VGA", fps=5):
         """
@@ -571,13 +626,15 @@ class Cognifly:
                 time.sleep(sleep_between_trials)
         if cond1:
             raise TimeoutError("Could not retrieve frame from stream.")
-        else:
-            return im
+        return im
 
     def streamoff(self):
         """
         Stops camera streaming
         """
+        self._display_lock.acquire()
+        self.__display = False
+        self._display_lock.release()
         self.send(msg_type="ST0")
         time.sleep(1.0)
         self.tcp_video_int.stop_receiver()
@@ -686,29 +743,14 @@ class Cognifly:
 
 
 if __name__ == '__main__':
+    pass
+
     cf = Cognifly(drone_hostname="moderna.local")
 
-    # take off:
-    cf.takeoff()
+    cf.stream(fps=5)
 
-    # display the stream:
-    cf.stream()
-    time.sleep(10.0)
 
-    # stop the stream:
+    time.sleep(120.0)
+
+
     cf.streamoff()
-    time.sleep(5.0)
-
-    # turn the stream on with no display:
-    cf.streamon()
-
-    # retrieve a frame for processing:
-    numpy_image = cf.get_frame()
-
-    # turn the stream off:
-    cf.streamon()
-
-    # land:
-    cf.land()
-
-

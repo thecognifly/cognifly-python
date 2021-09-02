@@ -1,22 +1,4 @@
-"""
-Cognifly onboard controller
-
-TO USE THIS SCRIPT, COGNIFLY MUST BE IN EST_POS DEBUG MODE
-
-Copyright (C) 2021 Yann Bouteiller, Ricardo de Azambuja
-"""
-
-__author__ = "Yann Bouteiller, Ricardo de Azambuja"
-__copyright__ = "Copyright 2021, MISTLab.ca"
-__credits__ = [""]
-__license__ = "MIT"
-__version__ = "0.0.1"
-__maintainer__ = "Yann Bouteiller"
-__email__ = ""
-__status__ = "Development"
-
 import time
-import curses
 from collections import deque
 from itertools import cycle
 import socket
@@ -24,31 +6,12 @@ import pickle as pkl
 import numpy as np
 from pathlib import Path
 
-from cognifly.cognifly_controller.YAMSPy.yamspy import MSPy
-# from picamera_AIY_object_detection import MyAIYInterface
 from cognifly.utils.udp_interface import UDPInterface
-from cognifly.utils.tcp_video_interface import TCPVideoInterface
 from cognifly.utils.ip_tools import extract_ip
 from cognifly.utils.pid import PID
 from cognifly.utils.filters import Simple1DKalman, Simple1DExponentialAverage
 from cognifly.utils.functions import clip, smallest_angle_diff_rad
 
-SWITCH_MODE_CHR = ord('m')
-FORWARD_CHR = ord('8')  # curses.KEY_UP
-BACKWARD_CHR = ord('5')  # curses.KEY_DOWN
-LEFT_CHR = ord('7')  # curses.KEY_LEFT
-RIGHT_CHR = ord('9')  # curses.KEY_RIGHT
-LEFTYAW_CHR = ord('4')
-RIGHTYAW_CHR = ord('6')
-UPWARD_CHR = curses.KEY_PPAGE
-DOWNWARD_CHR = curses.KEY_NPAGE
-PAUSE_CHR = ord('p')
-ARM_CHR = ord('a')
-DISARM_CHR = ord('d')
-REBOOT_CHR = ord('r')
-QUIT_CHR = ord('q')
-TAKEOFF_CHR = ord('t')
-LAND_CHR = ord('l')
 
 KEY_TIMEOUT = 0.2  # seconds before a keyboard command times out
 
@@ -126,7 +89,7 @@ class SignalTracer:
         self.file.close()
 
 
-class CogniflyController:
+class CogniflyControllerDummy:
     def __init__(self,
                  network=True,
                  drone_hostname=None,
@@ -134,24 +97,9 @@ class CogniflyController:
                  print_screen=True,
                  obs_loop_time=0.1,
                  trace_logs=False):
-        """
-        Custom controller and udp interface for Cognifly
-        Args:
-            network: bool: if False, the drone will not run a udp server (True is needed for remote control)
-            drone_hostname: str (optional): can be an IP. If None, the ip is extracted automatically.
-            drone_port: int (optional): port used to receive commands from the udp controller
-            print_screen: bool (optional):
-                if True, messages will be printed repeatedly on the local screen using curses
-                if False, only the key presses will be read repeatedly using curses
-            obs_loop_time: float (optional):
-                if None, an observation is sent by UDP as answer each time a UDP command is received
-                else, an observation is sent bu UDP every obs_loop_time seconds
-            trace_logs: bool (optional): if True, flight telemetry will be printed in a CSV-like log file
-        """
         self.network = network
         if not self.network:
             self.udp_int = None
-            self.tcp_video_int = None
             self.drone_hostname = None
             self.drone_port = None
         else:
@@ -160,7 +108,7 @@ class CogniflyController:
             self.drone_ip = socket.gethostbyname(self.drone_hostname) if drone_hostname is not None else extract_ip()
             self.drone_port = drone_port
             self.udp_int.init_receiver(ip=self.drone_ip, port=self.drone_port)
-            self.tcp_video_int = TCPVideoInterface()
+            print(f"receiver initialized with ip:{self.drone_ip} and port {self.drone_port}")
         self.sender_initialized = False  # sender is initialized only when a reset message is received
         self.print_screen = print_screen
         self.obs_loop_time = obs_loop_time
@@ -257,33 +205,17 @@ class CogniflyController:
     def run_curses(self):
         result = 1
         try:
-            # get the curses screen window
-            screen = curses.initscr()
-            # turn off input echoing
-            curses.noecho()
-            # respond to keys immediately (don't wait for enter)
-            curses.cbreak()
-            # non-blocking
-            screen.timeout(0)
-            # map arrow keys to special values
-            screen.keypad(True)
-            if self.print_screen:
-                screen.addstr(1, 0, "Press 'q' to quit, 'r' to reboot, 'm' to change mode, 'a' to arm, 'd' to disarm and arrow keys to control", curses.A_BOLD)
-            result = self._controller(screen)
+            result = self._controller()
         finally:
-            # shut down cleanly
-            curses.nocbreak()
-            screen.keypad(0)
-            curses.echo()
-            curses.endwin()
             if result == 1:
                 print("An error occurred, probably the serial port is not available")
 
-    def _udp_commands_handler(self, command, board):
+    def _udp_commands_handler(self, command):
         """
         Args:
             command: a command of the form (str:command, ...:args)
         """
+        print(f"handling command {command}")
         if command[0] == "RES":  # reset drone
             self.CMDS = {'roll': DEFAULT_ROLL,
                          'pitch': DEFAULT_PITCH,
@@ -328,9 +260,9 @@ class CogniflyController:
                     self.target_id = identifier
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], command[2][5], command[2][6], time.time() + command[2][7]]
             elif command[0] == "ST1":  # stream on
-                self.tcp_video_int.start_streaming(ip_dest=command[2][0], port_dest=command[2][1], resolution=command[2][2], fps=command[2][3])
+                pass
             elif command[0] == "ST0":  # stream off
-                self.tcp_video_int.stop_streaming()
+                pass
             self.udp_int.send(pkl.dumps(("ACK", identifier)))
 
     def _compute_z_vel(self, pos_z_wf):
@@ -371,7 +303,7 @@ class CogniflyController:
             self.w_tracer.write_line(f"{self.prev_yaw_prime_ts[2]-self.start_time};{self.prev_yaw_prime_ts[0]};{before_filter};{res}")
         return res
 
-    def _flight(self, board, screen):
+    def _flight(self):
         """
         This method is a high-level flight controller.
         Depending on the current flight command and state of the drone, it outputs relevant MSP commands.
@@ -384,25 +316,19 @@ class CogniflyController:
             We have not found the equivalent for z and yaw in inav code yet.
         """
         # retrieve the current state
-        board.fast_read_attitude()
-        yaw = board.SENSOR_DATA['kinematics'][2] * np.pi / 180.0
+        yaw = 0.0
         yaw_rate = self._compute_yaw_rate(yaw)
-        board.send_RAW_msg(MSPy.MSPCodes['MSP_DEBUG'])  # MSP2_INAV_DEBUG is too long to answer
-        data_handler = board.receive_msg()
-        board.process_recv_data(data_handler)
-        pos_x_wf = board.SENSOR_DATA['debug'][0] / 1e4
-        pos_y_wf = board.SENSOR_DATA['debug'][1] / 1e4
-        vel_x_wf = board.SENSOR_DATA['debug'][2] / 1e4
-        vel_y_wf = board.SENSOR_DATA['debug'][3] / 1e4
-        board.fast_read_altitude()
-        pos_z_wf = board.SENSOR_DATA['altitude']
+        pos_x_wf = 0.0
+        pos_y_wf = 0.0
+        vel_x_wf = 0.0
+        vel_y_wf = 0.0
+        pos_z_wf = 0.0
         vel_z_wf = self._compute_z_vel(pos_z_wf)
 
         if self._flight_origin is None:  # new basis at reset
             self._flight_origin = (pos_x_wf, pos_y_wf, yaw)
         else:
             # change of basis
-            # NB: this is only to avoid rebooting the board at reset
             x_int = pos_x_wf - self._flight_origin[0]
             y_int = pos_y_wf - self._flight_origin[1]
             cos = np.cos(self._flight_origin[2])
@@ -425,14 +351,6 @@ class CogniflyController:
             now = time.time() - self.start_time
             self.x_tracer.write_line(f"{now};{pos_x_wf};{vel_x_wf};{vel_x_df}")
             self.y_tracer.write_line(f"{now};{pos_y_wf};{vel_y_wf};{vel_y_df}")
-
-        if self.print_screen:
-            screen.addstr(18, 0, f"yaw: {yaw/np.pi: .5f} pi rad")
-            screen.addstr(19, 0, f"yaw rate: {yaw_rate/np.pi: .5f} pi rad/s")
-            screen.addstr(20, 0, f"pos_wf: [{pos_x_wf: .5f},{pos_y_wf: .5f},{pos_z_wf: .5f}] m")
-            screen.addstr(21, 0, f"vel_wf: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
-            screen.addstr(22, 0, f"vel_df: [{vel_x_df: .5f},{vel_y_df: .5f},{vel_z_df: .5f}] m/s")
-            screen.clrtoeol()
 
         self.telemetry = (self.voltage, pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate, self.debug_flags)
 
@@ -578,330 +496,60 @@ class CogniflyController:
                 current_flight_command[4] = yaw_goal_wf
                 self.current_flight_command = tuple(current_flight_command)
 
-    def _check_batt_voltage(self):
-        if self.min_voltage < self.voltage <= self.warn_voltage:
-            self.__batt_state = BATT_WARNING
-        elif self.voltage <= self.min_voltage:
-            self.__batt_state = BATT_TOO_LOW
-        elif self.voltage >= self.max_voltage:
-            self.__batt_state = BATT_TOO_HIGH
-        else:
-            self.__batt_state = BATT_OK
-
-    def _batt_handler(self, board):
-        """
-        This overrides flight and UDP when battery voltage is out of range
-        """
-        if self.__batt_state != BATT_OK:
-            if self.__batt_state == BATT_TOO_LOW:
-                self.CMDS['roll'] = DEFAULT_ROLL
-                self.CMDS['pitch'] = DEFAULT_PITCH
-                self.CMDS['throttle'] = LAND
-                self.CMDS['yaw'] = DEFAULT_YAW
-                board.fast_read_altitude()
-                if board.SENSOR_DATA['altitude'] <= 0.1:
-                    self.CMDS['aux1'] = DISARMED
-            if self.sender_initialized and time.time() - self.last_bat_tick >= BATT_UDP_MSG_TIME:
-                self.udp_int.send(pkl.dumps(("BBT", (self.voltage, ))))
-                self.last_bat_tick = time.time()
-
-    def _controller(self, screen):
-        # print doesn't work with curses, use addstr instead
+    def _controller(self):
         try:
-            if self.print_screen:
-                screen.addstr(15, 0, "Connecting to the FC...")
+            average_cycle = deque([0.0] * NO_OF_CYCLES_AVERAGE_GUI_TIME)
 
-            with MSPy(device="/dev/ttyS0", loglevel='WARNING', baudrate=115200) as board:
-                if board == 1:  # an error occurred...
-                    return 1
+            last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
+            while True:
+                start_time = time.time()
 
-                if self.print_screen:
-                    screen.addstr(15, 0, "Connecting to the FC... connected!")
-                    screen.clrtoeol()
-                    screen.move(1, 0)
+                #
+                # UDP recv non-blocking  (NO DELAYS) -----------------------
+                # For safety, UDP commands are overridden by key presses
+                #
+                if self.udp_int:
+                    udp_cmds = self.udp_int.recv_nonblocking()
+                    if len(udp_cmds) > 0:
+                        for cmd in udp_cmds:
+                            self._udp_commands_handler(pkl.loads(cmd))
+                    self._flight()
+                    if self.obs_loop_time is not None:
+                        tick = time.time()
+                        if tick - self.last_obs_tick >= self.obs_loop_time and self.sender_initialized:
+                            self.last_obs_tick = tick
+                            self._i_obs += 1
+                            self.udp_int.send(pkl.dumps(("OBS", self._i_obs, self.telemetry)))
+                #
+                # end of UDP recv non-blocking -----------------------------
+                #
 
-                average_cycle = deque([0.0] * NO_OF_CYCLES_AVERAGE_GUI_TIME)
+                #
+                # CLIP RC VALUES -------------------------------------------
+                #
+                self.CMDS['roll'] = clip(self.CMDS['roll'], MIN_CMD_ROLL, MAX_CMD_ROLL)
+                self.CMDS['pitch'] = clip(self.CMDS['pitch'], MIN_CMD_PITCH, MAX_CMD_PITCH)
+                self.CMDS['yaw'] = clip(self.CMDS['yaw'], MIN_CMD_YAW, MAX_CMD_YAW)
+                self.CMDS['throttle'] = clip(self.CMDS['throttle'], MIN_CMD_THROTTLE, MAX_CMD_THROTTLE)
+                #
+                # END CLIP RC VALUES ---------------------------------------
+                #
 
-                # It's necessary to send some messages or the RX failsafe will be active
-                # and it will not be possible to arm.
-                command_list = ['MSP_API_VERSION', 'MSP_FC_VARIANT', 'MSP_FC_VERSION', 'MSP_BUILD_INFO',
-                                'MSP_BOARD_INFO', 'MSP_UID', 'MSP_ACC_TRIM', 'MSP_NAME', 'MSP_STATUS', 'MSP_STATUS_EX',
-                                'MSP_BATTERY_CONFIG', 'MSP_BATTERY_STATE', 'MSP_BOXNAMES']
+                # This slows the loop down to CTRL_LOOP_TIME:
+                end_time = time.time()
+                last_cycle_time = end_time - start_time
+                if last_cycle_time < CTRL_LOOP_TIME:
+                    time.sleep(CTRL_LOOP_TIME - last_cycle_time)
 
-                if board.INAV:
-                    command_list.append('MSPV2_INAV_ANALOG')
-                    command_list.append('MSP_VOLTAGE_METER_CONFIG')
-
-                for msg in command_list:
-                    if board.send_RAW_msg(MSPy.MSPCodes[msg], data=[]):
-                        data_handler = board.receive_msg()
-                        board.process_recv_data(data_handler)
-                if board.INAV:
-                    cell_count = board.BATTERY_STATE['cellCount']
-                else:
-                    cell_count = 0  # MSPV2_INAV_ANALOG is necessary
-                self.min_voltage = board.BATTERY_CONFIG['vbatmincellvoltage'] * cell_count
-                self.warn_voltage = board.BATTERY_CONFIG['vbatwarningcellvoltage'] * cell_count
-                self.max_voltage = board.BATTERY_CONFIG['vbatmaxcellvoltage'] * cell_count
-
-                if self.print_screen:
-                    screen.addstr(15, 0, "apiVersion: {}".format(board.CONFIG['apiVersion']))
-                    screen.clrtoeol()
-                    screen.addstr(15, 50, "flightControllerIdentifier: {}".format(board.CONFIG['flightControllerIdentifier']))
-                    screen.addstr(16, 0, "flightControllerVersion: {}".format(board.CONFIG['flightControllerVersion']))
-                    screen.addstr(16, 50, "boardIdentifier: {}".format(board.CONFIG['boardIdentifier']))
-                    screen.addstr(17, 0, "boardName: {}".format(board.CONFIG['boardName']))
-                    screen.addstr(17, 50, "name: {}".format(board.CONFIG['name']))
-
-                slow_msgs = cycle(['MSP_ANALOG', 'MSP_STATUS_EX', 'MSP_MOTOR', 'MSP_RC'])
-
-                # send the "drone ready" command to the udp controller:
-                self.voltage = board.ANALOG['voltage']
-                self._check_batt_voltage()
-
-                cursor_msg = ""
-
-                last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
-                while True:
-                    start_time = time.time()
-
-                    #
-                    # UDP recv non-blocking  (NO DELAYS) -----------------------
-                    # For safety, UDP commands are overridden by key presses
-                    #
-                    if self.udp_int:
-                        udp_cmds = self.udp_int.recv_nonblocking()
-                        if len(udp_cmds) > 0:
-                            for cmd in udp_cmds:
-                                self._udp_commands_handler(pkl.loads(cmd), board)
-                        self._flight(board, screen)
-                        self._batt_handler(board)
-                        if self.obs_loop_time is not None:
-                            tick = time.time()
-                            if tick - self.last_obs_tick >= self.obs_loop_time and self.sender_initialized:
-                                self.last_obs_tick = tick
-                                self._i_obs += 1
-                                self.udp_int.send(pkl.dumps(("OBS", self._i_obs, self.telemetry)))
-                    #
-                    # end of UDP recv non-blocking -----------------------------
-                    #
-
-                    char = screen.getch()  # get keypress
-                    curses.flushinp()  # flushes buffer
-                    #
-                    # KEYS (NO DELAYS) -----------------------------------------
-                    #
-                    if char != -1:
-                        self.key_cmd_in_progress = True
-                        self.last_key_tick = time.time()
-
-                        if char == QUIT_CHR:
-                            break
-
-                        elif char == DISARM_CHR:
-                            cursor_msg = 'Disarming...'
-                            self.CMDS['aux1'] = 1000
-
-                        elif char == REBOOT_CHR:
-                            if self.print_screen:
-                                screen.addstr(3, 0, 'Rebooting...')
-                                screen.clrtoeol()
-                            board.reboot()
-                            time.sleep(0.5)
-                            break
-
-                        elif char == ARM_CHR:
-                            cursor_msg = 'Arming...'
-                            self.CMDS['aux1'] = 1800
-
-                        elif char == SWITCH_MODE_CHR:
-                            if self.CMDS['aux2'] <= 1300:
-                                cursor_msg = 'NAV ALTHOLD Mode...'
-                                self.CMDS['aux2'] = 1500
-                            elif 1700 > self.CMDS['aux2'] > 1300:
-                                cursor_msg = 'NAV POSHOLD Mode...'
-                                self.CMDS['aux2'] = 1800
-                            elif self.CMDS['aux2'] >= 1650:
-                                cursor_msg = 'Angle Mode...'
-                                self.CMDS['aux2'] = 1000
-
-                        elif char == RIGHT_CHR:
-                            # self.CMDS['roll'] = self.CMDS['roll'] + 10 if self.CMDS['roll'] + 10 <= 2000 else self.CMDS['roll']
-                            self.CMDS['roll'] = KEY_P_ROLL
-                            cursor_msg = 'roll(+):{}'.format(self.CMDS['roll'])
-
-                        elif char == LEFT_CHR:
-                            # self.CMDS['roll'] = self.CMDS['roll'] - 10 if self.CMDS['roll'] - 10 >= 1000 else self.CMDS['roll']
-                            self.CMDS['roll'] = KEY_N_ROLL
-                            cursor_msg = 'roll(-):{}'.format(self.CMDS['roll'])
-
-                        elif char == RIGHTYAW_CHR:
-                            self.CMDS['yaw'] = KEY_P_YAW
-                            cursor_msg = 'yaw(+):{}'.format(self.CMDS['yaw'])
-
-                        elif char == LEFTYAW_CHR:
-                            self.CMDS['yaw'] = KEY_N_YAW
-                            cursor_msg = 'yaw(-):{}'.format(self.CMDS['yaw'])
-
-                        elif char == FORWARD_CHR:
-                            # self.CMDS['pitch'] = self.CMDS['pitch'] + 10 if self.CMDS['pitch'] + 10 <= 2000 else self.CMDS['pitch']
-                            self.CMDS['pitch'] = KEY_P_PITCH
-                            cursor_msg = 'pitch(+):{}'.format(self.CMDS['pitch'])
-
-                        elif char == BACKWARD_CHR:
-                            # self.CMDS['pitch'] = self.CMDS['pitch'] - 10 if self.CMDS['pitch'] - 10 >= 1000 else self.CMDS['pitch']
-                            self.CMDS['pitch'] = KEY_N_PITCH
-                            cursor_msg = 'pitch(-):{}'.format(self.CMDS['pitch'])
-
-                        elif char == UPWARD_CHR:
-                            self.CMDS['throttle'] = self.CMDS['throttle'] + KEY_P_THROTTLE if self.CMDS['throttle'] + KEY_P_THROTTLE <= MAX_CMD_THROTTLE else self.CMDS['throttle']
-                            cursor_msg = 'throttle(+):{}'.format(self.CMDS['throttle'])
-
-                        elif char == DOWNWARD_CHR:
-                            self.CMDS['throttle'] = self.CMDS['throttle'] + KEY_N_THROTTLE if self.CMDS['throttle'] + KEY_N_THROTTLE >= MIN_CMD_THROTTLE else self.CMDS['throttle']
-                            cursor_msg = 'throttle(-):{}'.format(self.CMDS['throttle'])
-
-                        elif char == TAKEOFF_CHR:
-                            self.CMDS['throttle'] = KEY_TAKEOFF
-                            cursor_msg = 'takeoff throttle:{}'.format(self.CMDS['throttle'])
-
-                        elif char == LAND_CHR:
-                            self.CMDS['throttle'] = KEY_LAND
-                            cursor_msg = 'land throttle:{}'.format(self.CMDS['throttle'])
-
-                        elif PAUSE_CHR:
-                            self.CMDS['roll'] = DEFAULT_ROLL
-                            self.CMDS['pitch'] = DEFAULT_PITCH
-                            self.CMDS['yaw'] = DEFAULT_YAW
-
-                    elif self.key_cmd_in_progress:  # default behavior
-                        if time.time() - self.last_key_tick >= KEY_TIMEOUT:
-                            self.key_cmd_in_progress = False
-                            self.CMDS['roll'] = DEFAULT_ROLL
-                            self.CMDS['pitch'] = DEFAULT_PITCH
-                            self.CMDS['yaw'] = DEFAULT_YAW
-                    #
-                    # End of KEYS ----------------------------------------------
-                    #
-
-                    #
-                    # CLIP RC VALUES -------------------------------------------
-                    #
-                    self.CMDS['roll'] = clip(self.CMDS['roll'], MIN_CMD_ROLL, MAX_CMD_ROLL)
-                    self.CMDS['pitch'] = clip(self.CMDS['pitch'], MIN_CMD_PITCH, MAX_CMD_PITCH)
-                    self.CMDS['yaw'] = clip(self.CMDS['yaw'], MIN_CMD_YAW, MAX_CMD_YAW)
-                    self.CMDS['throttle'] = clip(self.CMDS['throttle'], MIN_CMD_THROTTLE, MAX_CMD_THROTTLE)
-                    #
-                    # END CLIP RC VALUES ---------------------------------------
-                    #
-
-                    #
-                    # IMPORTANT MESSAGES (CTRL_LOOP_TIME based) ----------------
-                    #
-                    if (time.time() - last_loop_time) >= CTRL_LOOP_TIME:
-                        last_loop_time = time.time()
-                        # Send the RC channel values to the FC
-                        if board.send_RAW_RC([self.CMDS[ki] for ki in self.CMDS_ORDER]):
-                            data_handler = board.receive_msg()
-                            board.process_recv_data(data_handler)
-                    #
-                    # End of IMPORTANT MESSAGES --------------------------------
-                    #
-
-                    #
-                    # SLOW MSG processing (user GUI and voltage) ---------------
-                    #
-                    if (time.time() - last_slow_msg_time) >= SLOW_MSGS_LOOP_TIME:
-                        last_slow_msg_time = time.time()
-
-                        next_msg = next(slow_msgs)  # circular list
-                        if self.print_screen:  # print screen messages
-                            # Read info from the FC
-                            if board.send_RAW_msg(MSPy.MSPCodes[next_msg], data=[]):
-                                data_handler = board.receive_msg()
-                                board.process_recv_data(data_handler)
-
-                            if next_msg == 'MSP_ANALOG':
-                                self.voltage = board.ANALOG['voltage']
-                                self._check_batt_voltage()
-                                voltage_msg = ""
-                                if self.__batt_state == BATT_WARNING:
-                                    voltage_msg = "LOW BATT WARNING"
-                                elif self.__batt_state == BATT_TOO_LOW:
-                                    voltage_msg = "ULTRA LOW BATT!!!"
-                                elif self.__batt_state == BATT_TOO_HIGH:
-                                    voltage_msg = "VOLTAGE TOO HIGH"
-
-                                screen.addstr(8, 0, "Battery Voltage: {:2.2f}V".format(self.voltage))
-                                screen.clrtoeol()
-                                screen.addstr(8, 24, voltage_msg, curses.A_BOLD + curses.A_BLINK)
-                                screen.clrtoeol()
-
-                            elif next_msg == 'MSP_STATUS_EX':
-                                armed = board.bit_check(board.CONFIG['mode'], 0)
-                                screen.addstr(5, 0, "ARMED: {}".format(armed), curses.A_BOLD)
-                                screen.clrtoeol()
-
-                                self.debug_flags = board.process_armingDisableFlags(board.CONFIG['armingDisableFlags'])
-                                cam_err, cam_exp, cam_trace = self.tcp_video_int.get_camera_error()
-                                if cam_err:
-                                    self.debug_flags.append("CAMERA_ERROR")
-                                    screen.addstr(12, 0, f"CAMERA ERROR: {cam_exp}")
-                                    screen.clrtoeol()
-                                    # raise Exception(cam_trace)
-                                screen.addstr(5, 50, "armingDisableFlags: {}".format(self.debug_flags))
-                                screen.clrtoeol()
-
-                                screen.addstr(6, 0, "cpuload: {}".format(board.CONFIG['cpuload']))
-                                screen.clrtoeol()
-                                screen.addstr(6, 50, "cycleTime: {}".format(board.CONFIG['cycleTime']))
-                                screen.clrtoeol()
-
-                                screen.addstr(7, 0, "mode: {}".format(board.CONFIG['mode']))
-                                screen.clrtoeol()
-
-                                screen.addstr(7, 50, "Flight Mode: {}".format(board.process_mode(board.CONFIG['mode'])))
-                                screen.clrtoeol()
-
-                            elif next_msg == 'MSP_MOTOR':
-                                screen.addstr(9, 0, "Motor Values: {}".format(board.MOTOR_DATA))
-                                screen.clrtoeol()
-
-                            elif next_msg == 'MSP_RC':
-                                screen.addstr(10, 0, "RC Channels Values: {}".format(board.RC['channels']))
-                                screen.clrtoeol()
-
-                            _s1 = sum(average_cycle)
-                            _s2 = len(average_cycle)
-                            str_cycletime = "NaN" if _s1 == 0 or _s2 == 0 else \
-                                f"GUI cycleTime: {last_cycle_time * 1000:2.2f}ms (average {1 / _s1 / _s2:2.2f}Hz)"
-                            screen.addstr(11, 0, str_cycletime)
-                            screen.clrtoeol()
-
-                            screen.addstr(3, 0, cursor_msg)
-                            screen.clrtoeol()
-                    #
-                    # end of SLOW MSG ------------------------------------------
-                    #
-
-                    # This slows the loop down to CTRL_LOOP_TIME:
-                    end_time = time.time()
-                    last_cycle_time = end_time - start_time
-                    if last_cycle_time < CTRL_LOOP_TIME:
-                        time.sleep(CTRL_LOOP_TIME - last_cycle_time)
-
-                    average_cycle.append(last_cycle_time)
-                    average_cycle.popleft()
+                average_cycle.append(last_cycle_time)
+                average_cycle.popleft()
 
         finally:
-            if self.print_screen:
-                screen.addstr(5, 0, "Disconnected from the FC!")
-                screen.clrtoeol()
             print("Bye!")
 
 
 def run_controller():
-    cc = CogniflyController()
+    cc = CogniflyControllerDummy()
     cc.run_curses()
 
 
