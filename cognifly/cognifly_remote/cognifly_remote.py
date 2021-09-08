@@ -584,15 +584,13 @@ class Cognifly:
         """
         Starts camera streaming.
         CAUTION: This will slow the frequency of the onboard controller down and may make the drone unstable!
-        In particular, we recommend not having the stream on during takeoff when using the school API.
         The highest resolution and fps are, the worst the influence on the onboard controller.
         The image transfers happens over TCP, which comes with a noticeable delay.
+        CAUTION: High fps may saturate the network in the presence of several drones.
         Args:
             resolution: Tuple(float: height, float: width): resolution of the captured images.
             fps: integer: maximum framerate (may not be attained),
-            display: boolean: whether to display the stream in an OpenCV window,
-                mostly for debugging purpose: this may output warnings or not work depending on opencv installation,
-                in particular, the window is created and updated in the receiver thread.
+            display: boolean: whether to display the stream in the GUI (requires GUI to be enabled),
             wait_first_frame: boolean: whether to sleep until the first frame is available.
         """
         self.tcp_video_int.start_receiver(self.recv_port_video, display)
