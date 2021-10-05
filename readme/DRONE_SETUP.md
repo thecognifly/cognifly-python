@@ -10,7 +10,7 @@ Step-by-step instructions to setup the drone
 ```terminal
 dfu
 ```
-- go to the `firmware flasher` tab
+- open the `firmware flasher` tab
 - make sure `full chip erase` is selected
 - click `load firmware`
 - navigate to the `.hex` file
