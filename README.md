@@ -1,10 +1,10 @@
 # cognifly-python
 Control the CogniFly open-source drone remotely from your python script.
 
-This readme will guide you through the steps to install and use the `cognifly-python` library on a readily setup drone. If your drone is not setup yet, please first follow the [drone setup instructions](/readme/DRONE_SETUP.md).
-
 ## Prerequisite
-If you followed the [drone setup instructions](/readme/DRONE_SETUP.md), you can ignore this section.
+This readme will guide you through the steps to install and use the `cognifly-python` library on a readily setup CogniFly drone. If your drone is not setup yet, please first follow the [drone setup instructions](/readme/DRONE_SETUP.md).
+
+If you followed the [drone setup instructions](/readme/DRONE_SETUP.md), you can ignore the remainder of this section.
 - The drone must execute the [CogniFly fork of INAV](https://github.com/thecognifly/inav/tree/CogniFly).
 - The drone must be set in "EST_POS" debug mode for this library to work.
 To ensure this, connect CogniFly to `inav-configurator`, go to the CLI tab, and execute the following:
@@ -13,7 +13,7 @@ set debug_mode = EST_POS
 save
 ```
 - If you wish to use streaming, a pi camera must be connected to the raspberry pi and working properly.
-- The library requires python >= 3.7 
+- The library requires python >= 3.7
 
 ## Installation
 

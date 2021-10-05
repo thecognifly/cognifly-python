@@ -1,9 +1,9 @@
 # Drone setup
 
-Step-by-step instructions to setup the drone
+Step-by-step instructions to setup the drone.
 
 ## Flight controller configuration
-
+- Download the [cognifly framework](https://github.com/thecognifly/cognifly-python/releases/download/v0.0.3/cognifly_framework.hex) and the [cognifly configuration](https://github.com/thecognifly/cognifly-python/releases/download/v0.0.3/cognifly_configuration.txt).
 - Connect the flight controller to you PC by USB
 - Launch [inav-configurator 2.3.2](https://github.com/iNavFlight/inav-configurator/releases/tag/2.3.2)
 - Open `CLI` and type:
@@ -13,10 +13,10 @@ dfu
 - open the `firmware flasher` tab
 - make sure `full chip erase` is selected
 - click `load firmware`
-- navigate to the `.hex` file
+- navigate to the cognifly framework previously downloaded (`.hex` file)
 - select `flash`
 - go to the inav configurator `CLI`, select `load from file`
-- navigate to the `.txt` file
+- navigate to the cognifly configuration previously downloaded (`.txt` file)
 - type:
 ```terminal
 save
@@ -48,7 +48,8 @@ save
   - change the last line (by default `raspberrypi`) with your drone name
 
 - plug the SD card into the raspberry pi and connect a battery to start the drone
-- ssh the drone from your computer, the default password in raspbian should be `raspberry`:
+- wait for the drone booting
+- ssh the drone from your computer (the default password should be `raspberry`):
 ```terminal
 ssh pi@myDroneName.local
 ```
@@ -56,3 +57,5 @@ ssh pi@myDroneName.local
 ```terminal
 sudo apt-get install python3-pip
 ```
+
+You can now install and use the `cognifly-python` library.
