@@ -1,23 +1,46 @@
 # cognifly-python
 Control the CogniFly open-source drone remotely from your python script.
 
+## Quick links
+
+- [Prerequisite](#prerequisite)
+  - [Drone setup instructions](/readme/DRONE_SETUP.md)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Pro API](#pro-api)
+  - [School API](#school-api)
+  - [Streaming](#streaming)
+
 ## Prerequisite
 This readme will guide you through the steps to install and use the `cognifly-python` library on a readily setup CogniFly drone. If your drone is not setup yet, please first follow the [drone setup instructions](/readme/DRONE_SETUP.md).
 
+- The library requires python >= 3.7
+
 If you followed the [drone setup instructions](/readme/DRONE_SETUP.md), you can ignore the remainder of this section.
-- The drone must execute the [CogniFly fork of INAV](https://github.com/thecognifly/inav/tree/CogniFly).
-- The drone must be set in "EST_POS" debug mode for this library to work.
-To ensure this, connect CogniFly to `inav-configurator`, go to the CLI tab, and execute the following:
+
+### Requirements on the Raspberry Pi
+
+- On the Raspberry Pi, execute the following:
+  ```terminal
+  sudo apt-get update
+  sudo apt-get install libatlas-base-dev libopenjp2-7 libtiff5 python3-pip
+  ```
+- If you wish to use streaming, a pi camera must be connected to the raspberry pi and working properly.
+
+
+### Requirements on the Flight Controller
+
+- The drone must execute the [CogniFly fork of INAV](https://github.com/thecognifly/inav/tree/CogniFly)
+- The drone must be set in "EST_POS" debug mode for this library to work
+To ensure this, connect CogniFly to `inav-configurator`, do to the CLI tab, and execute the following:
 ```bash
 set debug_mode = EST_POS
 save
 ```
-- If you wish to use streaming, a pi camera must be connected to the raspberry pi and working properly.
-- The library requires python >= 3.7
 
 ## Installation
 
-Execute the following on both the CogniFly raspberry pi and the remote-controlling computer:
+Execute the following on both the Raspberry Pi and the remote-controlling computer:
 
 ```bash
 pip3 install --upgrade pip
@@ -34,6 +57,9 @@ cognifly-controller
 ```
 
 A service may be set on the rapsberri pi to launch this script automatically on CogniFly at startup, so that the user doesn't need to SSH the drone.
+
+*Note: On the Raspberry Pi, the `cognifly-controller` command may not become available immediately after installation. If not, try closing the terminal and opening a new one.
+Worst case scenario, this command is an alias for `python3 -m cognifly controller`.*
 
 
 ### Manual control (optional)

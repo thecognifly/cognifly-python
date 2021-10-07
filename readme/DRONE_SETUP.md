@@ -1,61 +1,84 @@
 # Drone setup
 
-Step-by-step instructions to setup the drone.
+Follow these step-by-step instructions to properly setup the CogniFly drone.
 
 ## Flight controller configuration
-- Download the [cognifly framework](https://github.com/thecognifly/cognifly-python/releases/download/v0.0.3/cognifly_framework.hex) and the [cognifly configuration](https://github.com/thecognifly/cognifly-python/releases/download/v0.0.3/cognifly_configuration.txt).
-- Connect the flight controller to you PC by USB
-- Launch [inav-configurator 2.3.2](https://github.com/iNavFlight/inav-configurator/releases/tag/2.3.2)
-- Open `CLI` and type:
+- download both the [cognifly framework](https://github.com/thecognifly/cognifly-python/releases/download/v0.0.3/cognifly_framework.hex) and the [cognifly configuration](https://github.com/thecognifly/cognifly-python/releases/download/v0.0.3/cognifly_configuration.txt) files
+- connect the flight controller to your PC through USB
+- launch [inav-configurator 2.3.2](https://github.com/iNavFlight/inav-configurator/releases/tag/2.3.2) (on linux, do it with `sudo`)
+- `connect` to the flight controller
+- open the `CLI` tab and enter the following command:
 ```terminal
 dfu
 ```
+This will disconnect the flight controller and restart it in DFU mode.
 - open the `firmware flasher` tab
 - make sure `full chip erase` is selected
-- click `load firmware`
-- navigate to the cognifly framework previously downloaded (`.hex` file)
-- select `flash`
-- go to the inav configurator `CLI`, select `load from file`
-- navigate to the cognifly configuration previously downloaded (`.txt` file)
-- type:
+- click `load firmware [local]`
+- select the cognifly framework file previously downloaded (`.hex` file)
+- click `flash firmware` and wait for completion
+- `connect` to the flight controller, select keep defaults, let it reboot, `connect` again
+- open the `CLI` tab and select `load from file`
+- navigate to the cognifly configuration file previously downloaded (`.txt` file)
+- click `execute` and wait for completion
+- enter the following command:
 ```terminal
 save
 ```
-- with a battery connected to the drone, go to inav configurator `setup` tab and check that everything is green
-- disconnect the battery
+This will reboot the flight controller.
+- `connect` to the flight controller again
+- in the `setup` tab, check that everything is green
+- `disconnect` from the flight controller
 
-## raspberry pi configuration
+## Raspberry Pi configuration
 
 - install [raspbian](https://www.raspberrypi.org/software/operating-systems/) on the SD card (you can use Raspberry Pi OS Lite)
+
+The SD card should now have two partitions: `boot` and `rootfs`
+
 - configure [SSH access](https://phoenixnap.com/kb/enable-ssh-raspberry-pi):
-  - create an empty file named `ssh` in the root of the `boot` partition of the SD card
+  - create an empty file named `ssh` at the root of the `/boot/` partition
 
 - configure wpa-supplicant so the drone connects to your router:
-  - open `etc/wpa_supplicant/wpa_supplicant.conf` in the `rootfs` partition
-  - adapt the following and add it to the end of the `wpa_supplicant.conf` file:
-    ```terminal
-    network={
-            ssid="yourNetworkSSID"
-            psk="yourNetworkPassword"                                       
-            scan_ssid=1
-    }
-    ```
+  - edit the `/rootfs/etc/wpa_supplicant/wpa_supplicant.conf` file (on linux, this may require `sudo`) 
+    - adapt the following and add it to the end of the `wpa_supplicant.conf` file:
+      ```terminal
+      network={
+              ssid="yourNetworkSSID"
+              psk="yourNetworkPassword"
+              scan_ssid=1
+      }
+      ```
 
 - change the name of the drone:
-  - open the `etc/hostname` file
-  - write your drone name instead of the default `raspberrypi`
-  - open the `etc/hosts` file
-  - change the last line (by default `raspberrypi`) with your drone name
+  - edit the `/rootfs/etc/hostname` file
+    - replace the default `raspberrypi` by drone name
+  - edit the `/rootfs/etc/hosts` file
+    - replace the default `raspberrypi` in the last line by your drone name
 
-- plug the SD card into the raspberry pi and connect a battery to start the drone
-- wait for the drone booting
+- enable the pi camera and the UART serial port:
+  - edit the `/boot/config.txt` file
+    - under the `[all]` section, set the following lines:
+      ```terminal
+      enable_uart=1 # serial port
+      start_x=1 # camera
+      gpu_mem=128 # camera
+      ```
+
+- disable the console messages in the serial port:
+  - edit the `/boot/cmdline.txt` file
+    - if you see `console=serial0,115200`, remove this command
+- plug the SD card into the Raspberry Pi and connect
+- plug a charged battery to start the drone
+- wait for the Raspberry PI to boot (the light should stop blinking)
 - ssh the drone from your computer (the default password should be `raspberry`):
-```terminal
-ssh pi@myDroneName.local
-```
-- install `pip3`:
-```terminal
-sudo apt-get install python3-pip
-```
+  ```terminal
+  ssh pi@myDroneName.local
+  ```
+- execute the following on the Raspberry Pi:
+  ```terminal
+  sudo apt-get update
+  sudo apt-get install libatlas-base-dev libopenjp2-7 libtiff5 python3-pip
+  ```
 
-You can now install and use the `cognifly-python` library.
+You can now install the `cognifly-python` library on the drone.
