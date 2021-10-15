@@ -1,4 +1,4 @@
-import sys
+v<wimport sys
 import os
 from setuptools import setup, find_packages
 
@@ -21,7 +21,7 @@ with open("README.md", "r") as fh:
 
 deps = ['numpy', 'Pillow']
 if is_raspberrypi():  # drone
-    deps.append(['picamera', 'pyserial'])
+    deps.append(['picamera', 'yamspy'])
 else:  # remote
     deps.append(['opencv-contrib-python', 'pysimplegui'])
 

@@ -229,7 +229,6 @@ class Cognifly:
         """
         timeout_t = time.time() + max_duration
         while True:
-            time.sleep(granularity)
             self._lock.acquire()
             c = self.__wait_done
             self._lock.release()
@@ -240,6 +239,21 @@ class Cognifly:
                     self.__wait_done = False
                     self._lock.release()
                 break
+            time.sleep(granularity)
+
+    def wait_acknowledgement(self, max_duration=1.0, granularity=0.05):
+        """
+        sleeps until an acknowledgement is received from the drone or max_duration is elapsed
+        """
+        timeout_t = time.time() + max_duration
+        while True:
+            self._lock.acquire()
+            c = self.__last_received_id < self.__last_sent_id
+            self._lock.release()
+            t = time.time()
+            if not c or t >= timeout_t:
+                break
+            time.sleep(granularity)
 
     # ==================================================================================================================
 
@@ -260,7 +274,7 @@ class Cognifly:
             time.sleep(sleep_duration)
             self._lock.acquire()
             c = self.__wait_ack_reset
-            if self.__wait_ack_reset:
+            if not self.__wait_ack_reset:
                 self.__wait_ack_reset = True  # for next reset
             self._lock.release()
         logger.info("Reset acknowlegement received.")
@@ -347,6 +361,74 @@ class Cognifly:
         self.__wait_done = True
         self._lock.release()
         self.send(msg_type="ACT", msg=(frame_str, x, y, z, yaw, max_velocity, max_yaw_rate, max_duration))
+
+    def set_pid_vel_x(self, k_p=None, k_i=None, k_d=None, timeout=1.0):
+        """
+        Sets the gains of the PID for the x velocity tracker.
+        Gains left as None are not affected.
+        Example of reasonable values:
+            k_p = 750.0
+            k_i = 400.0
+            k_d = 50.0
+        Args:
+            k_p: float (optional): proportional gain
+            k_i: float (optional): integral gain
+            k_d: float (optional): derivative gain
+            timeout: float (optional): timeout when waiting for confirmation from the drone
+        """
+        self.send(msg_type="PVX", msg=(k_p, k_i, k_d))
+        self.wait_acknowledgement(max_duration=timeout)
+
+    def set_pid_vel_y(self, k_p=None, k_i=None, k_d=None, timeout=1.0):
+        """
+        Sets the gains of the PID for the y velocity tracker.
+        Gains left as None are not affected.
+        Example of reasonable values:
+            k_p = 750.0
+            k_i = 400.0
+            k_d = 50.0
+        Args:
+            k_p: float (optional): proportional gain
+            k_i: float (optional): integral gain
+            k_d: float (optional): derivative gain
+            timeout: float (optional): timeout when waiting for confirmation from the drone
+        """
+        self.send(msg_type="PVY", msg=(k_p, k_i, k_d))
+        self.wait_acknowledgement(max_duration=timeout)
+
+    def set_pid_vel_z(self, k_p=None, k_i=None, k_d=None, timeout=1.0):
+        """
+        Sets the gains of the PID for the z velocity tracker.
+        Gains left as None are not affected.
+        Example of reasonable values:
+            k_p = 50.0
+            k_i = 20.0
+            k_d = 5.0
+        Args:
+            k_p: float (optional): proportional gain
+            k_i: float (optional): integral gain
+            k_d: float (optional): derivative gain
+            timeout: float (optional): timeout when waiting for confirmation from the drone
+        """
+        self.send(msg_type="PVZ", msg=(k_p, k_i, k_d))
+        self.wait_acknowledgement(max_duration=timeout)
+
+    def set_pid_vel_w(self, k_p=None, k_i=None, k_d=None, timeout=1.0):
+        """
+        Sets the gains of the PID for the yaw rate tracker.
+        Gains left as None are not affected.
+        Example of reasonable values:
+            k_p = 400.0
+            k_i = 200.0
+            k_d = 0.0
+        Args:
+            k_p: float (optional): proportional gain
+            k_i: float (optional): integral gain
+            k_d: float (optional): derivative gain
+            timeout: float (optional): timeout when waiting for confirmation from the drone
+        """
+        self.send(msg_type="PVW", msg=(k_p, k_i, k_d))
+        self.wait_acknowledgement(max_duration=timeout)
 
     # ==================================================================================================================
 

@@ -23,9 +23,8 @@ import socket
 import pickle as pkl
 import numpy as np
 from pathlib import Path
+from yamspy import MSPy
 
-from cognifly.cognifly_controller.YAMSPy.yamspy import MSPy
-# from picamera_AIY_object_detection import MyAIYInterface
 from cognifly.utils.udp_interface import UDPInterface
 from cognifly.utils.tcp_video_interface import TCPVideoInterface
 from cognifly.utils.ip_tools import extract_ip
@@ -279,6 +278,15 @@ class CogniflyController:
             if result == 1:
                 print("An error occurred, probably the serial port is not available")
 
+    def _reset_pids(self):
+        """
+        Resets all PIDs
+        """
+        self.pid_vel_x = PID(kp=self.vel_x_kp, ki=self.vel_x_ki, kd=self.vel_x_kd, sample_time=0.01, output_limits=self.pid_limits_xy, auto_mode=False)
+        self.pid_vel_y = PID(kp=self.vel_y_kp, ki=self.vel_y_ki, kd=self.vel_y_kd, sample_time=0.01, output_limits=self.pid_limits_xy, auto_mode=False)
+        self.pid_vel_z = PID(kp=self.vel_z_kp, ki=self.vel_z_ki, kd=self.vel_z_kd, sample_time=0.01, output_limits=self.pid_limits_z, auto_mode=False)
+        self.pid_w_z = PID(kp=self.vel_w_kp, ki=self.vel_w_ki, kd=self.vel_w_kd, sample_time=0.01, output_limits=self.pid_limits_w, auto_mode=False)
+
     def _udp_commands_handler(self, command, board):
         """
         Args:
@@ -301,10 +309,7 @@ class CogniflyController:
             identifier = command[1]
             if command[0] == "ACT":  # action
                 # hard-reset all PIDs (FIXME: this is to avoid a bug in the PID framework that seems to retain unsuitable values otherwise, correct this in the future)
-                self.pid_vel_x = PID(kp=self.vel_x_kp, ki=self.vel_x_ki, kd=self.vel_x_kd, sample_time=0.01, output_limits=self.pid_limits_xy, auto_mode=False)
-                self.pid_vel_y = PID(kp=self.vel_y_kp, ki=self.vel_y_ki, kd=self.vel_y_kd, sample_time=0.01, output_limits=self.pid_limits_xy, auto_mode=False)
-                self.pid_vel_z = PID(kp=self.vel_z_kp, ki=self.vel_z_ki, kd=self.vel_z_kd, sample_time=0.01, output_limits=self.pid_limits_z, auto_mode=False)
-                self.pid_w_z = PID(kp=self.vel_w_kp, ki=self.vel_w_ki, kd=self.vel_w_kd, sample_time=0.01, output_limits=self.pid_limits_w, auto_mode=False)
+                self._reset_pids()
                 if command[2][0] == "DISARM":
                     self.CMDS["aux1"] = DISARMED
                     self.current_flight_command = None
@@ -331,6 +336,38 @@ class CogniflyController:
                 self.tcp_video_int.start_streaming(ip_dest=command[2][0], port_dest=command[2][1], resolution=command[2][2], fps=command[2][3])
             elif command[0] == "ST0":  # stream off
                 self.tcp_video_int.stop_streaming()
+            elif command[0] == "PVX":  # new PID vel x values
+                if command[2][0] is not None:
+                    self.vel_x_kp = command[2][0]
+                if command[2][1] is not None:
+                    self.vel_x_ki = command[2][1]
+                if command[2][2] is not None:
+                    self.vel_x_kd = command[2][2]
+                self._reset_pids()
+            elif command[0] == "PVY":  # new PID vel y values
+                if command[2][0] is not None:
+                    self.vel_y_kp = command[2][0]
+                if command[2][1] is not None:
+                    self.vel_y_ki = command[2][1]
+                if command[2][2] is not None:
+                    self.vel_y_kd = command[2][2]
+                self._reset_pids()
+            elif command[0] == "PVZ":  # new PID vel z values
+                if command[2][0] is not None:
+                    self.vel_z_kp = command[2][0]
+                if command[2][1] is not None:
+                    self.vel_z_ki = command[2][1]
+                if command[2][2] is not None:
+                    self.vel_z_kd = command[2][2]
+                self._reset_pids()
+            elif command[0] == "PVW":  # new PID vel w values
+                if command[2][0] is not None:
+                    self.vel_w_kp = command[2][0]
+                if command[2][1] is not None:
+                    self.vel_w_ki = command[2][1]
+                if command[2][2] is not None:
+                    self.vel_w_kd = command[2][2]
+                self._reset_pids()
             self.udp_int.send(pkl.dumps(("ACK", identifier)))
 
     def _compute_z_vel(self, pos_z_wf):
