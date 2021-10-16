@@ -3,7 +3,7 @@
 Follow these step-by-step instructions to properly setup the CogniFly drone.
 
 ## Flight controller configuration
-- download both the [cognifly framework](https://github.com/thecognifly/cognifly-python/releases/download/v0.0.3/cognifly_framework.hex) and the [cognifly configuration](https://github.com/thecognifly/cognifly-python/releases/download/v0.0.3/cognifly_configuration.txt) files
+- download both the [cognifly framework](https://github.com/thecognifly/cognifly-python/releases/download/v0.0.4/cognifly_framework.hex) and the [cognifly configuration](https://github.com/thecognifly/cognifly-python/releases/download/v0.0.4/cognifly_configuration.txt) files
 - connect the flight controller to your PC through USB
 - launch [inav-configurator 2.3.2](https://github.com/iNavFlight/inav-configurator/releases/tag/2.3.2) (on linux, do it with `sudo`)
 - `connect` to the flight controller
