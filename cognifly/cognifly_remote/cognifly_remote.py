@@ -17,8 +17,8 @@ logger.setLevel(logging.WARNING)
 
 # Constants for the school easy API
 
-EASY_API_SPEED = 0.2  # (m/s)
-EASY_API_YAW_RATE = 0.5  # (rad/s)
+EASY_API_DEFAULT_SPEED = 0.2  # (m/s)
+EASY_API_DEFAULT_YAW_RATE = 0.5  # (rad/s)
 EASY_API_ADDITIONAL_DURATION = 10.0  # (s)
 EASY_API_TAKEOFF_ALTITUDE = 0.5  # should be roughly the same as default takeoff altitude (m)
 EASY_API_MAX_ALTITUDE = 0.9
@@ -64,6 +64,8 @@ class Cognifly:
         self.recv_port_video = recv_port_video
         self.wait_for_first_obs = wait_for_first_obs
         self.wait_for_first_obs_sleep_duration = wait_for_first_obs_sleep_duration
+        self.ea_speed = EASY_API_DEFAULT_SPEED
+        self.ea_yaw_rate = EASY_API_DEFAULT_YAW_RATE
 
         self.udp_int = UDPInterface()
         self.tcp_video_int = TCPVideoInterface()
@@ -311,6 +313,8 @@ class Cognifly:
     def takeoff_nonblocking(self, altitude=None):
         """
         The drone takes off.
+
+        Do not use altitude (this currently refers to a FC throttle value and is likely to change in the future).
         """
         self.send(msg_type="ACT", msg=("TAKEOFF", altitude))
         self.time_takeoff = time.time()
@@ -453,8 +457,8 @@ class Cognifly:
         self.easy_api_cur_z = altitude
         # this works (Z properly defined) but when done from the ground it is a bit violent and not very stable:
         self.set_position_nonblocking(x=0.0, y=0.0, z=self.easy_api_cur_z, yaw=0.0,
-                                      max_velocity=EASY_API_SPEED,
-                                      max_yaw_rate=EASY_API_YAW_RATE,
+                                      max_velocity=self.ea_speed,
+                                      max_yaw_rate=self.ea_yaw_rate,
                                       max_duration=alt_duration,
                                       relative=False)
         self.sleep_until_done(alt_duration)
@@ -473,10 +477,10 @@ class Cognifly:
         Goes forward by number of centimeters
         """
         val_m = val_cm / 100.0
-        duration = val_m / EASY_API_SPEED + EASY_API_ADDITIONAL_DURATION
+        duration = val_m / self.ea_speed + EASY_API_ADDITIONAL_DURATION
         self.set_position_nonblocking(x=val_m, y=0.0, z=self.easy_api_cur_z, yaw=None,
-                                      max_velocity=EASY_API_SPEED,
-                                      max_yaw_rate=EASY_API_YAW_RATE,
+                                      max_velocity=self.ea_speed,
+                                      max_yaw_rate=self.ea_yaw_rate,
                                       max_duration=duration,
                                       relative=True)
         self.sleep_until_done(duration)
@@ -486,10 +490,10 @@ class Cognifly:
         Goes backward by number of centimeters
         """
         val_m = val_cm / 100.0
-        duration = val_m / EASY_API_SPEED + EASY_API_ADDITIONAL_DURATION
+        duration = val_m / self.ea_speed + EASY_API_ADDITIONAL_DURATION
         self.set_position_nonblocking(x=-val_m, y=0.0, z=self.easy_api_cur_z, yaw=None,
-                                      max_velocity=EASY_API_SPEED,
-                                      max_yaw_rate=EASY_API_YAW_RATE,
+                                      max_velocity=self.ea_speed,
+                                      max_yaw_rate=self.ea_yaw_rate,
                                       max_duration=duration,
                                       relative=True)
         self.sleep_until_done(duration)
@@ -499,10 +503,10 @@ class Cognifly:
         Goes right by number of centimeters
         """
         val_m = val_cm / 100.0
-        duration = val_m / EASY_API_SPEED + EASY_API_ADDITIONAL_DURATION
+        duration = val_m / self.ea_speed + EASY_API_ADDITIONAL_DURATION
         self.set_position_nonblocking(x=0.0, y=val_m, z=self.easy_api_cur_z, yaw=None,
-                                      max_velocity=EASY_API_SPEED,
-                                      max_yaw_rate=EASY_API_YAW_RATE,
+                                      max_velocity=self.ea_speed,
+                                      max_yaw_rate=self.ea_yaw_rate,
                                       max_duration=duration,
                                       relative=True)
         self.sleep_until_done(duration)
@@ -512,10 +516,10 @@ class Cognifly:
         Goes left by number of centimeters
         """
         val_m = val_cm / 100.0
-        duration = val_m / EASY_API_SPEED + EASY_API_ADDITIONAL_DURATION
+        duration = val_m / self.ea_speed + EASY_API_ADDITIONAL_DURATION
         self.set_position_nonblocking(x=0.0, y=-val_m, z=self.easy_api_cur_z, yaw=None,
-                                      max_velocity=EASY_API_SPEED,
-                                      max_yaw_rate=EASY_API_YAW_RATE,
+                                      max_velocity=self.ea_speed,
+                                      max_yaw_rate=self.ea_yaw_rate,
                                       max_duration=duration,
                                       relative=True)
         self.sleep_until_done(duration)
@@ -525,12 +529,12 @@ class Cognifly:
         Goes up by number of centimeters
         """
         val_m = val_cm / 100.0
-        duration = val_m / EASY_API_SPEED + EASY_API_ADDITIONAL_DURATION
+        duration = val_m / self.ea_speed + EASY_API_ADDITIONAL_DURATION
         self.easy_api_cur_z += val_m
         self.easy_api_cur_z = clip(self.easy_api_cur_z, EASY_API_MIN_ALTITUDE, EASY_API_MAX_ALTITUDE)
         self.set_position_nonblocking(x=0.0, y=0.0, z=self.easy_api_cur_z, yaw=None,
-                                      max_velocity=EASY_API_SPEED,
-                                      max_yaw_rate=EASY_API_YAW_RATE,
+                                      max_velocity=self.ea_speed,
+                                      max_yaw_rate=self.ea_yaw_rate,
                                       max_duration=duration,
                                       relative=True)
         self.sleep_until_done(duration)
@@ -540,12 +544,12 @@ class Cognifly:
         Goes down by number of centimeters
         """
         val_m = val_cm / 100.0
-        duration = val_m / EASY_API_SPEED + EASY_API_ADDITIONAL_DURATION
+        duration = val_m / self.ea_speed + EASY_API_ADDITIONAL_DURATION
         self.easy_api_cur_z -= val_m
         self.easy_api_cur_z = clip(self.easy_api_cur_z, EASY_API_MIN_ALTITUDE, EASY_API_MAX_ALTITUDE)
         self.set_position_nonblocking(x=0.0, y=0.0, z=self.easy_api_cur_z, yaw=None,
-                                      max_velocity=EASY_API_SPEED,
-                                      max_yaw_rate=EASY_API_YAW_RATE,
+                                      max_velocity=self.ea_speed,
+                                      max_yaw_rate=self.ea_yaw_rate,
                                       max_duration=duration,
                                       relative=True)
         self.sleep_until_done(duration)
@@ -556,7 +560,7 @@ class Cognifly:
         Note: the drone takes the shortest path, direction is not guaranteed for angles close to 180.
         """
         # val_rad = max(val_deg * np.pi / 180.0, 0.0)
-        # duration = val_rad / EASY_API_YAW_RATE + EASY_API_ADDITIONAL_DURATION
+        # duration = val_rad / self.ea_yaw_rate + EASY_API_ADDITIONAL_DURATION
         # seq_angles = get_angle_sequence_rad(val_rad)
         # seq = []
         # for sa in seq_angles:
@@ -564,10 +568,10 @@ class Cognifly:
         # self.position_sequence(sequence=seq, max_duration=duration, relative=True)
 
         val_rad = np.pi if val_deg == 180 else (val_deg % 180) * np.pi / 180.0
-        duration = val_rad / EASY_API_YAW_RATE + EASY_API_ADDITIONAL_DURATION
+        duration = val_rad / self.ea_yaw_rate + EASY_API_ADDITIONAL_DURATION
         self.set_position_nonblocking(x=0.0, y=0.0, z=self.easy_api_cur_z, yaw=val_rad,
-                                      max_velocity=EASY_API_SPEED,
-                                      max_yaw_rate=EASY_API_YAW_RATE,
+                                      max_velocity=self.ea_speed,
+                                      max_yaw_rate=self.ea_yaw_rate,
                                       max_duration=duration,
                                       relative=True)
         self.sleep_until_done(duration)
@@ -578,7 +582,7 @@ class Cognifly:
         Note: the drone takes the shortest path, direction is not guaranteed for angles close to 180.
         """
         # val_rad = max(val_deg * np.pi / 180.0, 0.0)
-        # duration = val_rad / EASY_API_YAW_RATE + EASY_API_ADDITIONAL_DURATION
+        # duration = val_rad / self.ea_yaw_rate + EASY_API_ADDITIONAL_DURATION
         # val_rad = - val_rad
         # seq_angles = get_angle_sequence_rad(val_rad)
         # seq = []
@@ -587,10 +591,10 @@ class Cognifly:
         # self.position_sequence(sequence=seq, max_duration=duration, relative=True)
 
         val_rad = np.pi if val_deg == 180 else (val_deg % 180) * np.pi / 180.0
-        duration = val_rad / EASY_API_YAW_RATE + EASY_API_ADDITIONAL_DURATION
+        duration = val_rad / self.ea_yaw_rate + EASY_API_ADDITIONAL_DURATION
         self.set_position_nonblocking(x=0.0, y=0.0, z=self.easy_api_cur_z, yaw=-val_rad,
-                                      max_velocity=EASY_API_SPEED,
-                                      max_yaw_rate=EASY_API_YAW_RATE,
+                                      max_velocity=self.ea_speed,
+                                      max_yaw_rate=self.ea_yaw_rate,
                                       max_duration=duration,
                                       relative=True)
         self.sleep_until_done(duration)
@@ -606,8 +610,8 @@ class Cognifly:
         y = y * np.pi / 180.0
         self.easy_api_cur_z = clip(z, EASY_API_MIN_ALTITUDE, EASY_API_MAX_ALTITUDE)
         self.set_position_nonblocking(x=x, y=y, z=self.easy_api_cur_z, yaw=yaw,
-                                      max_velocity=EASY_API_SPEED,
-                                      max_yaw_rate=EASY_API_YAW_RATE,
+                                      max_velocity=self.ea_speed,
+                                      max_yaw_rate=self.ea_yaw_rate,
                                       max_duration=max_duration,
                                       relative=False)
         self.sleep_until_done(max_duration)
@@ -643,8 +647,8 @@ class Cognifly:
 
                 self.easy_api_cur_z = clip(z, EASY_API_MIN_ALTITUDE, EASY_API_MAX_ALTITUDE)
                 self.set_position_nonblocking(x=x, y=y, z=self.easy_api_cur_z, yaw=yaw,
-                                              max_velocity=EASY_API_SPEED if speed is None else speed,
-                                              max_yaw_rate=EASY_API_YAW_RATE if yaw_rate is None else yaw_rate,
+                                              max_velocity=self.ea_speed if speed is None else speed,
+                                              max_yaw_rate=self.ea_yaw_rate if yaw_rate is None else yaw_rate,
                                               max_duration=remaining_duration,
                                               relative=relative)
                 self.sleep_until_done(remaining_duration)
@@ -657,6 +661,22 @@ class Cognifly:
         This is an alias for position_sequence(sequence=[[x1, y1, z1],[x2, y2, z2]], speed=speed).
         """
         self.position_sequence(sequence=[[x1, y1, z1],[x2, y2, z2]], speed=speed)
+
+    def set_speed(self, speed):
+        """
+        Sets the maximum speed of the drone in the school API
+        Args:
+            speed: float: speed in cm/s; a reasonable value is 20.
+        """
+        self.ea_speed = speed / 100.0
+
+    def set_yaw_rate(self, yaw_rate):
+        """
+        Sets the maximum yaw rate of the drone in the school API
+        Args:
+            yaw_rate: float: yaw rate in deg/s; a reasonable value is 30.
+        """
+        self.ea_yaw_rate = yaw_rate * np.pi / 180.0
 
     # ==================================================================================================================
 
@@ -798,7 +818,7 @@ class Cognifly:
     def get_yaw_rate(self):
         """
         Returns:
-            w: float: yaw rate in rad/s
+            w: float: yaw rate in deg/s
         """
         telemetry = self.get_telemetry()
         return telemetry[8] * 180.0 / np.pi
@@ -823,7 +843,7 @@ class Cognifly:
             speed: float: norm of the velocity, in cm/s
         """
         v_x, v_y, v_z = self.get_velocity()
-        return np.linalg.norm([v_x, v_y, v_z]) * 100
+        return np.linalg.norm([v_x, v_y, v_z])
 
 
 if __name__ == '__main__':
