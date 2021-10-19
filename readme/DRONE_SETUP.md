@@ -28,6 +28,8 @@ save
 This will reboot the flight controller.
 - `connect` to the flight controller again
 - in the `setup` tab, check that everything is green
+- (optional) go to the `calibration` tab and follow the calibration instructions
+- go to the `mixer` tab and [follow the inav instructions](https://github.com/iNavFlight/inav/blob/master/docs/Mixer.md) to configure the 4 motors
 - `disconnect` from the flight controller
 
 ## Raspberry Pi configuration
