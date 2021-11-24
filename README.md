@@ -40,7 +40,8 @@ save
 
 ## Installation
 
-Execute the following on both the Raspberry Pi and the remote-controlling computer:
+`cognifly-python` can be installed from PyPI.
+This is done by simply executing the following on both the Raspberry Pi and the remote-controlling computer:
 
 ```bash
 pip3 install --upgrade pip
@@ -50,7 +51,7 @@ pip3 install cognifly
 ## Usage
 
 In order to use the installed library, the `cognifly_controller.py` script must first be running on Cognifly.
-At the moment, this can be done by SSH-ing the drone, and executing the following command:
+At the moment, this can be done by connection to the drone through SSH, and executing the following command:
 
 ```bash
 cognifly-controller
@@ -85,7 +86,7 @@ It is possible to manually control the drone with the keyboard via SSH, by focus
 The remote control API is defined in [cognifly_remote.py](https://github.com/thecognifly/cognifly-python/blob/main/cognifly/cognifly_remote/cognifly_remote.py) (please read the docstrings for thorough documentation).
 
 Connecting to the drone is as simple as creating a `Cognifly` object.
-By default, this will also pop a simple Graphic User Interface, that can be used to disarm the drone in the event of an emergency, and to visualize the camera stream when activated:
+By default, this will also pop a simple Graphic User Interface, that can be used to disarm the drone on the event of an emergency, and to visualize the camera stream when activated:
 
 ```python
 from cognifly import Cognifly
@@ -221,9 +222,10 @@ cf.land()
 
 #### Streaming
 
-Cognifly can stream from the raspberry pi camera.
-For this, first make sure that the camera is enabled in the raspberry pi, and that it works correctly.
-It is then possible to display the video or to retrieve frames for processing:
+Cognifly can stream from the raspberry pi camera (note: frames are transferred directly through the local network).
+First make sure that the camera is enabled in the raspberry pi, and that it works correctly.
+
+It is possible to display the video or to retrieve frames for processing:
 
 ```python
 from cognifly import Cognifly
