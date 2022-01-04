@@ -941,7 +941,7 @@ class CogniflyController:
             print("Bye!")
 
 
-def run_controller(print_screen=False):
+def run_controller(print_screen=True):
     cc = CogniflyController(print_screen=print_screen)
     cc.run_curses()
 
