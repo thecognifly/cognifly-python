@@ -12,6 +12,9 @@ echo "Starting cognifly_controller.py"  # echo the original command
 
 headless=0
 
+echo "hello"
+echo "$headless"
+
 for i in "$@" ; do
     if [[ $i == "headless" ]] ; then
         headless=1
