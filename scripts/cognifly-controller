@@ -14,8 +14,7 @@ HEADLESS=false
 
 for i in "$@" ; do
     if [[ $i == "headless" ]] ; then
-        local HEADLESS=true
-        echo "headless mode set"
+        HEADLESS=true
     fi
 done
 
@@ -24,6 +23,6 @@ then
   echo "using headless mode"
   python3 -m cognifly controller-headless
 else
-  echo "using normal mode"
+  echo "using screen mode"
   python3 -m cognifly controller
 fi
