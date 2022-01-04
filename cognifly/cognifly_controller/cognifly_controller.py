@@ -256,25 +256,28 @@ class CogniflyController:
     def run_curses(self):
         result = 1
         try:
-            # get the curses screen window
-            screen = curses.initscr()
-            # turn off input echoing
-            curses.noecho()
-            # respond to keys immediately (don't wait for enter)
-            curses.cbreak()
-            # non-blocking
-            screen.timeout(0)
-            # map arrow keys to special values
-            screen.keypad(True)
             if self.print_screen:
+                # get the curses screen window
+                screen = curses.initscr()
+                # turn off input echoing
+                curses.noecho()
+                # respond to keys immediately (don't wait for enter)
+                curses.cbreak()
+                # non-blocking
+                screen.timeout(0)
+                # map arrow keys to special values
+                screen.keypad(True)
                 screen.addstr(1, 0, "Press 'q' to quit, 'r' to reboot, 'm' to change mode, 'a' to arm, 'd' to disarm and arrow keys to control", curses.A_BOLD)
+            else:
+                screen = None
             result = self._controller(screen)
         finally:
             # shut down cleanly
-            curses.nocbreak()
-            screen.keypad(0)
-            curses.echo()
-            curses.endwin()
+            if self.print_screen:
+                curses.nocbreak()
+                screen.keypad(0)
+                curses.echo()
+                curses.endwin()
             if result == 1:
                 print("An error occurred, probably the serial port is not available")
 
@@ -723,7 +726,7 @@ class CogniflyController:
                     # end of UDP recv non-blocking -----------------------------
                     #
 
-                    char = screen.getch()  # get keypress
+                    char = screen.getch() if self.print_screen else -1  # get keypress
                     curses.flushinp()  # flushes buffer
                     #
                     # KEYS (NO DELAYS) -----------------------------------------
