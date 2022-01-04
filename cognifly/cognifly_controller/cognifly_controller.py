@@ -940,8 +940,8 @@ class CogniflyController:
             print("Bye!")
 
 
-def run_controller():
-    cc = CogniflyController()
+def run_controller(print_screen=False):
+    cc = CogniflyController(print_screen=print_screen)
     cc.run_curses()
 
 
