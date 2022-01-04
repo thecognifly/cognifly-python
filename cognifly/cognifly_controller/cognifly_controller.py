@@ -729,103 +729,101 @@ class CogniflyController:
                     if self.print_screen:
                         char = screen.getch()  # get keypress
                         curses.flushinp()  # flushes buffer
-                    else:
-                        char = -1
-                    #
-                    # KEYS (NO DELAYS) -----------------------------------------
-                    #
-                    if char != -1:
-                        self.key_cmd_in_progress = True
-                        self.last_key_tick = time.time()
+                        #
+                        # KEYS (NO DELAYS) -----------------------------------------
+                        #
+                        if char != -1:
+                            self.key_cmd_in_progress = True
+                            self.last_key_tick = time.time()
 
-                        if char == QUIT_CHR:
-                            break
+                            if char == QUIT_CHR:
+                                break
 
-                        elif char == DISARM_CHR:
-                            cursor_msg = 'Disarming...'
-                            self.CMDS['aux1'] = 1000
+                            elif char == DISARM_CHR:
+                                cursor_msg = 'Disarming...'
+                                self.CMDS['aux1'] = 1000
 
-                        elif char == REBOOT_CHR:
-                            if self.print_screen:
-                                screen.addstr(3, 0, 'Rebooting...')
-                                screen.clrtoeol()
-                            board.reboot()
-                            time.sleep(0.5)
-                            break
+                            elif char == REBOOT_CHR:
+                                if self.print_screen:
+                                    screen.addstr(3, 0, 'Rebooting...')
+                                    screen.clrtoeol()
+                                board.reboot()
+                                time.sleep(0.5)
+                                break
 
-                        elif char == ARM_CHR:
-                            cursor_msg = 'Arming...'
-                            self.CMDS['aux1'] = 1800
+                            elif char == ARM_CHR:
+                                cursor_msg = 'Arming...'
+                                self.CMDS['aux1'] = 1800
 
-                        elif char == SWITCH_MODE_CHR:
-                            if self.CMDS['aux2'] <= 1300:
-                                cursor_msg = 'NAV ALTHOLD Mode...'
-                                self.CMDS['aux2'] = 1500
-                            elif 1700 > self.CMDS['aux2'] > 1300:
-                                cursor_msg = 'NAV POSHOLD Mode...'
-                                self.CMDS['aux2'] = 1800
-                            elif self.CMDS['aux2'] >= 1650:
-                                cursor_msg = 'Angle Mode...'
-                                self.CMDS['aux2'] = 1000
+                            elif char == SWITCH_MODE_CHR:
+                                if self.CMDS['aux2'] <= 1300:
+                                    cursor_msg = 'NAV ALTHOLD Mode...'
+                                    self.CMDS['aux2'] = 1500
+                                elif 1700 > self.CMDS['aux2'] > 1300:
+                                    cursor_msg = 'NAV POSHOLD Mode...'
+                                    self.CMDS['aux2'] = 1800
+                                elif self.CMDS['aux2'] >= 1650:
+                                    cursor_msg = 'Angle Mode...'
+                                    self.CMDS['aux2'] = 1000
 
-                        elif char == RIGHT_CHR:
-                            # self.CMDS['roll'] = self.CMDS['roll'] + 10 if self.CMDS['roll'] + 10 <= 2000 else self.CMDS['roll']
-                            self.CMDS['roll'] = KEY_P_ROLL
-                            cursor_msg = 'roll(+):{}'.format(self.CMDS['roll'])
+                            elif char == RIGHT_CHR:
+                                # self.CMDS['roll'] = self.CMDS['roll'] + 10 if self.CMDS['roll'] + 10 <= 2000 else self.CMDS['roll']
+                                self.CMDS['roll'] = KEY_P_ROLL
+                                cursor_msg = 'roll(+):{}'.format(self.CMDS['roll'])
 
-                        elif char == LEFT_CHR:
-                            # self.CMDS['roll'] = self.CMDS['roll'] - 10 if self.CMDS['roll'] - 10 >= 1000 else self.CMDS['roll']
-                            self.CMDS['roll'] = KEY_N_ROLL
-                            cursor_msg = 'roll(-):{}'.format(self.CMDS['roll'])
+                            elif char == LEFT_CHR:
+                                # self.CMDS['roll'] = self.CMDS['roll'] - 10 if self.CMDS['roll'] - 10 >= 1000 else self.CMDS['roll']
+                                self.CMDS['roll'] = KEY_N_ROLL
+                                cursor_msg = 'roll(-):{}'.format(self.CMDS['roll'])
 
-                        elif char == RIGHTYAW_CHR:
-                            self.CMDS['yaw'] = KEY_P_YAW
-                            cursor_msg = 'yaw(+):{}'.format(self.CMDS['yaw'])
+                            elif char == RIGHTYAW_CHR:
+                                self.CMDS['yaw'] = KEY_P_YAW
+                                cursor_msg = 'yaw(+):{}'.format(self.CMDS['yaw'])
 
-                        elif char == LEFTYAW_CHR:
-                            self.CMDS['yaw'] = KEY_N_YAW
-                            cursor_msg = 'yaw(-):{}'.format(self.CMDS['yaw'])
+                            elif char == LEFTYAW_CHR:
+                                self.CMDS['yaw'] = KEY_N_YAW
+                                cursor_msg = 'yaw(-):{}'.format(self.CMDS['yaw'])
 
-                        elif char == FORWARD_CHR:
-                            # self.CMDS['pitch'] = self.CMDS['pitch'] + 10 if self.CMDS['pitch'] + 10 <= 2000 else self.CMDS['pitch']
-                            self.CMDS['pitch'] = KEY_P_PITCH
-                            cursor_msg = 'pitch(+):{}'.format(self.CMDS['pitch'])
+                            elif char == FORWARD_CHR:
+                                # self.CMDS['pitch'] = self.CMDS['pitch'] + 10 if self.CMDS['pitch'] + 10 <= 2000 else self.CMDS['pitch']
+                                self.CMDS['pitch'] = KEY_P_PITCH
+                                cursor_msg = 'pitch(+):{}'.format(self.CMDS['pitch'])
 
-                        elif char == BACKWARD_CHR:
-                            # self.CMDS['pitch'] = self.CMDS['pitch'] - 10 if self.CMDS['pitch'] - 10 >= 1000 else self.CMDS['pitch']
-                            self.CMDS['pitch'] = KEY_N_PITCH
-                            cursor_msg = 'pitch(-):{}'.format(self.CMDS['pitch'])
+                            elif char == BACKWARD_CHR:
+                                # self.CMDS['pitch'] = self.CMDS['pitch'] - 10 if self.CMDS['pitch'] - 10 >= 1000 else self.CMDS['pitch']
+                                self.CMDS['pitch'] = KEY_N_PITCH
+                                cursor_msg = 'pitch(-):{}'.format(self.CMDS['pitch'])
 
-                        elif char == UPWARD_CHR:
-                            self.CMDS['throttle'] = self.CMDS['throttle'] + KEY_P_THROTTLE if self.CMDS['throttle'] + KEY_P_THROTTLE <= MAX_CMD_THROTTLE else self.CMDS['throttle']
-                            cursor_msg = 'throttle(+):{}'.format(self.CMDS['throttle'])
+                            elif char == UPWARD_CHR:
+                                self.CMDS['throttle'] = self.CMDS['throttle'] + KEY_P_THROTTLE if self.CMDS['throttle'] + KEY_P_THROTTLE <= MAX_CMD_THROTTLE else self.CMDS['throttle']
+                                cursor_msg = 'throttle(+):{}'.format(self.CMDS['throttle'])
 
-                        elif char == DOWNWARD_CHR:
-                            self.CMDS['throttle'] = self.CMDS['throttle'] + KEY_N_THROTTLE if self.CMDS['throttle'] + KEY_N_THROTTLE >= MIN_CMD_THROTTLE else self.CMDS['throttle']
-                            cursor_msg = 'throttle(-):{}'.format(self.CMDS['throttle'])
+                            elif char == DOWNWARD_CHR:
+                                self.CMDS['throttle'] = self.CMDS['throttle'] + KEY_N_THROTTLE if self.CMDS['throttle'] + KEY_N_THROTTLE >= MIN_CMD_THROTTLE else self.CMDS['throttle']
+                                cursor_msg = 'throttle(-):{}'.format(self.CMDS['throttle'])
 
-                        elif char == TAKEOFF_CHR:
-                            self.CMDS['throttle'] = KEY_TAKEOFF
-                            cursor_msg = 'takeoff throttle:{}'.format(self.CMDS['throttle'])
+                            elif char == TAKEOFF_CHR:
+                                self.CMDS['throttle'] = KEY_TAKEOFF
+                                cursor_msg = 'takeoff throttle:{}'.format(self.CMDS['throttle'])
 
-                        elif char == LAND_CHR:
-                            self.CMDS['throttle'] = KEY_LAND
-                            cursor_msg = 'land throttle:{}'.format(self.CMDS['throttle'])
+                            elif char == LAND_CHR:
+                                self.CMDS['throttle'] = KEY_LAND
+                                cursor_msg = 'land throttle:{}'.format(self.CMDS['throttle'])
 
-                        elif PAUSE_CHR:
-                            self.CMDS['roll'] = DEFAULT_ROLL
-                            self.CMDS['pitch'] = DEFAULT_PITCH
-                            self.CMDS['yaw'] = DEFAULT_YAW
+                            elif PAUSE_CHR:
+                                self.CMDS['roll'] = DEFAULT_ROLL
+                                self.CMDS['pitch'] = DEFAULT_PITCH
+                                self.CMDS['yaw'] = DEFAULT_YAW
 
-                    elif self.key_cmd_in_progress:  # default behavior
-                        if time.time() - self.last_key_tick >= KEY_TIMEOUT:
-                            self.key_cmd_in_progress = False
-                            self.CMDS['roll'] = DEFAULT_ROLL
-                            self.CMDS['pitch'] = DEFAULT_PITCH
-                            self.CMDS['yaw'] = DEFAULT_YAW
-                    #
-                    # End of KEYS ----------------------------------------------
-                    #
+                        elif self.key_cmd_in_progress:  # default behavior
+                            if time.time() - self.last_key_tick >= KEY_TIMEOUT:
+                                self.key_cmd_in_progress = False
+                                self.CMDS['roll'] = DEFAULT_ROLL
+                                self.CMDS['pitch'] = DEFAULT_PITCH
+                                self.CMDS['yaw'] = DEFAULT_YAW
+                        #
+                        # End of KEYS ----------------------------------------------
+                        #
 
                     #
                     # CLIP RC VALUES -------------------------------------------
