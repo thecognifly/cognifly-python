@@ -10,6 +10,7 @@ Control the CogniFly open-source drone remotely from your python script.
   - [Pro API](#pro-api)
   - [School API](#school-api)
   - [Streaming](#streaming)
+- [Troubleshooting](#troubleshooting)
 
 ## Prerequisite
 This readme will guide you through the steps to install and use the `cognifly-python` library on a readily setup CogniFly drone. If your drone is not setup yet, please first follow the [drone setup instructions](/readme/DRONE_SETUP.md).
@@ -256,3 +257,9 @@ cf.streamoff()
 # land:
 cf.land()
 ```
+
+## Troubleshooting
+**Drift**: A slight horizontal drift of less than 1cm/s is to be expected.
+However, if the drone drifts badly, disarm it, move it around and check that the position and velocity estimates make sense.
+- If some estimates remain fixed: the drone is probably not in EST_POS debug mode. Carefully setup the flight controller again, according to the [drone setup instructions](/readme/DRONE_SETUP.md).
+- If some estimates behave crazily: the floor is probably not textured enough. The current iteration of CogniFly uses a cheap optical flow sensor to estimate its location, and this sensor needs a lot of texture on the ground to work properly.

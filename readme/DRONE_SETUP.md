@@ -21,6 +21,7 @@ This will disconnect the flight controller and restart it in DFU mode.
 - open the `CLI` tab and select `load from file`
 - navigate to the cognifly configuration file previously downloaded (`.txt` file)
 - click `execute` and wait for completion
+  - _(NB: check for errors in the logs and ensure the whole .txt has been processed)_
 - enter the following command:
 ```terminal
 save
@@ -54,7 +55,7 @@ The SD card should now have two partitions: `boot` and `rootfs`
 
 - change the name of the drone:
   - edit the `/rootfs/etc/hostname` file
-    - replace the default `raspberrypi` by drone name
+    - replace the default `raspberrypi` by your drone name
   - edit the `/rootfs/etc/hosts` file
     - replace the default `raspberrypi` in the last line by your drone name
 
