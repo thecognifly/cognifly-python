@@ -10,19 +10,16 @@ set -e # exit in case somethings fails
 
 echo "Starting cognifly_controller.py"  # echo the original command
 
-headless=0
-
-echo "hello"
-echo "$headless"
+HEADLESS=false
 
 for i in "$@" ; do
     if [[ $i == "headless" ]] ; then
-        headless=1
+        local HEADLESS=true
         echo "headless mode set"
     fi
 done
 
-if $headless
+if $HEADLESS
 then
   echo "using headless mode"
   python3 -m cognifly controller-headless
