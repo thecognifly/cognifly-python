@@ -726,8 +726,11 @@ class CogniflyController:
                     # end of UDP recv non-blocking -----------------------------
                     #
 
-                    char = screen.getch() if self.print_screen else -1  # get keypress
-                    curses.flushinp()  # flushes buffer
+                    if self.print_screen:
+                        char = screen.getch()  # get keypress
+                        curses.flushinp()  # flushes buffer
+                    else:
+                        char = -1
                     #
                     # KEYS (NO DELAYS) -----------------------------------------
                     #
