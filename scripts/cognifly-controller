@@ -15,12 +15,15 @@ headless=0
 for i in "$@" ; do
     if [[ $i == "headless" ]] ; then
         headless=1
+        echo "headless mode set"
     fi
 done
 
 if $headless
 then
-python3 -m cognifly controller-headless
+  echo "using headless mode"
+  python3 -m cognifly controller-headless
 else
-python3 -m cognifly controller
+  echo "using normal mode"
+  python3 -m cognifly controller
 fi
