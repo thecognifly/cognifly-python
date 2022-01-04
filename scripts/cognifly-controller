@@ -2,7 +2,7 @@
 
 # launch the onboard python controller for the cognifly remote control library
 # usage:
-#   cognifly-controller
+#   cognifly-controller [--headless]
 #
 # special bash strings e.g. `&>>` need to be quoted
 
@@ -10,4 +10,17 @@ set -e # exit in case somethings fails
 
 echo "Starting cognifly_controller.py"  # echo the original command
 
+headless=0
+
+for i in "$@" ; do
+    if [[ $i == "headless" ]] ; then
+        headless=1
+    fi
+done
+
+if $headless
+then
+python3 -m cognifly controller-headless
+else
 python3 -m cognifly controller
+fi
