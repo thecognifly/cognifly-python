@@ -24,6 +24,7 @@ import pickle as pkl
 import numpy as np
 from pathlib import Path
 from yamspy import MSPy
+import logging
 
 from cognifly.utils.udp_interface import UDPInterface
 from cognifly.utils.tcp_video_interface import TCPVideoInterface
@@ -704,6 +705,8 @@ class CogniflyController:
                 last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
                 while True:
                     start_time = time.time()
+
+                    logging.info(f"DEBUG: {time.time()}")
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
