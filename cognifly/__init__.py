@@ -4,7 +4,7 @@ import logging
 
 logfilename = "cognifly.log"
 logfilemode = 'a'
-loglevel = 'DEBUG'
+loglevel = 'INFO'
 
 logging.basicConfig(format="[%(levelname)s] [%(asctime)s]: %(message)s",
                     filename=logfilename,
