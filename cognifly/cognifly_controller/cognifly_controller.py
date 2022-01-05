@@ -157,7 +157,7 @@ class CogniflyController:
             self.udp_int = UDPInterface()
             self.drone_hostname = socket.gethostname() if drone_hostname is None else drone_hostname
             self.drone_ip = socket.gethostbyname(self.drone_hostname) if drone_hostname is not None else extract_ip()
-            if drone_hostname is None and (self.done_ip == '127.0.0.1' or self.done_ip == '0.0.0.0'):
+            if drone_hostname is None and (self.drone_ip == '127.0.0.1' or self.drone_ip == '0.0.0.0'):
                 raise RuntimeError(f"Could not extract drone IP ({self.drone_ip})")
             self.drone_port = drone_port
             self.udp_int.init_receiver(ip=self.drone_ip, port=self.drone_port)
