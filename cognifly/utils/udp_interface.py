@@ -1,5 +1,9 @@
 import socket
 import logging
+import platform
+
+
+WINDOWS = platform.system() == 'Windows'
 
 
 class UDPInterface(object):
@@ -34,9 +38,16 @@ class UDPInterface(object):
         while clean_buffer:
             logging.debug(f"Cleaning receiving buffer...")
             try:
-                self.__sockI.recv(1, socket.MSG_DONTWAIT)
+                if not WINDOWS:
+                    self.__sockI.recv(1, socket.MSG_DONTWAIT)
+                else:
+                    self.__sockI.setblocking(False)
+                    self.__sockI.recv(1)
             except IOError:  # recv raises a error when no data is received
                 clean_buffer = False
+            finally:
+                if WINDOWS:
+                    self.__sockI.setblocking(True)
         logging.debug(f"Cleaning receiving buffer...Done!")
 
     def __del__(self):
@@ -84,9 +95,16 @@ class UDPInterface(object):
         res = []
         while True:
             try:
-                data, _ = self.__sockI.recvfrom(self.__buffersize, socket.MSG_DONTWAIT)
+                if not WINDOWS:
+                    data, _ = self.__sockI.recvfrom(self.__buffersize, socket.MSG_DONTWAIT)
+                else:
+                    self.__sockI.setblocking(False)
+                    data, _ = self.__sockI.recvfrom(self.__buffersize)
             except IOError:
                 return res
+            finally:
+                if WINDOWS:
+                    self.__sockI.setblocking(True)
             res += [data]
 
 
