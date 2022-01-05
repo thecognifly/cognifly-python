@@ -24,7 +24,6 @@ import pickle as pkl
 import numpy as np
 from pathlib import Path
 from yamspy import MSPy
-import logging
 
 from cognifly.utils.udp_interface import UDPInterface
 from cognifly.utils.tcp_video_interface import TCPVideoInterface
@@ -158,6 +157,7 @@ class CogniflyController:
             self.udp_int = UDPInterface()
             self.drone_hostname = socket.gethostname() if drone_hostname is None else drone_hostname
             self.drone_ip = socket.gethostbyname(self.drone_hostname) if drone_hostname is not None else extract_ip()
+            print(f"DEBUG: extracted ip: {self.drone_ip}")
             self.drone_port = drone_port
             self.udp_int.init_receiver(ip=self.drone_ip, port=self.drone_port)
             self.tcp_video_int = TCPVideoInterface()
@@ -705,8 +705,6 @@ class CogniflyController:
                 last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
                 while True:
                     start_time = time.time()
-
-                    logging.info(f"DEBUG: {time.time()}")
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
