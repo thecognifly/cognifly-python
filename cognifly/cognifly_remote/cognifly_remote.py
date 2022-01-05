@@ -193,7 +193,7 @@ class Cognifly:
                     self._lock.release()
                 elif m[0] == "BBT":  # bad battery state
                     with self._batt_lock:
-                        self.__batt_str = "LOW!"
+                        self.__batt_str = f"BAD: {m[1][0]}V"
 
     def __resender_thread(self):
         """
