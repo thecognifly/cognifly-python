@@ -5,14 +5,20 @@ import pickle as pkl
 import logging
 import time
 import numpy as np
+import warnings
 
 from cognifly.utils.udp_interface import UDPInterface
 from cognifly.utils.tcp_video_interface import TCPVideoInterface
-from cognifly.utils.ip_tools import extract_ip
+from cognifly.utils.ip_tools import extract_ip, get_free_port
 from cognifly.utils.functions import clip, get_angle_sequence_rad
+
+
+# global variables
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
+_gui_running_lock = Lock()
+_gui_running = False
 
 
 # Constants for the school easy API
@@ -78,11 +84,15 @@ class Cognifly:
         logger.info(f"drone hostname: {self.drone_hostname} with IP: {self.drone_ip}")
 
         self.udp_int.init_sender(self.drone_ip, self.send_port)
+        free_port = get_free_port(self.recv_port)
+        assert free_port is not None, "No available port!"
+        if free_port != self.recv_port:
+            warnings.warn(f"Port {self.recv_port} is unavailable, trying to communicate on port {free_port} instead.")
+            self.recv_port = free_port
         self.udp_int.init_receiver(self.local_ip, self.recv_port)
 
         self.wait_ack_duration = wait_ack_duration
         self.last_im_id = -1
-
 
         self.easy_api_cur_z = 0.0
         self.time_takeoff = time.time()
@@ -128,6 +138,15 @@ class Cognifly:
         """
         import PySimpleGUI as sg
         import cv2
+
+        global _gui_running_lock
+        with _gui_running_lock:
+            global _gui_running
+            if _gui_running:
+                return
+            else:
+                _gui_running = True
+
         sg.theme('BluePurple')
         layout = [[sg.Text('Battery:'), sg.Text('OK', size=(15, 1), key='-batt-')],
                   [sg.Button('DISARM')],
@@ -145,17 +164,19 @@ class Cognifly:
                     if self.__display:
                         event, values = window.read(0)
                         with self.tcp_video_int.condition_in:
-                            self.tcp_video_int.condition_in.wait()  # wait for new frame
-                            frame, _ = self.tcp_video_int.get_last_image()
-                        if frame is not None:  # should not be None but let's be cautious
-                            imgbytes = cv2.imencode('.png', frame)[1].tobytes()  # ditto
+                            if self.tcp_video_int.condition_in.wait(timeout=0.1):  # wait for new frame
+                                frame, _ = self.tcp_video_int.get_last_image()
+                            else:
+                                frame = None
+                        if frame is not None:
+                            imgbytes = cv2.imencode('.png', frame)[1].tobytes()
                             image_elem.update(data=imgbytes)
                     else:
                         event, values = window.read(200)  # 5 Hz to check change of self.__display
                         image_elem.update(data=b'')
                 if event == 'DISARM':
                     self.disarm()  # thread-safe because the whole self.send procedure uses self._lock
-                if event == sg.WINDOW_CLOSE_ATTEMPTED_EVENT and sg.popup_yes_no('Do you really want to exit?', keep_on_top=True) == 'Yes':
+                if event == sg.WINDOW_CLOSE_ATTEMPTED_EVENT and sg.popup_yes_no('You will not be able to open another GUI.\nDo you really want to exit?', keep_on_top=True) == 'Yes':
                     break
                 with self._batt_lock:
                     batt_elem.update(self.__batt_str)
@@ -742,7 +763,6 @@ class Cognifly:
         self.send(msg_type="ST0")
         time.sleep(1.0)
         self.tcp_video_int.stop_receiver()
-
 
     def get_time(self):
         """

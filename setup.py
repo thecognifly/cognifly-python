@@ -20,7 +20,7 @@ def is_raspberrypi():
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-deps = ['numpy', 'Pillow']
+deps = ['numpy', 'Pillow', 'psutil']
 if is_raspberrypi():  # drone
     deps.append(['picamera', 'yamspy'])
 else:  # remote
