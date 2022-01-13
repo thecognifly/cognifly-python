@@ -17,8 +17,6 @@ from cognifly.utils.functions import clip, get_angle_sequence_rad
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
-_gui_running_lock = Lock()
-_gui_running = False
 
 
 # Constants for the school easy API
@@ -29,6 +27,78 @@ EASY_API_ADDITIONAL_DURATION = 10.0  # (s)
 EASY_API_TAKEOFF_ALTITUDE = 0.5  # should be roughly the same as default takeoff altitude (m)
 EASY_API_MAX_ALTITUDE = 0.9
 EASY_API_MIN_ALTITUDE = 0.35
+
+
+# Global GUI thread (only one GUI is available for all drones)
+
+# _gui_running_lock = Lock()
+# _gui_running = False
+_gui_lock = Lock()
+_gui_thread = None
+_gui_drone = None
+_gui_name = None
+_gui_display = False
+_gui_batt_str = "OK"
+
+
+def _start_gui_thread():
+    """
+    Thread in charge of managing the Graphical User Interface
+    """
+    import PySimpleGUI as sg
+    import cv2
+
+    global _gui_lock
+    with _gui_lock:
+        global _gui_drone
+        global _gui_name
+        global _gui_display
+
+    with _gui_lock:
+        drone = _gui_drone
+        name = _gui_name
+    assert drone is not None
+    assert name is not None
+
+    sg.theme('BluePurple')
+    layout = [[sg.Text('Battery:'), sg.Text('OK', size=(15, 1), key='-batt-')],
+              [sg.Button('DISARM')],
+              [sg.Image(filename='', key='-image-')]]
+    window = sg.Window(name,
+                       layout,
+                       keep_on_top=True,
+                       enable_close_attempted_event=True)
+    image_elem = window['-image-']
+    batt_elem = window['-batt-']
+    try:
+        while True:  # Event Loop
+            # check whether the display is on:
+            with _gui_lock:
+                gui_display = _gui_display
+                drone = _gui_drone
+            if gui_display:
+                event, values = window.read(0)
+                with drone.tcp_video_int.condition_in:
+                    if drone.tcp_video_int.condition_in.wait(timeout=0.1):  # wait for new frame
+                        frame, _ = drone.tcp_video_int.get_last_image()
+                    else:
+                        frame = None
+                if frame is not None:
+                    imgbytes = cv2.imencode('.png', frame)[1].tobytes()
+                    image_elem.update(data=imgbytes)
+            else:
+                event, values = window.read(200)  # 5 Hz to check change of _gui_display
+                image_elem.update(data=b'')
+            if event == 'DISARM':
+                drone.disarm()  # thread-safe because the whole drone.send procedure uses drone._lock
+            if event == sg.WINDOW_CLOSE_ATTEMPTED_EVENT and sg.popup_yes_no(
+                    'You will not be able to open another GUI.\nDo you really want to exit?',
+                    keep_on_top=True) == 'Yes':
+                break
+            with _gui_lock:
+                batt_elem.update(_gui_batt_str)
+    finally:
+        window.close()
 
 
 # Remote controller class
@@ -107,12 +177,6 @@ class Cognifly:
         self.__last_i_obs = 0
         self.__wait_done = False
 
-        self._display_lock = Lock()
-        self.__display = False
-
-        self._batt_lock = Lock()
-        self.__batt_str = "OK"
-
         self._listener_thread = Thread(target=self.__listener_thread)
         self._listener_thread.setDaemon(True)  # thread will be terminated at exit
         self._listener_thread.start()
@@ -125,68 +189,29 @@ class Cognifly:
 
         self.reset()
 
-        if self.gui:
-            self._gui_thread = Thread(target=self.__gui_thread, args=(self.drone_hostname, ))
-            self._gui_thread.setDaemon(True)  # thread will be terminated at exit
-            self._gui_thread.start()
-        else:
-            self._gui_thread = None
+        global _gui_lock
+        with _gui_lock:
+            global _gui_thread
+            global _gui_drone
+            global _gui_name
+            _gui_drone = self
+            _gui_name = self.drone_hostname
+            if self.gui:
+                if _gui_thread is None:
+                    _gui_thread = Thread(target=_start_gui_thread, args=())
+                    _gui_thread.setDaemon(True)  # thread will be terminated at exit
+                    _gui_thread.start()
 
-    def __gui_thread(self, drone_name):
-        """
-        Thread in charge of managing the Graphical User Interface
-        """
-        import PySimpleGUI as sg
-        import cv2
-
-        global _gui_running_lock
-        with _gui_running_lock:
-            global _gui_running
-            if _gui_running:
-                return
-            else:
-                _gui_running = True
-
-        sg.theme('BluePurple')
-        layout = [[sg.Text('Battery:'), sg.Text('OK', size=(15, 1), key='-batt-')],
-                  [sg.Button('DISARM')],
-                  [sg.Image(filename='', key='-image-')]]
-        window = sg.Window(drone_name,
-                           layout,
-                           keep_on_top=True,
-                           enable_close_attempted_event=True)
-        image_elem = window['-image-']
-        batt_elem = window['-batt-']
-        try:
-            while True:  # Event Loop
-                with self._display_lock:
-                    # check whether the display is on:
-                    if self.__display:
-                        event, values = window.read(0)
-                        with self.tcp_video_int.condition_in:
-                            if self.tcp_video_int.condition_in.wait(timeout=0.1):  # wait for new frame
-                                frame, _ = self.tcp_video_int.get_last_image()
-                            else:
-                                frame = None
-                        if frame is not None:
-                            imgbytes = cv2.imencode('.png', frame)[1].tobytes()
-                            image_elem.update(data=imgbytes)
-                    else:
-                        event, values = window.read(200)  # 5 Hz to check change of self.__display
-                        image_elem.update(data=b'')
-                if event == 'DISARM':
-                    self.disarm()  # thread-safe because the whole self.send procedure uses self._lock
-                if event == sg.WINDOW_CLOSE_ATTEMPTED_EVENT and sg.popup_yes_no('You will not be able to open another GUI.\nDo you really want to exit?', keep_on_top=True) == 'Yes':
-                    break
-                with self._batt_lock:
-                    batt_elem.update(self.__batt_str)
-        finally:
-            window.close()
+        self.streamoff()
 
     def __listener_thread(self):
         """
         Thread in charge of receiving UDP messages.
         """
+        global _gui_lock
+        with _gui_lock:
+            global _gui_batt_str
+
         while True:
             mes = self.udp_int.recv()
             for mb in mes:
@@ -213,8 +238,8 @@ class Cognifly:
                         self.__wait_done = False
                     self._lock.release()
                 elif m[0] == "BBT":  # bad battery state
-                    with self._batt_lock:
-                        self.__batt_str = f"BAD: {m[1][0]}V"
+                    with _gui_lock:
+                        _gui_batt_str = f"{m[1][0]}V"
 
     def __resender_thread(self):
         """
@@ -703,7 +728,7 @@ class Cognifly:
 
     # Methods common to both APIs:
 
-    def streamon(self, resolution="VGA", fps=24, display=False, wait_first_frame=True):
+    def streamon(self, resolution="VGA", fps=10, display=False, wait_first_frame=True):
         """
         Starts camera streaming.
         CAUTION: This will slow the frequency of the onboard controller down and may make the drone unstable!
@@ -716,18 +741,28 @@ class Cognifly:
             display: boolean: whether to display the stream in the GUI (requires GUI to be enabled),
             wait_first_frame: boolean: whether to sleep until the first frame is available.
         """
-        self.tcp_video_int.start_receiver(self.recv_port_video, display)
-        time.sleep(1.0) # sleep a bit so the server starts before the drone tries to connect
-        self.send(msg_type="ST1", msg=(self.local_ip, self.recv_port_video, resolution, fps))
-        if wait_first_frame:
-            _ = self.get_frame(wait_new_frame=True)
-        self._display_lock.acquire()
-        self.__display = display
-        self._display_lock.release()
+        global _gui_lock
+        with _gui_lock:
+            global _gui_display
 
-    def stream(self, resolution="VGA", fps=24):
+        if not self.tcp_video_int.is_receiver_running():
+            free_port = get_free_port(self.recv_port_video)
+            assert free_port is not None, "No available port!"
+            if free_port != self.recv_port_video:
+                warnings.warn(f"Port {self.recv_port_video} is unavailable, trying to communicate on port {free_port} instead.")
+                self.recv_port_video = free_port
+            self.tcp_video_int.start_receiver(self.recv_port_video)
+            time.sleep(1.0)  # sleep a bit so the server starts before the drone tries to connect
+            self.send(msg_type="ST1", msg=(self.local_ip, self.recv_port_video, resolution, fps))
+            if wait_first_frame:
+                _ = self.get_frame(wait_new_frame=True)
+            _gui_lock.acquire()
+            _gui_display = display
+            _gui_lock.release()
+
+    def stream(self, resolution="VGA", fps=10):
         """
-        Alias for streamon(resolution, fps=5, display=True)
+        Alias for streamon(resolution, fps=fps, display=True)
         """
         self.streamon(resolution, fps, display=True)
 
@@ -749,6 +784,8 @@ class Cognifly:
             cond = cond1 and time.time() - t_start < timeout
             if cond:
                 time.sleep(sleep_between_trials)
+            else:
+                self.last_im_id = im_id
         if cond1:
             raise TimeoutError("Could not retrieve frame from stream.")
         return im
@@ -757,9 +794,13 @@ class Cognifly:
         """
         Stops camera streaming
         """
-        self._display_lock.acquire()
-        self.__display = False
-        self._display_lock.release()
+        global _gui_lock
+        with _gui_lock:
+            global _gui_display
+
+        _gui_lock.acquire()
+        _gui_display = False
+        _gui_lock.release()
         self.send(msg_type="ST0")
         time.sleep(1.0)
         self.tcp_video_int.stop_receiver()

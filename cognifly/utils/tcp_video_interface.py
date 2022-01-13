@@ -10,6 +10,7 @@ from threading import Thread, Lock, Condition
 from copy import deepcopy
 import numpy as np
 import traceback
+from cognifly.utils.ip_tools import get_free_port
 
 
 class SplitFrames(object):
@@ -199,7 +200,12 @@ class TCPVideoInterface(object):
             with self.__lock:
                 self.__receiver_running = False
 
-    def start_receiver(self, port, display):
+    def is_receiver_running(self):
+        with self.__lock:
+            res = self.__receiver_running
+        return res
+
+    def start_receiver(self, port):
         with self.__lock:
             self.__receive = True
             receiver_running = self.__receiver_running
