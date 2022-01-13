@@ -5,7 +5,6 @@ import pickle as pkl
 import logging
 import time
 import numpy as np
-import warnings
 
 from cognifly.utils.udp_interface import UDPInterface
 from cognifly.utils.tcp_video_interface import TCPVideoInterface
@@ -157,7 +156,7 @@ class Cognifly:
         free_port = get_free_port(self.recv_port)
         assert free_port is not None, "No available port!"
         if free_port != self.recv_port:
-            warnings.warn(f"Port {self.recv_port} is unavailable, trying to communicate on port {free_port} instead.")
+            logger.warning(f"Port {self.recv_port} is unavailable, trying to communicate on port {free_port} instead.")
             self.recv_port = free_port
         self.udp_int.init_receiver(self.local_ip, self.recv_port)
 
@@ -749,7 +748,7 @@ class Cognifly:
             free_port = get_free_port(self.recv_port_video)
             assert free_port is not None, "No available port!"
             if free_port != self.recv_port_video:
-                warnings.warn(f"Port {self.recv_port_video} is unavailable, trying to communicate on port {free_port} instead.")
+                logger.warning(f"Port {self.recv_port_video} is unavailable, trying to communicate on port {free_port} instead.")
                 self.recv_port_video = free_port
             self.tcp_video_int.start_receiver(self.recv_port_video)
             time.sleep(1.0)  # sleep a bit so the server starts before the drone tries to connect
