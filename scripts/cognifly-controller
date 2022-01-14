@@ -3,8 +3,6 @@
 # launch the onboard python controller for the cognifly remote control library
 # usage:
 #   cognifly-controller [--headless]
-#
-# special bash strings e.g. `&>>` need to be quoted
 
 set -e # exit in case somethings fails
 
