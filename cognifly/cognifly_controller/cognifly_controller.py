@@ -695,7 +695,7 @@ class CogniflyController:
                     screen.addstr(17, 0, "boardName: {}".format(board.CONFIG['boardName']))
                     screen.addstr(17, 50, "name: {}".format(board.CONFIG['name']))
 
-                slow_msgs = cycle(['MSP_ANALOG', 'MSP_STATUS_EX', 'MSP_MOTOR', 'MSP_RC'])
+                slow_msgs = cycle(['MSP_ANALOG', 'MSP_MOTOR', 'MSP_STATUS_EX', 'MSP_RC'])
 
                 # send the "drone ready" command to the udp controller:
                 self.voltage = board.ANALOG['voltage']
@@ -859,21 +859,28 @@ class CogniflyController:
 
                         next_msg = next(slow_msgs)  # circular list
 
-                        # Read info from the FC
-                        if board.send_RAW_msg(MSPy.MSPCodes[next_msg], data=[]):
-                            data_handler = board.receive_msg()
-                            board.process_recv_data(data_handler)
-
                         if not self.print_screen:
                             if next_msg == 'MSP_ANALOG':
+                                # Read info from the FC
+                                if board.send_RAW_msg(MSPy.MSPCodes[next_msg], data=[]):
+                                    data_handler = board.receive_msg()
+                                    board.process_recv_data(data_handler)
                                 self.voltage = board.ANALOG['voltage']
                                 self._check_batt_voltage()
                             elif next_msg == 'MSP_STATUS_EX':
+                                # Read info from the FC
+                                if board.send_RAW_msg(MSPy.MSPCodes[next_msg], data=[]):
+                                    data_handler = board.receive_msg()
+                                    board.process_recv_data(data_handler)
                                 self.debug_flags = board.process_armingDisableFlags(board.CONFIG['armingDisableFlags'])
                                 cam_err, cam_exp, cam_trace = self.tcp_video_int.get_camera_error()
                                 if cam_err:
                                     self.debug_flags.append("CAMERA_ERROR")
                         else:  # print screen messages
+                            # Read info from the FC
+                            if board.send_RAW_msg(MSPy.MSPCodes[next_msg], data=[]):
+                                data_handler = board.receive_msg()
+                                board.process_recv_data(data_handler)
                             if next_msg == 'MSP_ANALOG':
                                 self.voltage = board.ANALOG['voltage']
                                 self._check_batt_voltage()
