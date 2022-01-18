@@ -858,12 +858,22 @@ class CogniflyController:
                         last_slow_msg_time = time.time()
 
                         next_msg = next(slow_msgs)  # circular list
-                        if self.print_screen:  # print screen messages
-                            # Read info from the FC
-                            if board.send_RAW_msg(MSPy.MSPCodes[next_msg], data=[]):
-                                data_handler = board.receive_msg()
-                                board.process_recv_data(data_handler)
 
+                        # Read info from the FC
+                        if board.send_RAW_msg(MSPy.MSPCodes[next_msg], data=[]):
+                            data_handler = board.receive_msg()
+                            board.process_recv_data(data_handler)
+
+                        if not self.print_screen:
+                            if next_msg == 'MSP_ANALOG':
+                                self.voltage = board.ANALOG['voltage']
+                                self._check_batt_voltage()
+                            elif next_msg == 'MSP_STATUS_EX':
+                                self.debug_flags = board.process_armingDisableFlags(board.CONFIG['armingDisableFlags'])
+                                cam_err, cam_exp, cam_trace = self.tcp_video_int.get_camera_error()
+                                if cam_err:
+                                    self.debug_flags.append("CAMERA_ERROR")
+                        else:  # print screen messages
                             if next_msg == 'MSP_ANALOG':
                                 self.voltage = board.ANALOG['voltage']
                                 self._check_batt_voltage()
