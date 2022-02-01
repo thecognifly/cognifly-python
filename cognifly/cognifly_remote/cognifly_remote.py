@@ -1,5 +1,7 @@
 from copy import deepcopy
 from threading import Lock, Thread
+from queue import Empty
+import multiprocessing as mp
 import socket
 import pickle as pkl
 import logging
@@ -11,8 +13,6 @@ from cognifly.utils.tcp_video_interface import TCPVideoInterface
 from cognifly.utils.ip_tools import extract_ip, get_free_port
 from cognifly.utils.functions import clip, get_angle_sequence_rad
 
-
-# global variables
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -30,37 +30,24 @@ EASY_API_MIN_ALTITUDE = 0.35
 
 # Global GUI thread (only one GUI is available for all drones)
 
-# _gui_running_lock = Lock()
-# _gui_running = False
-_gui_lock = Lock()
-_gui_thread = None
-_gui_drone = None
-_gui_name = None
-_gui_display = False
-_gui_batt_str = "OK"
 
-
-def _start_gui_thread():
+def _gui_process(name, recv_q, send_q):
     """
-    Thread in charge of managing the Graphical User Interface
+    Process in charge of managing the Graphical User Interface
+
+    This process communicates with the GUI thread of the Cognifly object
+
+    Args:
+        name: str: name of the window
+        recv_q: mutliprocessing.Queue: the process receives tuples of the form ("CMD", value) here
+        send_q: mutliprocessing.Queue: the process sends tuples of the form ("CMD", value) here
     """
     import PySimpleGUI as sg
     import cv2
 
-    global _gui_lock
-    with _gui_lock:
-        global _gui_drone
-        global _gui_name
-        global _gui_display
-
-    with _gui_lock:
-        drone = _gui_drone
-        name = _gui_name
-    assert drone is not None
-    assert name is not None
-
     sg.theme('BluePurple')
     layout = [[sg.Text('Battery:'), sg.Text('OK', size=(15, 1), key='-batt-')],
+              [sg.Text('Debug:'), sg.Text('-', size=(15, 1), key='-debug-')],
               [sg.Button('DISARM')],
               [sg.Image(filename='', key='-image-')]]
     window = sg.Window(name,
@@ -69,34 +56,57 @@ def _start_gui_thread():
                        enable_close_attempted_event=True)
     image_elem = window['-image-']
     batt_elem = window['-batt-']
+    debug_elem = window['-debug-']
+
     try:
         while True:  # Event Loop
-            # check whether the display is on:
-            with _gui_lock:
-                gui_display = _gui_display
-                drone = _gui_drone
-            if gui_display:
-                event, values = window.read(0)
-                with drone.tcp_video_int.condition_in:
-                    if drone.tcp_video_int.condition_in.wait(timeout=0.1):  # wait for new frame
-                        frame, _ = drone.tcp_video_int.get_last_image()
-                    else:
-                        frame = None
-                if frame is not None:
-                    imgbytes = cv2.imencode('.png', frame)[1].tobytes()
-                    image_elem.update(data=imgbytes)
-            else:
-                event, values = window.read(200)  # 5 Hz to check change of _gui_display
-                image_elem.update(data=b'')
-            if event == 'DISARM':
-                drone.disarm()  # thread-safe because the whole drone.send procedure uses drone._lock
-            if event == sg.WINDOW_CLOSE_ATTEMPTED_EVENT and sg.popup_yes_no(
+            # when nothing has been happened, we sleep for a while at the end of the loop:
+            no_window_event = False
+            no_read_event = False
+
+            # check window events:
+            event, values = window.read(0)
+            if event == 'DISARM':  # disarm button pressed
+                send_q.put(('ARM', False))
+            elif event == sg.WINDOW_CLOSE_ATTEMPTED_EVENT and sg.popup_yes_no(
                     'You will not be able to open another GUI.\nDo you really want to exit?',
                     keep_on_top=True) == 'Yes':
+                send_q.put(('CLOSE', None))
                 break
-            with _gui_lock:
-                batt_elem.update(_gui_batt_str)
+            else:
+                no_window_event = True
+
+            # check recv_q:
+            try:
+                cmd, val = recv_q.get_nowait()
+            except Empty:
+                cmd, val = None, None
+                no_read_event = True
+
+            if cmd is not None:
+                if cmd == 'IMG':
+                    if val is None:  # stop display
+                        image_elem.update(data=b'')
+                    else:  # display frame
+                        frame, t = val
+                        debug_elem.update(f"{time.time() - t}")
+                        imgbytes = cv2.imencode('.png', frame)[1].tobytes()
+                        image_elem.update(data=imgbytes)
+                elif cmd == 'BAT':  # batt str value
+                    batt_str = val
+                    batt_elem.update(batt_str)
+
+            if no_window_event and no_read_event:
+                time.sleep(0.05)
     finally:
+        # wait for closing acknowledgement:
+        while True:
+            try:
+                cmd, _ = recv_q.get(block=True, timeout=0.1)
+            except Empty:
+                break
+            if cmd == "CLOSE_ACK":
+                break
         window.close()
 
 
@@ -188,29 +198,95 @@ class Cognifly:
 
         self.reset()
 
-        global _gui_lock
-        with _gui_lock:
-            global _gui_thread
-            global _gui_drone
-            global _gui_name
-            _gui_drone = self
-            _gui_name = self.drone_hostname
+        self._gui_lock = Lock()
+        self._gui_display = False
+        self._gui_batt_str = "OK"
+        self._gui_process = None
+
+        with self._gui_lock:
             if self.gui:
-                if _gui_thread is None:
-                    _gui_thread = Thread(target=_start_gui_thread, args=())
-                    _gui_thread.setDaemon(True)  # thread will be terminated at exit
-                    _gui_thread.start()
+                _gui_thread = Thread(target=self.__gui_thread, args=(self.drone_hostname, ))
+                _gui_thread.setDaemon(True)  # thread will be terminated at exit
+                _gui_thread.start()
 
         self.streamoff()
+
+    def __exit__(self):
+        if self._gui_process is not None:
+            self._gui_process.kill()
+
+    def __gui_thread(self, gui_name):
+        """
+        Thread in charge of managing the Graphical User Interface
+
+        This thread sends to and receives from the GUI process
+
+        Args:
+            gui_name: str: the name of the GUI window
+        """
+        mp_ctx = mp.get_context('spawn')  # to ensure the 'spawn' context is used on Linux
+        send_q = mp_ctx.Queue()  # recv_q of the process
+        recv_q = mp_ctx.Queue()  # send_q of the process
+        with self._gui_lock:
+            self._gui_process = mp_ctx.Process(target=_gui_process, args=(gui_name, send_q, recv_q))
+            self._gui_process.start()
+        is_displaying = False
+        previous_batt_str = "OK"
+        while True:
+            send_event = False
+            recv_event = False
+            # commands from the process:
+            try:
+                cmd, val = recv_q.get_nowait()
+            except Empty:
+                cmd, val = None, None
+            if cmd is not None:
+                recv_event = True
+                if cmd == 'ARM':
+                    if not val:
+                        self.disarm()
+                    else:
+                        self.arm()
+                elif cmd == "CLOSE":
+                    send_q.put(('CLOSE_ACK', None))
+                    with self._gui_lock:
+                        self._gui_process.join()  # wait for process end before we close the thread
+                    break
+            # display:
+            with self._gui_lock:
+                gui_display = self._gui_display
+            if gui_display:
+                send_event = True  # we don't want to wait if display is on, since there is a blocking call
+                is_displaying = True
+                with self.tcp_video_int.condition_in:
+                    if self.tcp_video_int.condition_in.wait(timeout=0.1):  # wait for new frame
+                        frame, _ = self.tcp_video_int.get_last_image()
+                    else:
+                        frame = None
+                if frame is not None:
+                    send_q.put(('IMG', (frame, time.time())))
+            elif is_displaying:
+                send_q.put(('IMG', None))
+                send_event = True
+                is_displaying = False
+            # battery:
+            with self._gui_lock:
+                batt_str = self._gui_batt_str
+            if batt_str != previous_batt_str:
+                send_q.put(('BAT', batt_str))
+                send_event = True
+                previous_batt_str = batt_str
+            # sleep if nothing has occurred:
+            if not send_event and not recv_event:
+                time.sleep(0.1)
+        # close the communication channels:
+        send_q.close()
+        recv_q.close()
 
     def __listener_thread(self):
         """
         Thread in charge of receiving UDP messages.
         """
-        global _gui_lock
-        with _gui_lock:
-            global _gui_batt_str
-
         while True:
             mes = self.udp_int.recv()
             for mb in mes:
@@ -237,8 +313,8 @@ class Cognifly:
                         self.__wait_done = False
                     self._lock.release()
                 elif m[0] == "BBT":  # bad battery state
-                    with _gui_lock:
-                        _gui_batt_str = f"{m[1][0]}V"
+                    with self._gui_lock:
+                        self._gui_batt_str = f"{m[1][0]}V"
 
     def __resender_thread(self):
         """
@@ -740,10 +816,6 @@ class Cognifly:
             display: boolean: whether to display the stream in the GUI (requires GUI to be enabled),
             wait_first_frame: boolean: whether to sleep until the first frame is available.
         """
-        global _gui_lock
-        with _gui_lock:
-            global _gui_display
-
         if not self.tcp_video_int.is_receiver_running():
             free_port = get_free_port(self.recv_port_video)
             assert free_port is not None, "No available port!"
@@ -755,9 +827,9 @@ class Cognifly:
             self.send(msg_type="ST1", msg=(self.local_ip, self.recv_port_video, resolution, fps))
             if wait_first_frame:
                 _ = self.get_frame(wait_new_frame=True)
-            _gui_lock.acquire()
-            _gui_display = display
-            _gui_lock.release()
+            self._gui_lock.acquire()
+            self._gui_display = display
+            self._gui_lock.release()
 
     def stream(self, resolution="VGA", fps=10):
         """
@@ -793,13 +865,9 @@ class Cognifly:
         """
         Stops camera streaming
         """
-        global _gui_lock
-        with _gui_lock:
-            global _gui_display
-
-        _gui_lock.acquire()
-        _gui_display = False
-        _gui_lock.release()
+        self._gui_lock.acquire()
+        self._gui_display = False
+        self._gui_lock.release()
         self.send(msg_type="ST0")
         time.sleep(1.0)
         self.tcp_video_int.stop_receiver()
@@ -904,17 +972,3 @@ class Cognifly:
         """
         v_x, v_y, v_z = self.get_velocity()
         return np.linalg.norm([v_x, v_y, v_z])
-
-
-if __name__ == '__main__':
-    pass
-
-    cf = Cognifly(drone_hostname="moderna.local")
-
-    cf.streamon(fps=30)
-
-    time.sleep(120.0)
-
-    cf.streamoff()
-
-    time.sleep(10.0)
