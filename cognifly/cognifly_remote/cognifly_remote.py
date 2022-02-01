@@ -47,7 +47,6 @@ def _gui_process(name, recv_q, send_q):
 
     sg.theme('BluePurple')
     layout = [[sg.Text('Battery:'), sg.Text('OK', size=(15, 1), key='-batt-')],
-              [sg.Text('Debug:'), sg.Text('-', size=(15, 1), key='-debug-')],
               [sg.Button('DISARM')],
               [sg.Image(filename='', key='-image-')]]
     window = sg.Window(name,
@@ -56,7 +55,6 @@ def _gui_process(name, recv_q, send_q):
                        enable_close_attempted_event=True)
     image_elem = window['-image-']
     batt_elem = window['-batt-']
-    debug_elem = window['-debug-']
 
     try:
         while True:  # Event Loop
@@ -88,8 +86,7 @@ def _gui_process(name, recv_q, send_q):
                     if val is None:  # stop display
                         image_elem.update(data=b'')
                     else:  # display frame
-                        frame, t = val
-                        debug_elem.update(f"{time.time() - t}")
+                        frame = val
                         imgbytes = cv2.imencode('.png', frame)[1].tobytes()
                         image_elem.update(data=imgbytes)
                 elif cmd == 'BAT':  # batt str value
@@ -186,6 +183,11 @@ class Cognifly:
         self.__last_i_obs = 0
         self.__wait_done = False
 
+        self._gui_lock = Lock()
+        self._gui_display = False
+        self._gui_batt_str = "OK"
+        self._gui_process = None
+
         self._listener_thread = Thread(target=self.__listener_thread)
         self._listener_thread.setDaemon(True)  # thread will be terminated at exit
         self._listener_thread.start()
@@ -198,11 +200,6 @@ class Cognifly:
 
         self.reset()
 
-        self._gui_lock = Lock()
-        self._gui_display = False
-        self._gui_batt_str = "OK"
-        self._gui_process = None
-
         with self._gui_lock:
             if self.gui:
                 _gui_thread = Thread(target=self.__gui_thread, args=(self.drone_hostname, ))
@@ -210,10 +207,6 @@ class Cognifly:
                 _gui_thread.start()
 
         self.streamoff()
-
-    def __exit__(self):
-        if self._gui_process is not None:
-            self._gui_process.kill()
 
     def __gui_thread(self, gui_name):
         """
@@ -264,7 +257,7 @@ class Cognifly:
                     else:
                         frame = None
                 if frame is not None:
-                    send_q.put(('IMG', (frame, time.time())))
+                    send_q.put(('IMG', frame))
             elif is_displaying:
                 send_q.put(('IMG', None))
                 send_event = True
