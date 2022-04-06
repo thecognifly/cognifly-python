@@ -7,10 +7,10 @@ Copyright (C) 2021 Yann Bouteiller, Ricardo de Azambuja
 """
 
 __author__ = "Yann Bouteiller, Ricardo de Azambuja"
-__copyright__ = "Copyright 2021, MISTLab.ca"
+__copyright__ = "Copyright 2022, MISTLab.ca"
 __credits__ = [""]
 __license__ = "MIT"
-__version__ = "0.0.1"
+__version__ = "0.1.2"
 __maintainer__ = "Yann Bouteiller"
 __email__ = ""
 __status__ = "Development"
