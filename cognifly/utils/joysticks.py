@@ -4,10 +4,8 @@ import os
 import struct
 import array
 from fcntl import ioctl
-
-# We'll store the states here.
-axis_states = {}
-button_states = {}
+import warnings
+from threading import Thread
 
 # These constants were borrowed from linux/input.h
 axis_names = {
@@ -81,72 +79,102 @@ button_names = {
     0x2c3: 'dpad_down',
 }
 
-axis_map = []
-button_map = []
 
-# Open the joystick device.
-fn = '/dev/input/js0'
-print('Opening %s...' % fn)
-jsdev = open(fn, 'rb')
+class PS4Gamepad:
+    def __init__(self):
+        # We'll store the states here.
+        self.axis_states = {}
+        self.button_states = {}
+        self.axis_map = []
+        self.button_map = []
+        self.fn = '/dev/input/js0'
+        self.jsdev = self.get_gamepad()
+        if self.jsdev is not None:
+            self._connection()
+        else:
+            self._disconnection()
 
-# Get the device name.
-#buf = bytearray(63)
-buf = array.array('B', [0] * 64)
-ioctl(jsdev, 0x80006a13 + (0x10000 * len(buf)), buf) # JSIOCGNAME(len)
-js_name = buf.tobytes().rstrip(b'\x00').decode('utf-8')
-print('Device name: %s' % js_name)
+    def _connection(self):
+        try:
+            # Get the device name.
+            # buf = bytearray(63)
+            buf = array.array('B', [0] * 64)
+            ioctl(self.jsdev, 0x80006a13 + (0x10000 * len(buf)), buf)  # JSIOCGNAME(len)
+            self.js_name = buf.tobytes().rstrip(b'\x00').decode('utf-8')
 
-# Get number of axes and buttons.
-buf = array.array('B', [0])
-ioctl(jsdev, 0x80016a11, buf) # JSIOCGAXES
-num_axes = buf[0]
+            # Get number of axes and buttons.
+            buf = array.array('B', [0])
+            ioctl(self.jsdev, 0x80016a11, buf)  # JSIOCGAXES
+            self.num_axes = buf[0]
 
-buf = array.array('B', [0])
-ioctl(jsdev, 0x80016a12, buf) # JSIOCGBUTTONS
-num_buttons = buf[0]
+            buf = array.array('B', [0])
+            ioctl(self.jsdev, 0x80016a12, buf)  # JSIOCGBUTTONS
+            self.num_buttons = buf[0]
 
-# Get the axis map.
-buf = array.array('B', [0] * 0x40)
-ioctl(jsdev, 0x80406a32, buf) # JSIOCGAXMAP
+            # Get the axis map.
+            buf = array.array('B', [0] * 0x40)
+            ioctl(self.jsdev, 0x80406a32, buf)  # JSIOCGAXMAP
 
-for axis in buf[:num_axes]:
-    axis_name = axis_names.get(axis, 'unknown(0x%02x)' % axis)
-    axis_map.append(axis_name)
-    axis_states[axis_name] = 0.0
+            for axis in buf[:num_axes]:
+                axis_name = axis_names.get(axis, 'unknown(0x%02x)' % axis)
+                self.axis_map.append(axis_name)
+                self.axis_states[axis_name] = 0.0
 
-# Get the button map.
-buf = array.array('H', [0] * 200)
-ioctl(jsdev, 0x80406a34, buf) # JSIOCGBTNMAP
+            # Get the button map.
+            buf = array.array('H', [0] * 200)
+            ioctl(self.jsdev, 0x80406a34, buf)  # JSIOCGBTNMAP
 
-for btn in buf[:num_buttons]:
-    btn_name = button_names.get(btn, 'unknown(0x%03x)' % btn)
-    button_map.append(btn_name)
-    button_states[btn_name] = 0
+            for btn in buf[:self.num_buttons]:
+                btn_name = button_names.get(btn, 'unknown(0x%03x)' % btn)
+                self.button_map.append(btn_name)
+                self.button_states[btn_name] = 0
 
-print('%d axes found: %s' % (num_axes, ', '.join(axis_map)))
-print('%d buttons found: %s' % (num_buttons, ', '.join(button_map)))
+        except Exception as e:
+            self._disconnection()
 
-# Main event loop
-while True:
-    evbuf = jsdev.read(8)
-    if evbuf:
-        time, value, type, number = struct.unpack('IhBB', evbuf)
+    def _disconnection(self):
+        self.axis_states = {}
+        self.button_states = {}
+        self.js_name = None
+        self.num_axes = None
+        self.num_buttons = None
+        self.axis_map = []
+        self.button_map = []
+        self.jsdev = None
 
-        if type & 0x80:
-             print("(initial)", end="")
+    def _get_gamepad(self):
+        try:
+            js = open(self.fn, 'rb')
+        except Exception as e:
+            js = None
+        return js
 
-        if type & 0x01:
-            button = button_map[number]
-            if button:
-                button_states[button] = value
-                if value:
-                    print("%s pressed" % (button))
-                else:
-                    print("%s released" % (button))
+    def main_loop(self):
+        # Main event loop
+        while True:
+            evbuf = self.jsdev.read(8)
+            if evbuf:
+                time, value, type, number = struct.unpack('IhBB', evbuf)
 
-        if type & 0x02:
-            axis = axis_map[number]
-            if axis:
-                fvalue = value / 32767.0
-                axis_states[axis] = fvalue
-                print("%s: %.3f" % (axis, fvalue))
+                if type & 0x80:
+                     print("(initial)", end="")
+
+                if type & 0x01:
+                    button = self.button_map[number]
+                    if button:
+                        self.button_states[button] = value
+                        if value:
+                            print("%s pressed" % (button))
+                        else:
+                            print("%s released" % (button))
+
+                if type & 0x02:
+                    axis = self.axis_map[number]
+                    if axis:
+                        fvalue = value / 32767.0
+                        self.axis_states[axis] = fvalue
+                        print("%s: %.3f" % (axis, fvalue))
+
+
+g = PS4Gamepad()
+g.main_loop()
