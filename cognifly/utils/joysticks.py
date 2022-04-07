@@ -88,7 +88,7 @@ class PS4Gamepad:
         self.axis_map = []
         self.button_map = []
         self.fn = '/dev/input/js0'
-        self.jsdev = self.get_gamepad()
+        self.jsdev = self._get_gamepad()
         if self.jsdev is not None:
             self._connection()
         else:
