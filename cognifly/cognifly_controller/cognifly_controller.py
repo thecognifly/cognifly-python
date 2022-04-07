@@ -24,6 +24,8 @@ import pickle as pkl
 import numpy as np
 from pathlib import Path
 from yamspy import MSPy
+import evdev
+import warnings
 
 from cognifly.utils.udp_interface import UDPInterface
 from cognifly.utils.tcp_video_interface import TCPVideoInterface
@@ -109,6 +111,238 @@ BATT_TOO_LOW = 3
 
 EPSILON_DIST_TO_TARGET = 0.05  # (m)
 EPSILON_ANGLE_TO_TARGET = 1 * np.pi / 180.0  # (rad)
+
+
+def joystick_to_rpy(value, deadband, default_cmd, min_cmd, max_cmd):
+    if abs(value - 127) <= deadband / 2:
+        return default_cmd
+    start = min_cmd
+    amp_cmd = max_cmd - min_cmd
+    amp_val = 255
+    return start + amp_cmd * value / amp_val
+
+
+def joystick_to_pitch(value, deadband=10):
+    return joystick_to_rpy(value, deadband, DEFAULT_PITCH, MIN_CMD_PITCH, MAX_CMD_PITCH)
+
+
+def joystick_to_roll(value, deadband=10):
+    return joystick_to_rpy(value, deadband, DEFAULT_ROLL, MIN_CMD_ROLL, MAX_CMD_ROLL)
+
+
+def joystick_to_yaw(value, deadband=10):
+    return joystick_to_rpy(value, deadband, DEFAULT_YAW, MIN_CMD_YAW, MAX_CMD_YAW)
+
+
+def trigger_to_positive_dz(value, last_z, last_ts, deadband=10):
+    pass
+
+
+class PS4GamepadManager:
+    def __init__(self, device_path="/dev/input/event2", timeout=0.2, deadband=10):
+        self._device_path = device_path
+        self._connected = False
+        self.override_udp = False
+        self._flag_emergency = False
+        self.timeout = timeout
+        self._ts = time.time()
+        self.deadband = deadband
+
+    def is_connected(self):
+        return self._device_path in evdev.list_devices()
+
+    def _disconnection(self, clean=False):
+        self._connected = False
+        self.override_udp = False
+        self.gamepad = None
+        if not clean:
+            self._flag_emergency = True  # trigger emergency behavior on unexpected disconnection
+
+    def _connection(self):
+        self._connected = True
+        self.override_udp = True  # on connection, override UDP
+        try:
+            self.gamepad = InputDevice(self._device_path)
+        except Exception as e:  # we don't want unhandled exceptions: we default to not connected
+            warnings.warn(f"caught exception {e} while trying to connect to the gamepad, disconnecting...")
+            self._disconnection()
+
+    def update(self):
+        conn = self.is_connected()
+        if not conn:  # not connected
+            if self._connected:  # the device got disconnected
+                self._disconnection()
+        else:  # connected
+            if not self._connected:  # the device got connected
+                self._connection()
+
+    def get(self, CMDS):
+        """
+        Args:
+            CMDS: the FC commands
+        Returns:
+            CMDS: modified FC commands
+            emergency: whether to trigger the emergency behavior
+            valid: whether the modified commands should be used to override UDP commands
+        """
+        emergency = False
+        self.update()
+
+        # read commands:
+        if self.gamepad is not None:
+            try:
+                ts = time.time()
+                if ts - self._ts > self.timeout:  # heartbeat timeout, trigger emergency behavior
+                    self._disconnection()
+                else:
+                    events = self.gamepad.read()
+                    for event in events:
+                        self._ts = ts  # event received: update heartbeat timestep
+
+                        if event.type == 3:  # EV_ABS
+                            if event.code == 3:  # ABS_RX: yaw
+                                CMDS['yaw'] = 1000 + 1000 * event.value / 255  # LEFT left / right
+
+                                # the test below allows us to keep controlling stuff using joystick
+                                # even when the autonomous mode is enabled if the input was not selected
+                                if ('roll' not in self.autonomous_inputs_enabled) or not autonomous:
+                                    # LEFT / RIGHT: code 00 val from 0 (left) to 255 (right)
+                                    if ((255 / 2 + 30) < event.value) or (event.value < (255 / 2 - 30)):
+                                        local_CMDS['roll'] = 1000 + 1000 * event.value / 255  # RIGHT left / right
+                                    else:
+                                        local_CMDS['roll'] = 1500
+                            elif event.code == 4:
+                                if ('pitch' not in self.autonomous_inputs_enabled) or not autonomous:
+                                    # UP / DOWN: code 04 val from 255 (down) to 0 (up)
+                                    if ((255 / 2 + 30) < event.value) or (event.value < (255 / 2 - 30)):
+                                        local_CMDS['pitch'] = 1000 + 1000 * (255 - event.value) / 255  # RIGHT up / down
+                                    else:
+                                        local_CMDS['pitch'] = 1500
+                            elif event.code == 1:
+                                if ('throttle' not in self.autonomous_inputs_enabled) or not autonomous:
+                                    # UP / DOWN: code 01 val from 255 (down) to 0 (up)
+                                    if ((255 / 2 + 10) < event.value) or (event.value < (255 / 2 - 10)):
+                                        local_CMDS['throttle'] = 1000 + 1000 * (255 - event.value) / 255
+                                    else:
+                                        local_CMDS['throttle'] = 1500
+                            elif event.code == 0:
+                                if ('yaw' not in self.autonomous_inputs_enabled) or not autonomous:
+                                    if not headfree:
+                                        if ((255 / 2 + 30) < event.value) or (event.value < (255 / 2 - 30)):
+                                            # LEFT / RIGHT: code 00 val from 0 (left) to 255 (right)
+                                            local_CMDS['yaw'] = 1000 + 1000 * event.value / 255  # LEFT left / right
+                                        else:
+                                            local_CMDS['yaw'] = 1500
+                            # Both, L2 and R2 need to be fully pressed to reboot
+                            elif event.code == 2:  # L2 - FULLY PRESSED => REBOOT
+                                if event.value > 250:
+                                    joystick_reboot_event_trigger[0] = True
+                                else:
+                                    joystick_reboot_event_trigger[0] = False
+                            elif event.code == 5:  # R2 - FULLY PRESSED => REBOOT
+                                if event.value > 250:
+                                    joystick_reboot_event_trigger[1] = True
+                                else:
+                                    joystick_reboot_event_trigger[1] = False
+
+                            # event.code == 17 is the digital up / down
+                            # when it's pressed down: event.value == 1
+                            #                   up  : event.value == -1
+                            #           not pressed : event.value == 0
+                            # It could be used to indicate take off / landing
+
+                        if event.type == 1:
+                            if event.value == 1:
+                                if event.code == 311:
+                                    local_CMDS['CH5'] = 1000  # R1 - DISARM
+                                    autonomous = False
+                                    print(">" * self.NofCHEV + "MANUAL MODE...")
+                                    print(">" * self.NofCHEV + "DISarming... {:0.2f}V".format(self.mean_batt_voltage))
+                                    print(">" * self.NofCHEV + "RUN TIME: ", (time.time() - arm_time))
+                                    dev.write(local_ecodes_EV_FF, self.effect_id, 2)  # vibration
+                                    # TODO: ideally MSP_STATUS_EX should be received to confirm
+                                    # the drone actually DISarmed...
+                                elif event.code == 310:
+                                    # if local_CMDS['throttle']<=1000:
+                                    local_CMDS['CH5'] = 1900  # L1 - ARM
+                                    print(">" * self.NofCHEV + "ARMing... ")
+                                    arm_time = time.time()
+                                    dev.write(local_ecodes_EV_FF, self.effect_id, 1)  # vibration
+                                    # TODO: ideally MSP_STATUS_EX should be received to confirm
+                                    # the drone actually armed...
+                                    # else:
+                                    #     dev.write(local_ecodes_EV_FF, self.effect_id, 5) # vibration
+                                    #     print(">"*self.NofCHEV + "Throttle too high ({}) for arming!!!".format(local_CMDS['throttle']))
+                                elif event.code == 307:
+                                    local_CMDS['CH6'] = 1000  # TRIANGLE - ANGLE MODE
+                                    print(">" * self.NofCHEV + "ANGLE MODE... ")
+                                    dev.write(local_ecodes_EV_FF, self.effect_id, 1)  # vibration
+                                elif event.code == 304:
+                                    local_CMDS['CH6'] = 1500  # CROSS - NAV_ALTHOLD MODE
+                                    print(">" * self.NofCHEV + "NAV_ALTHOLD MODE... ")
+                                    dev.write(local_ecodes_EV_FF, self.effect_id, 1)  # vibration
+                                elif event.code == 308:  # SQUARE - HEADING HOLD
+                                    # HEADING HOLD will turn off yaw reading from joystick
+                                    # and turn on FC's headfree mode.
+                                    if not headfree:
+                                        local_CMDS['CH8'] = 1900  # HEADING HOLD ON
+                                        print(">" * self.NofCHEV + "HEADING HOLD ON... ")
+                                        headfree = True
+                                        local_CMDS['yaw'] = self.CMDS_init['yaw']
+                                        dev.write(local_ecodes_EV_FF, self.effect_id, 1)  # vibration
+                                    else:
+                                        local_CMDS['CH8'] = 1000  # HEADING HOLD OFF
+                                        print(">" * self.NofCHEV + "HEADING HOLD OFF... ")
+                                        headfree = False
+                                        dev.write(local_ecodes_EV_FF, self.effect_id, 2)  # vibration
+                                elif event.code == 315:
+                                    local_CMDS['CH6'] = 1900  # options button - NAV_POSHOLD MODE
+                                    print(">" * self.NofCHEV + "NAV_POSHOLD MODE... ")
+                                    dev.write(local_ecodes_EV_FF, self.effect_id, 1)  # vibration
+                                elif event.code == 314:
+                                    if not failsafe:
+                                        local_CMDS['CH7'] = 1900  # share button - FAILSAFE
+                                        print(">" * self.NofCHEV + "FAILSAFE ON... ")
+                                        failsafe = True
+                                        dev.write(local_ecodes_EV_FF, self.effect_id, 1)  # vibration
+                                    else:
+                                        local_CMDS['CH7'] = 1000  # share button - FAILSAFE
+                                        print(">" * self.NofCHEV + "FAILSAFE OFF... ")
+                                        failsafe = False
+                                        dev.write(local_ecodes_EV_FF, self.effect_id, 2)  # vibration
+                                elif event.code == 305:  # CIRCLE - AUTONOMOUS MODE
+                                    if not autonomous:
+                                        autonomous = True
+                                        # Indicates to the external controller
+                                        # autonomous mode is ON by sending True
+                                        ext_contr_pipe.send(True)
+                                        print(">" * self.NofCHEV + "AUTONOMOUS MODE...")
+                                        dev.write(local_ecodes_EV_FF, self.effect_id, 5)  # vibrate for 5s here
+                                    else:
+                                        autonomous = False
+                                        # Indicates to the external controller
+                                        # autonomous mode is OFF by sending False
+                                        ext_contr_pipe.send(False)
+                                        local_CMDS['roll'] = self.CMDS_init['roll']
+                                        local_CMDS['pitch'] = self.CMDS_init['pitch']
+                                        local_CMDS['throttle'] = self.CMDS_init['throttle']
+                                        local_CMDS['yaw'] = self.CMDS_init['yaw']
+                                        print(">" * self.NofCHEV + "MANUAL MODE...")
+                                        dev.write(local_ecodes_EV_FF, self.effect_id, 1)  # vibrate only for 1s here
+
+
+
+            except BlockingIOError as e:
+                pass  # no event received
+            except Exception as e:  # not unhandled exceptions
+                warnings.warn(
+                    f"Caught exception {e} while trying to retrieve events from the gamepad, disconnecting...")
+                self._disconnection()
+
+        if self._flag_emergency:  # emergency behavior
+            emergency = True
+            self._flag_emergency = False
+        return CMDS, emergency, self.override_udp
 
 
 class SignalTracer:
