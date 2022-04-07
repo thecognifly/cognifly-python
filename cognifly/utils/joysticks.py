@@ -130,6 +130,7 @@ class PS4Gamepad:
                 self.button_states[btn_name] = 0
 
         except Exception as e:
+            print(f"exception {e}")
             self._disconnection()
 
     def _disconnection(self):
