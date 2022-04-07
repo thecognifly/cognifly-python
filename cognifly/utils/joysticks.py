@@ -115,7 +115,7 @@ class PS4Gamepad:
             buf = array.array('B', [0] * 0x40)
             ioctl(self.jsdev, 0x80406a32, buf)  # JSIOCGAXMAP
 
-            for axis in buf[:num_axes]:
+            for axis in buf[:self.num_axes]:
                 axis_name = axis_names.get(axis, 'unknown(0x%02x)' % axis)
                 self.axis_map.append(axis_name)
                 self.axis_states[axis_name] = 0.0
@@ -130,7 +130,7 @@ class PS4Gamepad:
                 self.button_states[btn_name] = 0
 
         except Exception as e:
-            print(f"exception {e}")
+            warnings.warn(f"caught exception {str(e)}")
             self._disconnection()
 
     def _disconnection(self):
