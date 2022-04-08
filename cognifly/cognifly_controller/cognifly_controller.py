@@ -158,7 +158,6 @@ def trigger_to_negative_vz(value, deadband=0.05):
 class PS4GamepadManager:
     def __init__(self, device_path="/dev/input/event2", deadband=0.05):
         self._device_path = device_path
-        self.timeout = timeout
         self.deadband = deadband
         self.gamepad = PS4Gamepad()
         self.connected, _, _ = self.gamepad.get()
@@ -209,13 +208,13 @@ class PS4GamepadManager:
             elif a == 1:
                 CMDS['aux1'] = DISARMED
             
-            CMDS['pitch'] = joystick_to_pitch(ax)
-            CMDS['roll'] = joystick_to_roll(ay)
-            CMDS['yaw'] = joystick_to_yaw(arx)
+            CMDS['pitch'] = joystick_to_pitch(ax, deadband=self.deadband)
+            CMDS['roll'] = joystick_to_roll(ay, deadband=self.deadband)
+            CMDS['yaw'] = joystick_to_yaw(arx, deadband=self.deadband)
 
             vz = 0
-            vz += trigger_to_positive_vz(az)
-            vz += trigger_to_negative_vz(arz)
+            vz += trigger_to_positive_vz(az, deadband=self.deadband)
+            vz += trigger_to_negative_vz(arz, deadband=self.deadband)
             ts = time.time()
             CMDS['throttle'] += vz * (ts - self.ts)
             self.ts = ts
