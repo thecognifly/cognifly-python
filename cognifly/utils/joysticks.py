@@ -156,6 +156,7 @@ class PS4Gamepad:
             except Exception as e:
                 js = None
         else:
+            print(f"DEBUG: {self.fn} is not a file")
             js = None
         return js
 
@@ -194,7 +195,9 @@ class PS4Gamepad:
         if not connected:
             self._jsdev = self._get_gamepad()
             if self._jsdev is not None:
+                print(f"DEBUG: connection attempt")
                 connected = self._connection()
+        print(f"DEBUG: connected: {connected}")
         return connected
 
     def get(self):
