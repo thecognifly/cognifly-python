@@ -827,7 +827,7 @@ class CogniflyController:
                     # Gamepad commands are overridden by key presses
                     #
 
-                    CMDS, emergency, valid = self.gamepad_manager.get(CMDS)
+                    self.CMDS, emergency, valid = self.gamepad_manager.get(self.CMDS)
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
