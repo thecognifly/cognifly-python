@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def clip(x, min_x, max_x):
     """
     clips x between min_x and max_x
