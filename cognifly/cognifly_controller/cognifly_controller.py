@@ -213,8 +213,8 @@ class PS4GamepadManager:
             elif haty == 1:
                 CMDS['throttle'] = LAND
             
-            CMDS['pitch'] = joystick_to_pitch(ax, deadband=self.deadband)
-            CMDS['roll'] = joystick_to_roll(ay, deadband=self.deadband)
+            CMDS['pitch'] = joystick_to_pitch(- ay, deadband=self.deadband)
+            CMDS['roll'] = joystick_to_roll(ax, deadband=self.deadband)
             CMDS['yaw'] = joystick_to_yaw(arx, deadband=self.deadband)
 
             vz = 0
