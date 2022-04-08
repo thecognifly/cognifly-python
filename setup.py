@@ -22,7 +22,7 @@ with open("README.md", "r") as fh:
 
 deps = ['numpy', 'Pillow', 'psutil']
 if is_raspberrypi():  # drone
-    deps.append(['picamera', 'yamspy', 'evdev'])
+    deps.append(['picamera', 'yamspy'])
 else:  # remote
     deps.append(['opencv-contrib-python', 'pysimplegui'])
 

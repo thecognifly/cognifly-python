@@ -156,7 +156,6 @@ class PS4Gamepad:
             except Exception as e:
                 js = None
         else:
-            print(f"DEBUG: {self.fn} is not a file")
             js = None
         return js
 
@@ -195,9 +194,7 @@ class PS4Gamepad:
         if not connected:
             self._jsdev = self._get_gamepad()
             if self._jsdev is not None:
-                print(f"DEBUG: connection attempt")
                 connected = self._connection()
-        print(f"DEBUG: connected: {connected}")
         return connected
 
     def get(self):
@@ -215,8 +212,9 @@ class PS4Gamepad:
         return connected, axis_states, button_states
 
 
-import time
-g = PS4Gamepad()
-while True:
-    print(g.get())
-    time.sleep(0.1)
+if __name__ == '__main__':
+    import time
+    g = PS4Gamepad()
+    while True:
+        print(g.get())
+        time.sleep(0.1)
