@@ -200,12 +200,12 @@ class PS4GamepadManager:
             bb = button_states['b']
             bx = button_states['x']
             by = button_states['y']
-            t1 = button_states['t1']
-            t2 = button_states['t2']
+            tl = button_states['tl']
+            tr = button_states['tr']
             
-            if t1 == t2 == 1:
+            if tl == tr == 1:
                 CMDS['aux1'] = ARMED
-            elif a == 1:
+            elif ba == 1 or bb == 1 or bx == 1 or by == 1:
                 CMDS['aux1'] = DISARMED
             
             CMDS['pitch'] = joystick_to_pitch(ax, deadband=self.deadband)
