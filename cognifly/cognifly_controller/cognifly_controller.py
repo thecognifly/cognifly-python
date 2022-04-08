@@ -208,9 +208,9 @@ class PS4GamepadManager:
             elif ba == 1 or bb == 1 or bx == 1 or by == 1:
                 CMDS['aux1'] = DISARMED
 
-            if haty == 1:
+            if haty == -1:
                 CMDS['throttle'] = TAKEOFF
-            elif haty == -1:
+            elif haty == 1:
                 CMDS['throttle'] = LAND
             
             CMDS['pitch'] = joystick_to_pitch(ax, deadband=self.deadband)
