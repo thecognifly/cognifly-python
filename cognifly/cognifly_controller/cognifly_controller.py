@@ -60,13 +60,13 @@ DEFAULT_YAW = 1500
 TAKEOFF = 1300
 LAND = 900
 
-MIN_CMD_ROLL = 1000
-MIN_CMD_PITCH = 1000
+MIN_CMD_ROLL = 1300
+MIN_CMD_PITCH = 1300
 MIN_CMD_THROTTLE = 900  # throttle bellow a certain value disarms the FC
 MIN_CMD_V_Z = -50
 MIN_CMD_YAW = 1400
-MAX_CMD_ROLL = 2000
-MAX_CMD_PITCH = 2000
+MAX_CMD_ROLL = 1700
+MAX_CMD_PITCH = 1700
 MAX_CMD_THROTTLE = 1500
 MAX_CMD_YAW = 1600
 MAX_CMD_V_Z = 50
@@ -844,7 +844,6 @@ class CogniflyController:
                             for cmd in udp_cmds:
                                 self._udp_commands_handler(pkl.loads(cmd), board)
                         self._flight(board, screen)
-                        self._batt_handler(board)
                         if self.obs_loop_time is not None:
                             tick = time.time()
                             if tick - self.last_obs_tick >= self.obs_loop_time and self.sender_initialized:
@@ -854,6 +853,8 @@ class CogniflyController:
                     #
                     # end of UDP recv non-blocking -----------------------------
                     #
+
+                    self._batt_handler(board)
 
                     if self.print_screen:
                         char = screen.getch()  # get keypress
