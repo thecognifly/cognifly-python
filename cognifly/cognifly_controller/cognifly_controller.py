@@ -186,7 +186,7 @@ class PS4GamepadManager:
                 return CMDS, True, True
             return CMDS, False, False  # not connected
         else:  # connected
-            if not self.connected:  # connection
+            if not self.connected or self.ts is None:  # connection
                 self.ts = time.time()
             self.connected = True
             ax = axis_states['x']
