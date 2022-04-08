@@ -150,7 +150,7 @@ class PS4Gamepad:
             self._t_js = None
 
     def _get_gamepad(self):
-        if self.fn.is_file():
+        if os.path.exists(self.fn):
             try:
                 js = open(self.fn, 'rb')
             except Exception as e:
