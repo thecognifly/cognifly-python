@@ -174,7 +174,6 @@ class PS4GamepadManager:
             emergency: whether to trigger the emergency behavior
             valid: whether the modified commands should be used to override UDP commands
         """
-        emergency = False
         connected, axis_states, button_states = self.gamepad.get()
         if not connected:
             if self.connected:
@@ -846,7 +845,9 @@ class CogniflyController:
                     # Gamepad commands are overridden by key presses
                     #
 
-                    self.CMDS, self.emergency, valid = self.gamepad_manager.get(self.CMDS)
+                    self.CMDS, emergency, valid = self.gamepad_manager.get(self.CMDS)
+                    if emergency and not self.emergency:
+                        self.emergency = True
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
