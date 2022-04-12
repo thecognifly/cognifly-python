@@ -206,8 +206,10 @@ class PS4GamepadManager:
             
             if tl == tr == 1:
                 CMDS['aux1'] = ARMED
+                CMDS['throttle'] = DEFAULT_THROTTLE
             elif ba == 1 or bb == 1:
                 CMDS['aux1'] = DISARMED
+                CMDS['throttle'] = DEFAULT_THROTTLE
 
             if haty == -1:
                 CMDS['throttle'] = TAKEOFF
@@ -442,10 +444,12 @@ class CogniflyController:
                 self._reset_pids()
                 if command[2][0] == "DISARM":
                     self.CMDS["aux1"] = DISARMED
+                    self.CMDS["throttle"] = DEFAULT_THROTTLE
                     self.current_flight_command = None
                 elif command[2][0] == "ARM":
                     self.CMDS["aux1"] = ARMED
                     self.CMDS["aux2"] = NAV_POSHOLD_MODE
+                    self.CMDS["throttle"] = DEFAULT_THROTTLE
                     self.current_flight_command = None
                 elif command[2][0] == "TAKEOFF":
                     alt = command[2][1] if command[2][1] is not None else TAKEOFF
@@ -778,6 +782,7 @@ class CogniflyController:
             board.fast_read_altitude()
             if board.SENSOR_DATA['altitude'] <= 0.1:
                 self.CMDS['aux1'] = DISARMED
+                self.CMDS['throttle'] = DEFAULT_THROTTLE
                 self.emergency = False
 
     def _controller(self, screen):
