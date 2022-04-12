@@ -24,6 +24,7 @@ import pickle as pkl
 import numpy as np
 from pathlib import Path
 from yamspy import MSPy
+import logging
 
 from cognifly.utils.udp_interface import UDPInterface
 from cognifly.utils.tcp_video_interface import TCPVideoInterface
@@ -273,14 +274,20 @@ class CogniflyController:
             self.drone_hostname = None
             self.drone_port = None
         else:
+            logging.debug("Creating udp interface")
             self.udp_int = UDPInterface()
+            logging.debug("Retrieving drone hostname")
             self.drone_hostname = socket.gethostname() if drone_hostname is None else drone_hostname
+            logging.debug("Retrieving drone IP")
             self.drone_ip = socket.gethostbyname(self.drone_hostname) if drone_hostname is not None else extract_ip()
             if drone_hostname is None and (self.drone_ip == '127.0.0.1' or self.drone_ip == '0.0.0.0'):
                 raise RuntimeError(f"Could not extract drone IP ({self.drone_ip})")
             self.drone_port = drone_port
+            logging.debug("Initializing UDP receiver")
             self.udp_int.init_receiver(ip=self.drone_ip, port=self.drone_port)
+            logging.debug("Initializing TCP")
             self.tcp_video_int = TCPVideoInterface()
+            logging.debug("All done")
         self.sender_initialized = False  # sender is initialized only when a reset message is received
         self.print_screen = print_screen
         self.obs_loop_time = obs_loop_time
