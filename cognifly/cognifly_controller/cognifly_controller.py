@@ -274,20 +274,20 @@ class CogniflyController:
             self.drone_hostname = None
             self.drone_port = None
         else:
-            logging.debug("Creating udp interface")
+            logging.info("Creating udp interface")
             self.udp_int = UDPInterface()
-            logging.debug("Retrieving drone hostname")
+            logging.info("Retrieving drone hostname")
             self.drone_hostname = socket.gethostname() if drone_hostname is None else drone_hostname
-            logging.debug("Retrieving drone IP")
+            logging.info("Retrieving drone IP")
             self.drone_ip = socket.gethostbyname(self.drone_hostname) if drone_hostname is not None else extract_ip()
             if drone_hostname is None and (self.drone_ip == '127.0.0.1' or self.drone_ip == '0.0.0.0'):
                 raise RuntimeError(f"Could not extract drone IP ({self.drone_ip})")
             self.drone_port = drone_port
-            logging.debug("Initializing UDP receiver")
+            logging.info("Initializing UDP receiver")
             self.udp_int.init_receiver(ip=self.drone_ip, port=self.drone_port)
-            logging.debug("Initializing TCP")
+            logging.info("Initializing TCP")
             self.tcp_video_int = TCPVideoInterface()
-            logging.debug("All done")
+            logging.info("All done")
         self.sender_initialized = False  # sender is initialized only when a reset message is received
         self.print_screen = print_screen
         self.obs_loop_time = obs_loop_time
