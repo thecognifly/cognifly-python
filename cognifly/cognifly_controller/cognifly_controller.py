@@ -417,7 +417,7 @@ class CogniflyController:
         self.pid_vel_z = PID(kp=self.vel_z_kp, ki=self.vel_z_ki, kd=self.vel_z_kd, sample_time=0.01, output_limits=self.pid_limits_z, auto_mode=False)
         self.pid_w_z = PID(kp=self.vel_w_kp, ki=self.vel_w_ki, kd=self.vel_w_kd, sample_time=0.01, output_limits=self.pid_limits_w, auto_mode=False)
 
-    def _udp_commands_handler(self, command, board):
+    def _udp_commands_handler(self, command):
         """
         Args:
             command: a command of the form (str:command, ...:args)
@@ -601,7 +601,7 @@ class CogniflyController:
             screen.addstr(22, 0, f"vel_df: [{vel_x_df: .5f},{vel_y_df: .5f},{vel_z_df: .5f}] m/s")
             screen.clrtoeol()
 
-        self.telemetry = (self.voltage, pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate, self.debug_flags)
+        self.telemetry = (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
 
         if self.current_flight_command is None:
             # ensure that rpy commands are at default:
@@ -853,18 +853,19 @@ class CogniflyController:
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
                     # For safety, UDP commands are overridden by key presses
                     #
-                    if self.udp_int and not valid:
+                    if self.udp_int:
                         udp_cmds = self.udp_int.recv_nonblocking()
                         if len(udp_cmds) > 0:
                             for cmd in udp_cmds:
-                                self._udp_commands_handler(pkl.loads(cmd), board)
-                        self._flight(board, screen)
+                                self._udp_commands_handler(pkl.loads(cmd))
+                        if not valid:  # override the flight controller if valid PS4
+                            self._flight(board, screen)
                         if self.obs_loop_time is not None:
                             tick = time.time()
                             if tick - self.last_obs_tick >= self.obs_loop_time and self.sender_initialized:
                                 self.last_obs_tick = tick
                                 self._i_obs += 1
-                                self.udp_int.send(pkl.dumps(("OBS", self._i_obs, self.telemetry)))
+                                self.udp_int.send(pkl.dumps(("OBS", self._i_obs, self.telemetry, valid, self.voltage, self.debug_flags)))
                     #
                     # end of UDP recv non-blocking -----------------------------
                     #
@@ -913,12 +914,10 @@ class CogniflyController:
                                     self.CMDS['aux2'] = 1000
 
                             elif char == RIGHT_CHR:
-                                # self.CMDS['roll'] = self.CMDS['roll'] + 10 if self.CMDS['roll'] + 10 <= 2000 else self.CMDS['roll']
                                 self.CMDS['roll'] = KEY_P_ROLL
                                 cursor_msg = 'roll(+):{}'.format(self.CMDS['roll'])
 
                             elif char == LEFT_CHR:
-                                # self.CMDS['roll'] = self.CMDS['roll'] - 10 if self.CMDS['roll'] - 10 >= 1000 else self.CMDS['roll']
                                 self.CMDS['roll'] = KEY_N_ROLL
                                 cursor_msg = 'roll(-):{}'.format(self.CMDS['roll'])
 
@@ -931,12 +930,10 @@ class CogniflyController:
                                 cursor_msg = 'yaw(-):{}'.format(self.CMDS['yaw'])
 
                             elif char == FORWARD_CHR:
-                                # self.CMDS['pitch'] = self.CMDS['pitch'] + 10 if self.CMDS['pitch'] + 10 <= 2000 else self.CMDS['pitch']
                                 self.CMDS['pitch'] = KEY_P_PITCH
                                 cursor_msg = 'pitch(+):{}'.format(self.CMDS['pitch'])
 
                             elif char == BACKWARD_CHR:
-                                # self.CMDS['pitch'] = self.CMDS['pitch'] - 10 if self.CMDS['pitch'] - 10 >= 1000 else self.CMDS['pitch']
                                 self.CMDS['pitch'] = KEY_N_PITCH
                                 cursor_msg = 'pitch(-):{}'.format(self.CMDS['pitch'])
 

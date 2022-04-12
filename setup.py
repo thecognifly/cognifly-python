@@ -53,4 +53,7 @@ setup(name='cognifly',
           'Topic :: Education',
           'Topic :: Scientific/Engineering :: Artificial Intelligence',
       ],
+      package_data={'cognifly': [
+          'cognifly_remote/sprites/gamepad_off.png',
+          'cognifly_remote/sprites/gamepad_on.png']}
       )

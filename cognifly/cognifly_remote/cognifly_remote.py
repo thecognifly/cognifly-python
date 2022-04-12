@@ -7,6 +7,7 @@ import pickle as pkl
 import logging
 import time
 import numpy as np
+from pathlib import Path
 
 from cognifly.utils.udp_interface import UDPInterface
 from cognifly.utils.tcp_video_interface import TCPVideoInterface
@@ -28,9 +29,6 @@ EASY_API_MAX_ALTITUDE = 0.9
 EASY_API_MIN_ALTITUDE = 0.35
 
 
-# Global GUI thread (only one GUI is available for all drones)
-
-
 def _gui_process(name, recv_q, send_q):
     """
     Process in charge of managing the Graphical User Interface
@@ -45,14 +43,21 @@ def _gui_process(name, recv_q, send_q):
     import PySimpleGUI as sg
     import cv2
 
+    sprites_folder = Path(__file__).parent.absolute() / 'sprites'
+    sprite_gamepad_on = str(sprites_folder / 'gamepad_on.png')
+    sprite_gamepad_off = str(sprites_folder / 'gamepad_off.png')
+
     sg.theme('BluePurple')
-    layout = [[sg.Text('Battery:'), sg.Text('OK', size=(15, 1), key='-batt-')],
+    layout = [[sg.Text('Battery:'),
+               sg.Text('OK', size=(15, 1), key='-batt-'),
+               sg.Image(filename=sprite_gamepad_off, key='-gamepad-')],
               [sg.Button('DISARM')],
               [sg.Image(filename='', key='-image-')]]
     window = sg.Window(name,
                        layout,
                        keep_on_top=True,
                        enable_close_attempted_event=True)
+    gamepad_elem = window['-gamepad-']
     image_elem = window['-image-']
     batt_elem = window['-batt-']
 
@@ -92,6 +97,10 @@ def _gui_process(name, recv_q, send_q):
                 elif cmd == 'BAT':  # batt str value
                     batt_str = val
                     batt_elem.update(batt_str)
+                elif cmd == 'GMP':  # connected gamepad value
+                    gamepad = val
+                    im_gmp = sprite_gamepad_on if gamepad else sprite_gamepad_off
+                    gamepad_elem.update(im_gmp)
 
             if no_window_event and no_read_event:
                 time.sleep(0.05)
@@ -186,6 +195,7 @@ class Cognifly:
         self._gui_lock = Lock()
         self._gui_display = False
         self._gui_batt_str = "OK"
+        self._gui_gamepad = False
         self._gui_process = None
 
         self._listener_thread = Thread(target=self.__listener_thread)
@@ -225,6 +235,7 @@ class Cognifly:
             self._gui_process.start()
         is_displaying = False
         previous_batt_str = "OK"
+        previous_gamepad = False
         while True:
             send_event = False
             recv_event = False
@@ -262,13 +273,18 @@ class Cognifly:
                 send_q.put(('IMG', None))
                 send_event = True
                 is_displaying = False
-            # battery:
+            # battery and gamepad display:
             with self._gui_lock:
                 batt_str = self._gui_batt_str
+                gamepad = self._gui_gamepad
             if batt_str != previous_batt_str:
                 send_q.put(('BAT', batt_str))
                 send_event = True
                 previous_batt_str = batt_str
+            if gamepad != previous_gamepad:
+                send_q.put(('GMP', gamepad))
+                send_event = True
+                previous_gamepad = gamepad
             # sleep if nothing has occurred:
             if not send_event and not recv_event:
                 time.sleep(0.1)
@@ -292,10 +308,18 @@ class Cognifly:
                 elif m[0] == "OBS":  # observation type
                     self._lock.acquire()
                     i_obs = m[1]
+                    telemetry = m[2]
+                    gamepad = m[3]
+                    voltage = m[4]
+                    debug_flags = m[5]
                     if i_obs > self.__last_i_obs:  # drop outdated observations
-                        self.__obs = m[2]  # observation
+                        self.__obs = (telemetry, gamepad, voltage, debug_flags)  # observation
                         self.__last_i_obs = i_obs
                     self._lock.release()
+                    if gamepad is not None:
+                        with self._gui_lock:
+                            self._gui_batt_str = f"{voltage}V"
+                            self._gui_gamepad = gamepad
                 elif m[0] == "RES":  # acknowledgement for the reset command
                     self._lock.acquire()
                     self.__wait_ack_reset = False
@@ -306,8 +330,9 @@ class Cognifly:
                         self.__wait_done = False
                     self._lock.release()
                 elif m[0] == "BBT":  # bad battery state
-                    with self._gui_lock:
-                        self._gui_batt_str = f"{m[1][0]}V"
+                    pass
+                    # with self._gui_lock:
+                    #     self._gui_batt_str = f"{m[1][0]}V"
 
     def __resender_thread(self):
         """
@@ -876,16 +901,17 @@ class Cognifly:
         Gets a tuple that describe the state of the drone in the world frame.
         Angles are in radians.
         Returns:
-            telemetry: Tuple: (battery_voltage: float,
-                               x: float,
+            telemetry: Tuple: (x: float,
                                y: float,
                                z: float,
                                yaw: float,
                                vel_x: float,
                                vel_y: float,
                                vel_z: float,
-                               yaw_rate: float,
-                               health_flags: list of strings)
+                               yaw_rate: float)
+            gamepad_override: Boolean: if True, the telemtry is invalid!
+            voltage: float
+            debug_flags: list of strings
         """
         self._lock.acquire()
         obs = deepcopy(self.__obs)
@@ -894,58 +920,68 @@ class Cognifly:
 
     def get_battery(self):
         """
+        Battery voltage.
+
         Returns:
             battery_voltage: float: battery voltage, in V
         """
-        telemetry = self.get_telemetry()
-        return telemetry[0]
+        return self.get_telemetry()[2]
 
     def get_position(self):
         """
+        *Caution:* invalid when gamepad is in override mode.
+
         Returns:
             x: float: in cm
             y: float: in cm
             z: float: in cm
         """
-        telemetry = self.get_telemetry()
-        return telemetry[1] * 100, telemetry[2] * 100, telemetry[3] * 100
+        telemetry = self.get_telemetry()[0]
+        return telemetry[0] * 100, telemetry[1] * 100, telemetry[2] * 100
 
     def get_yaw(self):
         """
+        *Caution:* invalid when gamepad is in override mode.
+
         Returns:
             x: float: yaw, in deg
         """
-        telemetry = self.get_telemetry()
-        return telemetry[4] * 180.0 / np.pi
+        telemetry = self.get_telemetry()[0]
+        return telemetry[3] * 180.0 / np.pi
 
     def get_velocity(self):
         """
+        *Caution:* invalid when gamepad is in override mode.
+
         Returns:
             v_x: float: in cm/s
             v_y: float: in cm/s
             v_z: float: in cm/s
         """
-        telemetry = self.get_telemetry()
-        return telemetry[5] * 100, telemetry[6] * 100, telemetry[7] * 100
+        telemetry = self.get_telemetry()[0]
+        return telemetry[4] * 100, telemetry[5] * 100, telemetry[6] * 100
 
     def get_health(self):
         """
         Returns:
             health_flags: list os strings: useful flags for debugging
         """
-        telemetry = self.get_telemetry()
-        return telemetry[9]
+        return self.get_telemetry()[3]
 
     def get_yaw_rate(self):
         """
+        *Caution:* invalid when gamepad is in override mode.
+
         Returns:
             w: float: yaw rate in deg/s
         """
-        telemetry = self.get_telemetry()
-        return telemetry[8] * 180.0 / np.pi
+        telemetry = self.get_telemetry()[0]
+        return telemetry[7] * 180.0 / np.pi
 
     def get_tof(self):
         """
+        *Caution:* invalid when gamepad is in override mode.
+
         Returns:
             h: float: altitude in cm
         """
@@ -955,11 +991,15 @@ class Cognifly:
     def get_height(self):
         """
         Alias for get_tof() as cognifly doesn't know its height from the starting point.
+
+        *Caution:* invalid when gamepad is in override mode.
         """
         return self.get_tof()
 
     def get_speed(self):
         """
+        *Caution:* invalid when gamepad is in override mode.
+
         Returns:
             speed: float: norm of the velocity, in cm/s
         """
