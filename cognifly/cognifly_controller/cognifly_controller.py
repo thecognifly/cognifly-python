@@ -163,6 +163,7 @@ class PS4GamepadManager:
         self.connected, _, _ = self.gamepad.get()
         self.vz = 0
         self.ts = None
+        self.override = True
 
     def get(self, CMDS):
         """
@@ -202,10 +203,15 @@ class PS4GamepadManager:
             by = button_states['y']
             tl = button_states['tl']
             tr = button_states['tr']
+
+            if bx == 1:
+                self.override = True
+            elif by == 1:
+                self.override = False
             
             if tl == tr == 1:
                 CMDS['aux1'] = ARMED
-            elif ba == 1 or bb == 1 or bx == 1 or by == 1:
+            elif ba == 1 or bb == 1:
                 CMDS['aux1'] = DISARMED
 
             if haty == -1:
@@ -224,7 +230,7 @@ class PS4GamepadManager:
             CMDS['throttle'] += vz * (ts - self.ts)
             self.ts = ts
 
-        return CMDS, False, True
+        return CMDS, False, self.override
 
 
 class SignalTracer:
