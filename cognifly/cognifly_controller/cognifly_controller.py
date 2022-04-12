@@ -180,11 +180,7 @@ class PS4GamepadManager:
             if self.connected:
                 # gamepad has been disconnected, trigger emergency behavior
                 self.connected = False
-                CMDS['pitch'] = DEFAULT_PITCH
-                CMDS['roll'] = DEFAULT_ROLL
-                CMDS['yaw'] = DEFAULT_YAW
-                CMDS['throttle'] = LAND
-                return CMDS, True, True
+                return CMDS, True, True  # trigger emergency
             return CMDS, False, False  # not connected
         else:  # connected
             if not self.connected or self.ts is None:  # connection
@@ -380,6 +376,10 @@ class CogniflyController:
         # PS4 controller:
 
         self.gamepad_manager = PS4GamepadManager()
+
+        # Others:
+
+        self.emergency = False
 
     def run_curses(self):
         result = 1
@@ -762,16 +762,24 @@ class CogniflyController:
         """
         if self.__batt_state != BATT_OK:
             if self.__batt_state == BATT_TOO_LOW:
-                self.CMDS['roll'] = DEFAULT_ROLL
-                self.CMDS['pitch'] = DEFAULT_PITCH
-                self.CMDS['throttle'] = LAND
-                self.CMDS['yaw'] = DEFAULT_YAW
-                board.fast_read_altitude()
-                if board.SENSOR_DATA['altitude'] <= 0.1:
-                    self.CMDS['aux1'] = DISARMED
+                self.emergency = True
             if self.sender_initialized and time.time() - self.last_bat_tick >= BATT_UDP_MSG_TIME:
                 self.udp_int.send(pkl.dumps(("BBT", (self.voltage, ))))
                 self.last_bat_tick = time.time()
+
+    def _emergency_handler(self, board):
+        """
+        This overrides all commands when an emergency occurs
+        """
+        if self.emergency:
+            self.CMDS['roll'] = DEFAULT_ROLL
+            self.CMDS['pitch'] = DEFAULT_PITCH
+            self.CMDS['throttle'] = LAND
+            self.CMDS['yaw'] = DEFAULT_YAW
+            board.fast_read_altitude()
+            if board.SENSOR_DATA['altitude'] <= 0.1:
+                self.CMDS['aux1'] = DISARMED
+                self.emergency = False
 
     def _controller(self, screen):
         # print doesn't work with curses, use addstr instead
@@ -838,7 +846,7 @@ class CogniflyController:
                     # Gamepad commands are overridden by key presses
                     #
 
-                    self.CMDS, emergency, valid = self.gamepad_manager.get(self.CMDS)
+                    self.CMDS, self.emergency, valid = self.gamepad_manager.get(self.CMDS)
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
@@ -861,6 +869,7 @@ class CogniflyController:
                     #
 
                     self._batt_handler(board)
+                    self._emergency_handler(board)
 
                     if self.print_screen:
                         char = screen.getch()  # get keypress
