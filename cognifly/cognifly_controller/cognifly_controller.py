@@ -25,6 +25,7 @@ import numpy as np
 from pathlib import Path
 from yamspy import MSPy
 import logging
+from threading import Thread, Lock
 
 from cognifly.utils.udp_interface import UDPInterface
 from cognifly.utils.tcp_video_interface import TCPVideoInterface
@@ -104,6 +105,7 @@ SLOW_MSGS_LOOP_TIME = 1 / 5  # these messages take a lot of time slowing down th
 BATT_UDP_MSG_TIME = 1.0
 
 NO_OF_CYCLES_AVERAGE_GUI_TIME = 10
+TIME_BETWEEN_CONNECTION_ATTEMPTS = 10
 
 BATT_NO_INFO = -1
 BATT_OK = 0
@@ -245,6 +247,26 @@ class SignalTracer:
         self.file.close()
 
 
+def try_connect(drone_hostname, drone_port):
+    try:
+        udp_int = UDPInterface()
+        drone_hostname = drone_hostname
+        drone_hostname = socket.gethostname() if drone_hostname is None else drone_hostname
+        drone_ip = socket.gethostbyname(drone_hostname) if drone_hostname is not None else extract_ip()
+        if drone_hostname is None and (drone_ip == '127.0.0.1' or drone_ip == '0.0.0.0'):
+            raise RuntimeError(f"Could not extract drone IP ({drone_ip})")
+        drone_port = drone_port
+        udp_int.init_receiver(ip=drone_ip, port=drone_port)
+        tcp_video_int = TCPVideoInterface()
+    except Exception as e:
+        udp_int = None
+        tcp_video_int = None
+        drone_hostname = None
+        drone_port = None
+        drone_ip = None
+    return drone_hostname, drone_ip, drone_port, udp_int, tcp_video_int
+
+
 class CogniflyController:
     def __init__(self,
                  network=True,
@@ -273,7 +295,14 @@ class CogniflyController:
         self.udp_int = None
         self.tcp_video_int = None
         self.drone_ip = None
-        self.try_connect()
+        self._lock_connect = Lock()
+        self._drone_hostname = drone_hostname
+        self._drone_ip = self.drone_ip
+        self._drone_port = drone_port
+        self._udp_int = self.udp_int
+        self._tcp_video_int = self.tcp_video_int
+        if self.network:
+            self._t_connect = Thread(target=self._try_connect_thread, args=(drone_hostname, drone_port), daemon=True)
         self.sender_initialized = False  # sender is initialized only when a reset message is received
         self.print_screen = print_screen
         self.obs_loop_time = obs_loop_time
@@ -375,29 +404,18 @@ class CogniflyController:
 
         self.emergency = False
 
-    def try_connect(self):
-        if not self.network:
-            self.udp_int = None
-            self.tcp_video_int = None
-            self.drone_hostname = None
-            self.drone_port = None
-        else:
-            try:
-                self.udp_int = UDPInterface()
-                drone_hostname = self.drone_hostname
-                self.drone_hostname = socket.gethostname() if drone_hostname is None else drone_hostname
-                self.drone_ip = socket.gethostbyname(self.drone_hostname) if drone_hostname is not None else extract_ip()
-                if drone_hostname is None and (self.drone_ip == '127.0.0.1' or self.drone_ip == '0.0.0.0'):
-                    raise RuntimeError(f"Could not extract drone IP ({self.drone_ip})")
-                self.drone_port = drone_port
-                self.udp_int.init_receiver(ip=self.drone_ip, port=self.drone_port)
-                self.tcp_video_int = TCPVideoInterface()
-            except Exception as e:
-                logging.info(f"An exception was caught while trying to connect:\n{str(e)}\nUsing bluetooth mode only.")
-                self.udp_int = None
-                self.tcp_video_int = None
-                self.drone_hostname = None
-                self.drone_port = None
+    def _try_connect_thread(self, drone_hostname, drone_port):
+        _drone_hostname, _drone_ip, _drone_port, _udp_int, _tcp_video_int = None, None, None, None, None
+        while _udp_int is None:
+            _drone_hostname, _drone_ip, _drone_port, _udp_int, _tcp_video_int = try_connect(drone_hostname, drone_port)
+            if _udp_int is None:
+                time.sleep(TIME_BETWEEN_CONNECTION_ATTEMPTS)
+        with self._lock_connect:
+            self._drone_hostname = _drone_hostname
+            self._drone_ip = _drone_ip
+            self._drone_port = _drone_port
+            self._udp_int = _udp_int
+            self._tcp_video_int = _tcp_video_int
 
     def run_curses(self):
         result = 1
@@ -861,6 +879,19 @@ class CogniflyController:
                 last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
                 while True:
                     start_time = time.time()
+
+                    #
+                    # checking connection result  (NO DELAYS) ------------------
+                    #
+                    if self.udp_int is None and self.network:
+                        with self._lock_connect:
+                            if self._udp_int is not None:
+                                self.drone_hostname = self._drone_hostname
+                                self.drone_ip = self._drone_ip
+                                self.drone_port = self._drone_port
+                                self.udp_int = self._udp_int
+                                self._tcp_video_int = self._tcp_video_int
+
                     #
                     # Gamepad manager  (NO DELAYS) -----------------------------
                     # UDP commands are ignored when a gamepad is connected
