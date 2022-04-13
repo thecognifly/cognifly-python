@@ -250,12 +250,10 @@ class SignalTracer:
 def try_connect(drone_hostname, drone_port):
     try:
         udp_int = UDPInterface()
-        drone_hostname = drone_hostname
         drone_hostname = socket.gethostname() if drone_hostname is None else drone_hostname
         drone_ip = socket.gethostbyname(drone_hostname) if drone_hostname is not None else extract_ip()
         if drone_hostname is None and (drone_ip == '127.0.0.1' or drone_ip == '0.0.0.0'):
             raise RuntimeError(f"Could not extract drone IP ({drone_ip})")
-        drone_port = drone_port
         udp_int.init_receiver(ip=drone_ip, port=drone_port)
         tcp_video_int = TCPVideoInterface()
     except Exception as e:
@@ -263,7 +261,6 @@ def try_connect(drone_hostname, drone_port):
         udp_int = None
         tcp_video_int = None
         drone_hostname = None
-        drone_port = None
         drone_ip = None
     return drone_hostname, drone_ip, drone_port, udp_int, tcp_video_int
 
@@ -303,8 +300,9 @@ class CogniflyController:
         self._udp_int = self.udp_int
         self._tcp_video_int = self.tcp_video_int
         if self.network:
-            self._t_connect = Thread(target=self._try_connect_thread, args=(drone_hostname, drone_port), daemon=True)
-            self._t_connect.start()
+            # self._t_connect = Thread(target=self._try_connect_thread, args=(drone_hostname, drone_port), daemon=True)
+            # self._t_connect.start()
+            self.drone_hostname, self.drone_ip, self.drone_port, self.udp_int, self.tcp_video_int = try_connect(drone_hostname, drone_port)
         self.sender_initialized = False  # sender is initialized only when a reset message is received
         self.print_screen = print_screen
         self.obs_loop_time = obs_loop_time
