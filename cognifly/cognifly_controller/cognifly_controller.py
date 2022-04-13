@@ -274,20 +274,21 @@ class CogniflyController:
             self.drone_hostname = None
             self.drone_port = None
         else:
-            logging.info("Creating udp interface")
-            self.udp_int = UDPInterface()
-            logging.info("Retrieving drone hostname")
-            self.drone_hostname = socket.gethostname() if drone_hostname is None else drone_hostname
-            logging.info("Retrieving drone IP")
-            self.drone_ip = socket.gethostbyname(self.drone_hostname) if drone_hostname is not None else extract_ip()
-            if drone_hostname is None and (self.drone_ip == '127.0.0.1' or self.drone_ip == '0.0.0.0'):
-                raise RuntimeError(f"Could not extract drone IP ({self.drone_ip})")
-            self.drone_port = drone_port
-            logging.info("Initializing UDP receiver")
-            self.udp_int.init_receiver(ip=self.drone_ip, port=self.drone_port)
-            logging.info("Initializing TCP")
-            self.tcp_video_int = TCPVideoInterface()
-            logging.info("All done")
+            try:
+                self.udp_int = UDPInterface()
+                self.drone_hostname = socket.gethostname() if drone_hostname is None else drone_hostname
+                self.drone_ip = socket.gethostbyname(self.drone_hostname) if drone_hostname is not None else extract_ip()
+                if drone_hostname is None and (self.drone_ip == '127.0.0.1' or self.drone_ip == '0.0.0.0'):
+                    raise RuntimeError(f"Could not extract drone IP ({self.drone_ip})")
+                self.drone_port = drone_port
+                self.udp_int.init_receiver(ip=self.drone_ip, port=self.drone_port)
+                self.tcp_video_int = TCPVideoInterface()
+            except Exception as e:
+                logging.info(f"An exception was caught while trying to connect:\n{e}\nBluetooth mode only.")
+                self.udp_int = None
+                self.tcp_video_int = None
+                self.drone_hostname = None
+                self.drone_port = None
         self.sender_initialized = False  # sender is initialized only when a reset message is received
         self.print_screen = print_screen
         self.obs_loop_time = obs_loop_time
