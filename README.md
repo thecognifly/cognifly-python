@@ -7,9 +7,11 @@ Control the CogniFly open-source drone remotely from your python script.
   - [Drone setup instructions](/readme/DRONE_SETUP.md)
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Pro API](#pro-api)
-  - [School API](#school-api)
-  - [Streaming](#streaming)
+  - [Manual control](#manual-control)
+  - [Python API](#control-though-the-python-api)
+    - [Pro API](#pro-api)
+    - [School API](#school-api)
+    - [Streaming](#streaming)
 - [Troubleshooting](#troubleshooting)
 
 ## Prerequisite
@@ -52,19 +54,56 @@ pip3 install cognifly
 ## Usage
 
 In order to use the installed library, the `cognifly_controller.py` script must first be running on Cognifly.
-At the moment, this can be done by connection to the drone through SSH, and executing the following command:
+This can be done by connection to the drone through SSH, and executing the following command:
 
 ```bash
 cognifly-controller
 ```
 
-A service may be set on the rapsberri pi to launch this script automatically on CogniFly at startup, so that the user doesn't need to SSH the drone.
+We advise setting up a service on the rapsberri pi to launch this script automatically on CogniFly at startup, so that the user doesn't need to SSH the drone.
+
+_Note: if using our Raspian image on the Rasperry Pi, this service is set up already._
 
 *Note: On the Raspberry Pi, the `cognifly-controller` command may not become available immediately after installation. If not, try closing the terminal and opening a new one.
 Worst case scenario, this command is an alias for `python3 -m cognifly controller`.*
 
 
-### Manual control (optional)
+### Manual control
+
+#### PS4 controller:
+
+We recommend using a PS4 bluetooth gamepad for manual control of the drone, as this is pretty fun and allows you to use the drone everywhere.
+
+First, pair your PS4 controller with the Raspberry Pi (you need to do this only once):
+- ssh the Raspberry Pi: `ssh pi@my_drone_hostname.local`
+- execute `sudo bluetoothctl`
+- configure the bluetooth agent by executing the following commands:
+  ```terminal
+  agent on
+  discoverable on
+  pairable on
+  default-agent
+  ```
+- launch the scan for available bluetooth devices: `scan on`
+- start bluetooth pairing on the PS4 controller by pressing `share`, then the `PS` buttons simulataneously until a white light flashes
+- in the scan output, look for something that looks like `[NEW] Device AC:FD:93:14:25:D3 Wireless Controller`
+- copy the MAC address (`AC:FD:93:14:25:D3` in this example but yours will differ)
+- turn off scanning: `scan off`
+- connect to the controller: `connect AC:FD:93:14:25:D3` by replacing `AC:FD:93:14:25:D3` with your copied MAC address
+- the light stops flashing and turns blue
+
+Once this is done, you will not need to ssh the drone anymore; just turn your PS4 controller on and it will connect to the Rasperry Pi automatically (it may sometimes take several attempts).
+
+Controls:
+
+![ps4](readme/figures/ps4.PNG)
+
+_Note: when taking control over the API, the flight controller of the API is disabled but the `DISARM` emergency button and the video streaming will still work.
+When releasing control to the API, the `DISARM` buttons of the PS4 controller will also keep working.
+By default, when a controller is connected, it takes control over the API.
+The `Gamepad` indicator in the GUI monitors this._
+
+#### Keyboard:
 
 It is possible to manually control the drone with the keyboard via SSH, by focusing the session that executes `cognifly_controller.py` on the raspberry pi:
 
@@ -82,7 +121,7 @@ It is possible to manually control the drone with the keyboard via SSH, by focus
 - `pagedown`: down
 - `R`: reset the board and exit the script
 
-### Remote control
+### Control though the python API
 
 The remote control API is defined in [cognifly_remote.py](https://github.com/thecognifly/cognifly-python/blob/main/cognifly/cognifly_remote/cognifly_remote.py) (please read the docstrings for thorough documentation).
 
@@ -97,6 +136,8 @@ cf = Cognifly(drone_hostname="my_drone_name.local")
 
 time.sleep(10.0)
 ```
+
+![gui](readme/figures/gui.PNG)
 
 The API is divided into a "pro" and a "school" API.
 
