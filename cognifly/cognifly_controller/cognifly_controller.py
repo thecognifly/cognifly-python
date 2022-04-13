@@ -303,6 +303,7 @@ class CogniflyController:
             # self._t_connect = Thread(target=self._try_connect_thread, args=(drone_hostname, drone_port), daemon=True)
             # self._t_connect.start()
             self.drone_hostname, self.drone_ip, self.drone_port, self.udp_int, self.tcp_video_int = try_connect(drone_hostname, drone_port)
+            logging.info(f"DEBUG self.drone_hostname:{self.drone_hostname}, self.drone_ip:{self.drone_ip}, self.drone_port:{self.drone_port}, self.udp_int:{self.udp_int}, self.tcp_video_int:{self.tcp_video_int}")
         self.sender_initialized = False  # sender is initialized only when a reset message is received
         self.print_screen = print_screen
         self.obs_loop_time = obs_loop_time
