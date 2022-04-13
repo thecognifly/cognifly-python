@@ -268,27 +268,12 @@ class CogniflyController:
             trace_logs: bool (optional): if True, flight telemetry will be printed in a CSV-like log file
         """
         self.network = network
-        if not self.network:
-            self.udp_int = None
-            self.tcp_video_int = None
-            self.drone_hostname = None
-            self.drone_port = None
-        else:
-            try:
-                self.udp_int = UDPInterface()
-                self.drone_hostname = socket.gethostname() if drone_hostname is None else drone_hostname
-                self.drone_ip = socket.gethostbyname(self.drone_hostname) if drone_hostname is not None else extract_ip()
-                if drone_hostname is None and (self.drone_ip == '127.0.0.1' or self.drone_ip == '0.0.0.0'):
-                    raise RuntimeError(f"Could not extract drone IP ({self.drone_ip})")
-                self.drone_port = drone_port
-                self.udp_int.init_receiver(ip=self.drone_ip, port=self.drone_port)
-                self.tcp_video_int = TCPVideoInterface()
-            except Exception as e:
-                logging.info(f"An exception was caught while trying to connect:\n{str(e)}\nBluetooth mode only.")
-                self.udp_int = None
-                self.tcp_video_int = None
-                self.drone_hostname = None
-                self.drone_port = None
+        self.drone_hostname = drone_hostname
+        self.drone_port = drone_port
+        self.udp_int = None
+        self.tcp_video_int = None
+        self.drone_ip = None
+        self.try_connect()
         self.sender_initialized = False  # sender is initialized only when a reset message is received
         self.print_screen = print_screen
         self.obs_loop_time = obs_loop_time
@@ -389,6 +374,30 @@ class CogniflyController:
         # Others:
 
         self.emergency = False
+
+    def try_connect(self):
+        if not self.network:
+            self.udp_int = None
+            self.tcp_video_int = None
+            self.drone_hostname = None
+            self.drone_port = None
+        else:
+            try:
+                self.udp_int = UDPInterface()
+                drone_hostname = self.drone_hostname
+                self.drone_hostname = socket.gethostname() if drone_hostname is None else drone_hostname
+                self.drone_ip = socket.gethostbyname(self.drone_hostname) if drone_hostname is not None else extract_ip()
+                if drone_hostname is None and (self.drone_ip == '127.0.0.1' or self.drone_ip == '0.0.0.0'):
+                    raise RuntimeError(f"Could not extract drone IP ({self.drone_ip})")
+                self.drone_port = drone_port
+                self.udp_int.init_receiver(ip=self.drone_ip, port=self.drone_port)
+                self.tcp_video_int = TCPVideoInterface()
+            except Exception as e:
+                logging.info(f"An exception was caught while trying to connect:\n{str(e)}\nUsing bluetooth mode only.")
+                self.udp_int = None
+                self.tcp_video_int = None
+                self.drone_hostname = None
+                self.drone_port = None
 
     def run_curses(self):
         result = 1
@@ -1027,9 +1036,10 @@ class CogniflyController:
                                     data_handler = board.receive_msg()
                                     board.process_recv_data(data_handler)
                                 self.debug_flags = board.process_armingDisableFlags(board.CONFIG['armingDisableFlags'])
-                                cam_err, cam_exp, cam_trace = self.tcp_video_int.get_camera_error()
-                                if cam_err:
-                                    self.debug_flags.append("CAMERA_ERROR")
+                                if self.tcp_video_int:
+                                    cam_err, cam_exp, cam_trace = self.tcp_video_int.get_camera_error()
+                                    if cam_err:
+                                        self.debug_flags.append("CAMERA_ERROR")
                         else:  # print screen messages
                             # Read info from the FC
                             if board.send_RAW_msg(MSPy.MSPCodes[next_msg], data=[]):
@@ -1057,12 +1067,13 @@ class CogniflyController:
                                 screen.clrtoeol()
 
                                 self.debug_flags = board.process_armingDisableFlags(board.CONFIG['armingDisableFlags'])
-                                cam_err, cam_exp, cam_trace = self.tcp_video_int.get_camera_error()
-                                if cam_err:
-                                    self.debug_flags.append("CAMERA_ERROR")
-                                    screen.addstr(12, 0, f"CAMERA ERROR: {cam_exp}")
-                                    screen.clrtoeol()
-                                    # raise Exception(cam_trace)
+                                if self.tcp_video_int:
+                                    cam_err, cam_exp, cam_trace = self.tcp_video_int.get_camera_error()
+                                    if cam_err:
+                                        self.debug_flags.append("CAMERA_ERROR")
+                                        screen.addstr(12, 0, f"CAMERA ERROR: {cam_exp}")
+                                        screen.clrtoeol()
+                                        # raise Exception(cam_trace)
                                 screen.addstr(5, 50, "armingDisableFlags: {}".format(self.debug_flags))
                                 screen.clrtoeol()
 
@@ -1120,8 +1131,4 @@ def run_controller(print_screen=True):
 
 
 if __name__ == "__main__":
-    try:
-        run_controller()
-    except Exception as e:
-        logging.info(f"The following exception occurred:\n{str(e)}")
-        raise e
+    run_controller()
