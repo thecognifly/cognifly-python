@@ -284,7 +284,7 @@ class CogniflyController:
                 self.udp_int.init_receiver(ip=self.drone_ip, port=self.drone_port)
                 self.tcp_video_int = TCPVideoInterface()
             except Exception as e:
-                logging.info(f"An exception was caught while trying to connect:\n{e}\nBluetooth mode only.")
+                logging.info(f"An exception was caught while trying to connect:\n{str(e)}\nBluetooth mode only.")
                 self.udp_int = None
                 self.tcp_video_int = None
                 self.drone_hostname = None
@@ -1120,4 +1120,8 @@ def run_controller(print_screen=True):
 
 
 if __name__ == "__main__":
-    run_controller()
+    try:
+        run_controller()
+    except Exception as e:
+        logging.info(f"The following exception occurred:\n{str(e)}")
+        raise e
