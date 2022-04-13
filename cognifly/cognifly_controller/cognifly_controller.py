@@ -259,6 +259,7 @@ def try_connect(drone_hostname, drone_port):
         udp_int.init_receiver(ip=drone_ip, port=drone_port)
         tcp_video_int = TCPVideoInterface()
     except Exception as e:
+        logging.info(f"The following exception occurred:\n{str(e)}")
         udp_int = None
         tcp_video_int = None
         drone_hostname = None
@@ -303,6 +304,7 @@ class CogniflyController:
         self._tcp_video_int = self.tcp_video_int
         if self.network:
             self._t_connect = Thread(target=self._try_connect_thread, args=(drone_hostname, drone_port), daemon=True)
+            self._t_connect.start()
         self.sender_initialized = False  # sender is initialized only when a reset message is received
         self.print_screen = print_screen
         self.obs_loop_time = obs_loop_time
