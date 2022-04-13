@@ -459,13 +459,13 @@ class CogniflyController:
             command: a command of the form (str:command, ...:args)
         """
         if command[0] == "RES":  # reset drone
-            self.CMDS = {'roll': DEFAULT_ROLL,
-                         'pitch': DEFAULT_PITCH,
-                         'throttle': DEFAULT_THROTTLE,  # throttle bellow a certain value disarms the FC
-                         'yaw': DEFAULT_YAW,
-                         'aux1': DISARMED,  # disarmed
-                         'aux2': DEFAULT_AUX2
-                         }
+            if self.CMDS['aux1'] != DISARMED:
+                self.emergency = True  # land if not disarmed
+            self.CMDS['roll'] = DEFAULT_ROLL
+            self.CMDS['pitch'] = DEFAULT_PITCH
+            self.CMDS['throttle'] = DEFAULT_THROTTLE  # throttle bellow a certain value disarms the FC
+            self.CMDS['yaw'] = DEFAULT_YAW
+            self.CMDS['aux2'] = DEFAULT_AUX2
             self.udp_int.init_sender(ip=command[2][0], port=command[2][1])
             self.sender_initialized = True
             self._flight_origin = None
@@ -817,6 +817,7 @@ class CogniflyController:
             if board.SENSOR_DATA['altitude'] <= 0.1:
                 self.CMDS['aux1'] = DISARMED
                 self.CMDS['throttle'] = DEFAULT_THROTTLE
+                self._flight_origin = None  # reset flight origin after an emergency
                 self.emergency = False
 
     def _controller(self, screen):
