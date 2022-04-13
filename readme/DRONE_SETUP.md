@@ -1,6 +1,6 @@
 # Drone setup
 
-Follow these step-by-step instructions to properly setup the CogniFly drone.
+Follow these step-by-step instructions to properly setup the CogniFly drone from zero.
 
 ## Flight controller configuration
 - download both the [cognifly framework](https://github.com/thecognifly/cognifly-python/releases/download/v0.0.4/cognifly_framework.hex) and the [cognifly configuration](https://github.com/thecognifly/cognifly-python/releases/download/v0.0.4/cognifly_configuration.txt) files
@@ -34,6 +34,8 @@ This will reboot the flight controller.
 - `disconnect` from the flight controller
 
 ## Raspberry Pi configuration
+
+_(Note: if using the Raspbian image that we may have provided to you, you can ignore this section.)_
 
 - install [raspbian](https://www.raspberrypi.org/software/operating-systems/) on the SD card (you can use Raspberry Pi OS Lite)
 

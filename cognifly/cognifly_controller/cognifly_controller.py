@@ -501,10 +501,10 @@ class CogniflyController:
                     self.target_id = identifier
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], command[2][5], command[2][6], time.time() + command[2][7]]
             elif command[0] == "ST1":  # stream on
-                if self.tcp_video_int:
+                if self.tcp_video_int is not None:
                     self.tcp_video_int.start_streaming(ip_dest=command[2][0], port_dest=command[2][1], resolution=command[2][2], fps=command[2][3])
             elif command[0] == "ST0":  # stream off
-                if self.tcp_video_int:
+                if self.tcp_video_int is not None:
                     self.tcp_video_int.stop_streaming()
             elif command[0] == "PVX":  # new PID vel x values
                 if command[2][0] is not None:
@@ -892,7 +892,7 @@ class CogniflyController:
                                 self.drone_ip = self._drone_ip
                                 self.drone_port = self._drone_port
                                 self.udp_int = self._udp_int
-                                self._tcp_video_int = self._tcp_video_int
+                                self.tcp_video_int = self._tcp_video_int
 
                     #
                     # Gamepad manager  (NO DELAYS) -----------------------------
@@ -1069,7 +1069,7 @@ class CogniflyController:
                                     data_handler = board.receive_msg()
                                     board.process_recv_data(data_handler)
                                 self.debug_flags = board.process_armingDisableFlags(board.CONFIG['armingDisableFlags'])
-                                if self.tcp_video_int:
+                                if self.tcp_video_int is not None:
                                     cam_err, cam_exp, cam_trace = self.tcp_video_int.get_camera_error()
                                     if cam_err:
                                         self.debug_flags.append("CAMERA_ERROR")
@@ -1100,7 +1100,7 @@ class CogniflyController:
                                 screen.clrtoeol()
 
                                 self.debug_flags = board.process_armingDisableFlags(board.CONFIG['armingDisableFlags'])
-                                if self.tcp_video_int:
+                                if self.tcp_video_int is not None:
                                     cam_err, cam_exp, cam_trace = self.tcp_video_int.get_camera_error()
                                     if cam_err:
                                         self.debug_flags.append("CAMERA_ERROR")

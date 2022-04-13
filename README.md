@@ -87,7 +87,7 @@ It is possible to manually control the drone with the keyboard via SSH, by focus
 The remote control API is defined in [cognifly_remote.py](https://github.com/thecognifly/cognifly-python/blob/main/cognifly/cognifly_remote/cognifly_remote.py) (please read the docstrings for thorough documentation).
 
 Connecting to the drone is as simple as creating a `Cognifly` object.
-By default, this will also pop a simple Graphic User Interface, that can be used to disarm the drone on the event of an emergency, and to visualize the camera stream when activated:
+By default, this will also pop a simple Graphic User Interface:
 
 ```python
 from cognifly import Cognifly
@@ -97,8 +97,6 @@ cf = Cognifly(drone_hostname="my_drone_name.local")
 
 time.sleep(10.0)
 ```
-
-
 
 The API is divided into a "pro" and a "school" API.
 
