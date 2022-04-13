@@ -501,9 +501,11 @@ class CogniflyController:
                     self.target_id = identifier
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], command[2][5], command[2][6], time.time() + command[2][7]]
             elif command[0] == "ST1":  # stream on
-                self.tcp_video_int.start_streaming(ip_dest=command[2][0], port_dest=command[2][1], resolution=command[2][2], fps=command[2][3])
+                if self.tcp_video_int:
+                    self.tcp_video_int.start_streaming(ip_dest=command[2][0], port_dest=command[2][1], resolution=command[2][2], fps=command[2][3])
             elif command[0] == "ST0":  # stream off
-                self.tcp_video_int.stop_streaming()
+                if self.tcp_video_int:
+                    self.tcp_video_int.stop_streaming()
             elif command[0] == "PVX":  # new PID vel x values
                 if command[2][0] is not None:
                     self.vel_x_kp = command[2][0]
