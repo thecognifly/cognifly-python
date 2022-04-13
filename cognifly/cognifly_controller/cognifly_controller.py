@@ -250,8 +250,8 @@ class SignalTracer:
 def try_connect(drone_hostname, drone_port):
     try:
         udp_int = UDPInterface()
-        drone_hostname = socket.gethostname() if drone_hostname is None else drone_hostname
-        drone_ip = socket.gethostbyname(drone_hostname) if drone_hostname is not None else extract_ip()
+        drone_hostname_ = socket.gethostname() if drone_hostname is None else drone_hostname
+        drone_ip = socket.gethostbyname(drone_hostname_) if drone_hostname is not None else extract_ip()
         if drone_hostname is None and (drone_ip == '127.0.0.1' or drone_ip == '0.0.0.0'):
             raise RuntimeError(f"Could not extract drone IP ({drone_ip})")
         udp_int.init_receiver(ip=drone_ip, port=drone_port)
@@ -260,9 +260,9 @@ def try_connect(drone_hostname, drone_port):
         logging.info(f"The following exception occurred:\n{str(e)}")
         udp_int = None
         tcp_video_int = None
-        drone_hostname = None
+        drone_hostname_ = None
         drone_ip = None
-    return drone_hostname, drone_ip, drone_port, udp_int, tcp_video_int
+    return drone_hostname_, drone_ip, drone_port, udp_int, tcp_video_int
 
 
 class CogniflyController:
