@@ -62,7 +62,7 @@ cognifly-controller
 
 We advise setting up a service on the rapsberry pi to launch this script automatically on CogniFly at startup, so that the user doesn't need to SSH the drone.
 
-_Note: if using our Raspbian image on the Rasperry Pi, this service is set up already._
+_Note: if using our Raspbian image on the Raspberry Pi, this service is set up already._
 
 *Note: On the Raspberry Pi, the `cognifly-controller` command may not become available immediately after installation. If not, try closing the terminal and opening a new one.
 Worst case scenario, this command is an alias for `python3 -m cognifly controller`.*
@@ -85,22 +85,22 @@ First, pair your PS4 controller with the Raspberry Pi (you need to do this only 
   default-agent
   ```
 - launch the scan for available bluetooth devices: `scan on`
-- start bluetooth pairing on the PS4 controller by pressing `share`, then the `PS` buttons simulataneously until a white light flashes
-- in the scan output, look for something that looks like `[NEW] Device AC:FD:93:14:25:D3 Wireless Controller`
+- start bluetooth pairing on the PS4 controller by pressing `share`, then the `PS` buttons simultaneously until a white light flashes
+- in the scan output, look for something like `[NEW] Device AC:FD:93:14:25:D3 Wireless Controller`
 - copy the MAC address (`AC:FD:93:14:25:D3` in this example but yours will differ)
 - turn off scanning: `scan off`
 - connect to the controller: `connect AC:FD:93:14:25:D3` by replacing `AC:FD:93:14:25:D3` with your copied MAC address
 - the light stops flashing and turns blue
 
-Once this is done, you will not need to ssh the drone anymore; just turn your PS4 controller on and it will connect to the Rasperry Pi automatically (it may sometimes take several attempts).
+Once this is done, you will not need to ssh the drone anymore; just turn your PS4 controller on and it will connect to the Raspberry Pi automatically (it may sometimes take several trials).
 
 Controls:
 
 ![ps4](readme/figures/ps4.PNG)
 
-_Note: when taking control over the API, the flight controller of the API is disabled but the `DISARM` emergency button and the video streaming will still work.
+_Note: when taking control over the API, the flight controller of the API is disabled but the `DISARM` emergency button and the video stream will still work.
 When releasing control to the API, the `DISARM` buttons of the PS4 controller will also keep working.
-By default, when a controller is connected, it takes control over the API.
+By default, when a PS4 controller is connected, it takes control over the API.
 The `Gamepad` indicator in the GUI monitors this._
 
 #### Keyboard:
