@@ -54,7 +54,7 @@ pip3 install cognifly
 ## Usage
 
 In order to use the installed library, the `cognifly_controller.py` script must first be running on Cognifly.
-This can be done by connection to the drone through SSH, and executing the following command:
+This can be done by connecting to the drone through SSH, and executing the following command:
 
 ```bash
 cognifly-controller
@@ -62,7 +62,7 @@ cognifly-controller
 
 We advise setting up a service on the rapsberri pi to launch this script automatically on CogniFly at startup, so that the user doesn't need to SSH the drone.
 
-_Note: if using our Raspian image on the Rasperry Pi, this service is set up already._
+_Note: if using our Raspbian image on the Rasperry Pi, this service is set up already._
 
 *Note: On the Raspberry Pi, the `cognifly-controller` command may not become available immediately after installation. If not, try closing the terminal and opening a new one.
 Worst case scenario, this command is an alias for `python3 -m cognifly controller`.*
