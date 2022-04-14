@@ -60,7 +60,7 @@ This can be done by connecting to the drone through SSH, and executing the follo
 cognifly-controller
 ```
 
-We advise setting up a service on the rapsberri pi to launch this script automatically on CogniFly at startup, so that the user doesn't need to SSH the drone.
+We advise setting up a service on the rapsberry pi to launch this script automatically on CogniFly at startup, so that the user doesn't need to SSH the drone.
 
 _Note: if using our Raspbian image on the Rasperry Pi, this service is set up already._
 
