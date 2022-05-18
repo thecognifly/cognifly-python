@@ -39,6 +39,8 @@ _(Note: if using the Raspbian image that we may have provided to you, you can ig
 
 - install [raspbian](https://www.raspberrypi.org/software/operating-systems/) on the SD card (you can use Raspberry Pi OS Lite)
 
+_(Note: You can use [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to install raspbian, which provides a GUI to skip most of the following.)_
+
 The SD card should now have two partitions: `boot` and `rootfs`
 
 - configure [SSH access](https://phoenixnap.com/kb/enable-ssh-raspberry-pi):
