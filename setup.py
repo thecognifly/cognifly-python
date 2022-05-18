@@ -28,7 +28,7 @@ else:  # remote
 
 setup(name='cognifly',
       packages=[package for package in find_packages()],
-      version='0.2.0',
+      version='0.2.1',
       license='MIT',
       description='Control the CogniFly open-source drone from python',
       long_description=long_description,
