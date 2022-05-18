@@ -76,6 +76,9 @@ We recommend using a PS4 bluetooth gamepad for manual control of the drone, as t
 
 First, pair your PS4 controller with the Raspberry Pi (you need to do this only once):
 - ssh the Raspberry Pi: `ssh pi@my_drone_hostname.local`
+- install the prerequisite: `sudo apt install bluetooth pi-bluetooth bluez`
+- reboot the pi: `sudo reboot`
+- ssh again: `ssh pi@my_drone_hostname.local`
 - execute `sudo bluetoothctl`
 - configure the bluetooth agent by executing the following commands:
   ```terminal
@@ -89,8 +92,10 @@ First, pair your PS4 controller with the Raspberry Pi (you need to do this only 
 - in the scan output, look for something like `[NEW] Device AC:FD:93:14:25:D3 Wireless Controller`
 - copy the MAC address (`AC:FD:93:14:25:D3` in this example but yours will differ)
 - turn off scanning: `scan off`
-- connect to the controller: `connect AC:FD:93:14:25:D3` by replacing `AC:FD:93:14:25:D3` with your copied MAC address
+- pair: `pair XX:XX:XX:XX:XX:XX` by replacing `XX:XX:XX:XX:XX:XX` with your copied MAC address
+- connect to the controller: `connect XX:XX:XX:XX:XX:XX` (replacing `XX:XX:XX:XX:XX:XX` with your copied MAC address)
 - the light stops flashing and turns blue
+- trust the controller: `trust XX:XX:XX:XX:XX:XX` (replacing `XX:XX:XX:XX:XX:XX` with your copied MAC address)
 
 Once this is done, you will not need to ssh the drone anymore; just turn your PS4 controller on and it will connect to the Raspberry Pi automatically (it may sometimes take several trials).
 
