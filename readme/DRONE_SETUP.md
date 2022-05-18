@@ -35,7 +35,34 @@ This will reboot the flight controller.
 
 ## Raspberry Pi configuration
 
-_(Note: if using the Raspbian image that we may have provided to you, you can ignore this section.)_
+### Raspbian image:
+
+The easiest way of using `cognifly-python` is to use our readily set up Raspbian image.
+
+- Flash the image on your SD card.
+- configure wpa-supplicant so the drone connects to your router:
+  - edit the `/rootfs/etc/wpa_supplicant/wpa_supplicant.conf` file (on linux, this may require `sudo`) 
+    - adapt the following to your WiFi network in the `wpa_supplicant.conf` file:
+      ```terminal
+      network={
+              ssid="yourNetworkSSID"
+              psk="yourNetworkPassword"
+              scan_ssid=1
+      }
+      ```
+- change the name of the drone:
+  - edit the `/rootfs/etc/hostname` file
+    - replace the default `K00` by your drone name
+  - edit the `/rootfs/etc/hosts` file
+    - replace the default `K00` in the last line by your drone name
+- plug the SD card into the Raspberry Pi
+- plug a charged battery to start the drone
+
+### Manual installation:
+
+_(Note: if using the Raspbian image, you can ignore this section.)_
+
+In case you wish to install the library on your own Raspbian:
 
 - install [raspbian](https://www.raspberrypi.org/software/operating-systems/) on the SD card (you can use Raspberry Pi OS Lite)
 
@@ -75,7 +102,7 @@ The SD card should now have two partitions: `boot` and `rootfs`
 - disable the console messages in the serial port:
   - edit the `/boot/cmdline.txt` file
     - if you see `console=serial0,115200`, remove this command
-- plug the SD card into the Raspberry Pi and connect
+- plug the SD card into the Raspberry Pi
 - plug a charged battery to start the drone
 - wait for the Raspberry PI to boot (the light should stop blinking)
 - ssh the drone from your computer (the default password should be `raspberry`):
