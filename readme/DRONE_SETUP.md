@@ -37,10 +37,13 @@ This will reboot the flight controller.
 
 ### Raspbian image:
 
-The easiest way of using `cognifly-python` is to use our readily set up [Raspbian image](https://github.com/thecognifly/cognifly-python/releases/download/v0.2.1/cognifly_image.tar.gz).
+The easiest way of using `cognifly-python` is to flash our readily set up Rasbian image on your SD card.
 
-- Flash the image on your SD card.
-- configure wpa-supplicant so the drone connects to your router:
+- download the [Cognifly Raspbian image](https://github.com/thecognifly/cognifly-python/releases/download/v0.2.1/cognifly_image.tar.gz)
+- extract the archive
+- you should now see the extracted file named `cognifly.img`
+- flash `cognifly.img` on your SD card (e.g., using [Win32 Disk Imager](https://win32diskimager.download/) on Windows, or `dd` on Linux)
+- in the now flashed SD card, configure wpa-supplicant so the drone connects to your router:
   - edit the `/rootfs/etc/wpa_supplicant/wpa_supplicant.conf` file (on linux, this may require `sudo`) 
     - adapt the following to your WiFi network in the `wpa_supplicant.conf` file:
       ```terminal
