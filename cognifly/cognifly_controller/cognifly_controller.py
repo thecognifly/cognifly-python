@@ -488,29 +488,34 @@ class CogniflyController:
             self._flight_origin = None
             self.udp_int.send(pkl.dumps(("RES", (self.drone_ip, self.drone_port))))
             self.current_flight_command = None
+            self._reset_pids()
         elif self.sender_initialized:  # do not take any udp order unless reset has been called
             identifier = command[1]
             if command[0] == "ACT":  # action
                 # hard-reset all PIDs (FIXME: this is to avoid a bug in the PID framework that seems to retain unsuitable values otherwise, correct this in the future)
-                self._reset_pids()
+                # self._reset_pids()
                 if command[2][0] == "DISARM":
                     self.CMDS["aux1"] = DISARMED
                     self.CMDS["throttle"] = DEFAULT_THROTTLE
                     self.current_flight_command = None
+                    self._reset_pids()
                 elif command[2][0] == "ARM":
                     self.CMDS["aux1"] = ARMED
                     self.CMDS["aux2"] = NAV_POSHOLD_MODE
                     self.CMDS["throttle"] = DEFAULT_THROTTLE
                     self.current_flight_command = None
+                    self._reset_pids()
                 elif command[2][0] == "TAKEOFF":
                     alt = command[2][1] if command[2][1] is not None else TAKEOFF
                     self.CMDS["throttle"] = alt  # TODO: replace by true altitude (now a throttle value)
                     self.CMDS["aux2"] = NAV_POSHOLD_MODE
                     self.current_flight_command = None
+                    self._reset_pids()
                 elif command[2][0] == "LAND":
                     self.CMDS["throttle"] = LAND
                     self.CMDS["aux2"] = NAV_POSHOLD_MODE
                     self.current_flight_command = None
+                    self._reset_pids()
                 elif command[2][0] in ("VDF", "VWF"):  # velocity
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
                 elif command[2][0] in ("PDF", "PWF"):  # position
