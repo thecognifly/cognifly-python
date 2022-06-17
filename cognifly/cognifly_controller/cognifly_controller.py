@@ -17,6 +17,7 @@ from pathlib import Path
 from yamspy import MSPy
 import logging
 from threading import Thread, Lock
+from abc import ABC, abstractmethod
 
 from cognifly.utils.udp_interface import UDPInterface
 from cognifly.utils.tcp_video_interface import TCPVideoInterface
@@ -255,6 +256,28 @@ def try_connect(drone_hostname, drone_port):
     return drone_hostname_, drone_ip, drone_port, udp_int, tcp_video_int
 
 
+class PoseEstimator(ABC):
+    """
+    Base interface for custom pose estimators
+    """
+    @abstractmethod
+    def get(self):
+        """
+        Must return a tuple of 8 values: (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
+
+        These values represent the drone attitude in the world frame:
+        pos_x_wf = x position (m)
+        pos_y_wf = y position (m)
+        pos_z_wf = z position (m)
+        yaw: yaw (rad)
+        vel_x_wf = x velocity (m/s)
+        vel_y_wf = y velocity (m/s)
+        vel_z_wf = z velocity (m/s)
+        yaw_rate: yaw rate (rad/s)
+        """
+        raise NotImplementedError
+
+
 class CogniflyController:
     def __init__(self,
                  network=True,
@@ -262,7 +285,8 @@ class CogniflyController:
                  drone_port=8988,
                  print_screen=True,
                  obs_loop_time=0.1,
-                 trace_logs=False):
+                 trace_logs=False,
+                 pose_estimator=None):
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -276,7 +300,9 @@ class CogniflyController:
                 if None, an observation is sent by UDP as answer each time a UDP command is received
                 else, an observation is sent bu UDP every obs_loop_time seconds
             trace_logs: bool (optional): if True, flight telemetry will be printed in a CSV-like log file
+            pose_estimator: cognifly.cognifly_controller.cognifly_controller.PoseEstimator: custom pose estimator
         """
+        self.pose_estimator = pose_estimator
         self.network = network
         self.drone_hostname = drone_hostname
         self.drone_port = drone_port
@@ -582,22 +608,28 @@ class CogniflyController:
             We have not found the equivalent for z and yaw in inav code yet.
         """
         # retrieve the current state
-        board.fast_read_attitude()
-        yaw = board.SENSOR_DATA['kinematics'][2] * np.pi / 180.0
-        yaw_rate = self._compute_yaw_rate(yaw)
-        board.send_RAW_msg(MSPy.MSPCodes['MSP_DEBUG'])  # MSP2_INAV_DEBUG is too long to answer
-        data_handler = board.receive_msg()
-        board.process_recv_data(data_handler)
-        pos_x_wf = board.SENSOR_DATA['debug'][0] / 1e4
-        pos_y_wf = board.SENSOR_DATA['debug'][1] / 1e4
-        vel_x_wf = board.SENSOR_DATA['debug'][2] / 1e4
-        vel_y_wf = board.SENSOR_DATA['debug'][3] / 1e4
-        board.fast_read_altitude()
-        pos_z_wf = board.SENSOR_DATA['altitude']
-        vel_z_wf = self._compute_z_vel(pos_z_wf)
+        if self.pose_estimator is None:
+            board.fast_read_attitude()
+            yaw = board.SENSOR_DATA['kinematics'][2] * np.pi / 180.0
+            yaw_rate = self._compute_yaw_rate(yaw)
+            board.send_RAW_msg(MSPy.MSPCodes['MSP_DEBUG'])  # MSP2_INAV_DEBUG is too long to answer
+            data_handler = board.receive_msg()
+            board.process_recv_data(data_handler)
+            pos_x_wf = board.SENSOR_DATA['debug'][0] / 1e4
+            pos_y_wf = board.SENSOR_DATA['debug'][1] / 1e4
+            vel_x_wf = board.SENSOR_DATA['debug'][2] / 1e4
+            vel_y_wf = board.SENSOR_DATA['debug'][3] / 1e4
+            board.fast_read_altitude()
+            pos_z_wf = board.SENSOR_DATA['altitude']
+            vel_z_wf = self._compute_z_vel(pos_z_wf)
+        else:
+            pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.get()
 
         if self._flight_origin is None:  # new basis at reset
-            self._flight_origin = (pos_x_wf, pos_y_wf, yaw)
+            if self.pose_estimator is None:
+                self._flight_origin = (pos_x_wf, pos_y_wf, yaw)
+            else:
+                self._flight_origin = (0, 0, 0)  # no re-centering at reset when using custom pose estimator
         else:
             # change of basis
             # NB: this is only to avoid rebooting the board at reset
