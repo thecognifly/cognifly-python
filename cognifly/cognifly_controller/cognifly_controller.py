@@ -151,16 +151,15 @@ def trigger_to_negative_vz(value, deadband=0.05):
 
 
 class PS4GamepadManager:
-    def __init__(self, device_path="/dev/input/event2", deadband=0.05):
-        self._device_path = device_path
-        self.deadband = deadband
+    def __init__(self):
+        self.deadband = 0.05
         self.gamepad = PS4Gamepad()
         self.connected, _, _ = self.gamepad.get()
         self.vz = 0
         self.ts = None
-        self.override = True
+        self.mode = 1
 
-    def get(self, CMDS):
+    def get(self, CMDS, flight_command):
         """
         Args:
             CMDS: the FC commands
@@ -174,8 +173,8 @@ class PS4GamepadManager:
             if self.connected:
                 # gamepad has been disconnected, trigger emergency behavior
                 self.connected = False
-                return CMDS, True, True  # trigger emergency
-            return CMDS, False, False  # not connected
+                return CMDS, flight_command, True, True  # trigger emergency
+            return CMDS, flight_command, False, False  # not connected
         else:  # connected
             if not self.connected or self.ts is None:  # connection
                 self.ts = time.time()
@@ -195,34 +194,49 @@ class PS4GamepadManager:
             tr = button_states['tr']
 
             if bx == 1:
-                self.override = True
+                self.mode = 1
             elif by == 1:
-                self.override = False
-            
+                self.mode = 0
+            elif bb == 1:
+                self.mode = 2
+
+            override = False
+
             if tl == tr == 1:
                 CMDS['aux1'] = ARMED
                 CMDS['throttle'] = DEFAULT_THROTTLE
-            elif ba == 1 or bb == 1:
+            elif ba == 1:
                 CMDS['aux1'] = DISARMED
                 CMDS['throttle'] = DEFAULT_THROTTLE
+                override = True
 
             if haty == -1:
                 CMDS['throttle'] = TAKEOFF
+                override = True
             elif haty == 1:
                 CMDS['throttle'] = LAND
-            
-            CMDS['pitch'] = joystick_to_pitch(- ay, deadband=self.deadband)
-            CMDS['roll'] = joystick_to_roll(ax, deadband=self.deadband)
-            CMDS['yaw'] = joystick_to_yaw(arx, deadband=self.deadband)
+                override = True
 
-            vz = 0
-            vz += trigger_to_positive_vz(az, deadband=self.deadband)
-            vz += trigger_to_negative_vz(arz, deadband=self.deadband)
-            ts = time.time()
-            CMDS['throttle'] += vz * (ts - self.ts)
-            self.ts = ts
+            if self.mode == 1:  # override CMDS
+                CMDS['pitch'] = joystick_to_pitch(- ay, deadband=self.deadband)
+                CMDS['roll'] = joystick_to_roll(ax, deadband=self.deadband)
+                CMDS['yaw'] = joystick_to_yaw(arx, deadband=self.deadband)
+                vz = 0
+                vz += trigger_to_positive_vz(az, deadband=self.deadband)
+                vz += trigger_to_negative_vz(arz, deadband=self.deadband)
+                ts = time.time()
+                CMDS['throttle'] += vz * (ts - self.ts)
+                self.ts = ts
+            elif self.mode == 2 and not override:  # override flight command
+                vx = joystick_to_cmd(- ay, deadband, default_cmd=0.0, min_cmd=-1.0, max_cmd=1.0)
+                vy = joystick_to_cmd(ax, deadband, default_cmd=0.0, min_cmd=-1.0, max_cmd=1.0)
+                w = joystick_to_cmd(arx, deadband, default_cmd=0.0, min_cmd=-np.pi/4.0, max_cmd=np.pi/4.0)
+                vz = 0
+                vz += joystick_to_t(az, deadband, max_cmd=0.5)
+                vz -= joystick_to_t(arz, deadband, max_cmd=0.5)
+                flight_command = ['VDF', vx, vy, vz, w, time.time() + 1.0]
 
-        return CMDS, False, self.override
+        return CMDS, flight_command, False, self.mode
 
 
 class SignalTracer:
@@ -928,9 +942,11 @@ class CogniflyController:
                     # Gamepad commands are overridden by key presses
                     #
 
-                    self.CMDS, emergency, valid = self.gamepad_manager.get(self.CMDS)
+                    self.CMDS, self.current_flight_command, emergency, mode = self.gamepad_manager.get(self.CMDS, self.current_flight_command)
                     if emergency and not self.emergency:
                         self.emergency = True
+                    override = mode == 1
+                    gamepad = mode != 0
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
@@ -941,14 +957,14 @@ class CogniflyController:
                         if len(udp_cmds) > 0:
                             for cmd in udp_cmds:
                                 self._udp_commands_handler(pkl.loads(cmd))
-                        if not valid:  # override the flight controller if valid PS4
+                        if not override:  # override the flight controller if valid PS4
                             self._flight(board, screen)
                         if self.obs_loop_time is not None:
                             tick = time.time()
                             if tick - self.last_obs_tick >= self.obs_loop_time and self.sender_initialized:
                                 self.last_obs_tick = tick
                                 self._i_obs += 1
-                                self.udp_int.send(pkl.dumps(("OBS", self._i_obs, self.telemetry, valid, self.voltage, self.debug_flags)))
+                                self.udp_int.send(pkl.dumps(("OBS", self._i_obs, self.telemetry, gamepad, self.voltage, self.debug_flags)))
                     #
                     # end of UDP recv non-blocking -----------------------------
                     #
