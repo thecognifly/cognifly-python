@@ -278,6 +278,7 @@ class PoseEstimator(ABC):
     def get(self):
         """
         Must return a tuple of 8 values: (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
+        If any is None, this is considered failure and the onboard estimator will be used instead.
 
         These values represent the drone attitude in the world frame:
         pos_x_wf = x position (m)
@@ -317,6 +318,7 @@ class CogniflyController:
             pose_estimator: cognifly.cognifly_controller.cognifly_controller.PoseEstimator: custom pose estimator
         """
         self.pose_estimator = pose_estimator
+        self.valid_custom_estimate = True
         self.network = network
         self.drone_hostname = drone_hostname
         self.drone_port = drone_port
@@ -629,10 +631,21 @@ class CogniflyController:
             We have not found the equivalent for z and yaw in inav code yet.
         """
         # retrieve the current state
-        if self.pose_estimator is None:
+        failure_custom = False
+        recovery = False
+        if self.pose_estimator is not None:
+            pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.get()
+            if None in (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate):
+                failure_custom = True
+            if failure_custom and self.valid_custom_estimate:
+                self.valid_custom_estimate = False
+                recovery = True
+            elif not self.valid_custom_estimate:
+                self.valid_custom_estimate = True
+                recovery = True
+        if self.pose_estimator is None or failure_custom:
             board.fast_read_attitude()
             yaw = board.SENSOR_DATA['kinematics'][2] * np.pi / 180.0
-            yaw_rate = self._compute_yaw_rate(yaw)
             board.send_RAW_msg(MSPy.MSPCodes['MSP_DEBUG'])  # MSP2_INAV_DEBUG is too long to answer
             data_handler = board.receive_msg()
             board.process_recv_data(data_handler)
@@ -642,15 +655,11 @@ class CogniflyController:
             vel_y_wf = board.SENSOR_DATA['debug'][3] / 1e4
             board.fast_read_altitude()
             pos_z_wf = board.SENSOR_DATA['altitude']
+            yaw_rate = self._compute_yaw_rate(yaw)
             vel_z_wf = self._compute_z_vel(pos_z_wf)
-        else:
-            pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.get()
 
         if self._flight_origin is None:  # new basis at reset
-            if self.pose_estimator is None:
-                self._flight_origin = (pos_x_wf, pos_y_wf, yaw)
-            else:
-                self._flight_origin = (0, 0, 0)  # no re-centering at reset when using custom pose estimator
+            self._flight_origin = (pos_x_wf, pos_y_wf, yaw)
         else:
             # change of basis
             # NB: this is only to avoid rebooting the board at reset
@@ -665,6 +674,13 @@ class CogniflyController:
             vel_x_wf = vel_x_int * cos + vel_y_int * sin
             vel_y_wf = vel_y_int * cos - vel_x_int * sin
             yaw = smallest_angle_diff_rad(yaw, self._flight_origin[2])
+
+            if recovery:  # change the origin to compensate for the glitch between estimators
+                self._flight_origin[0] += pos_x_wf - self.telemetry[0]
+                self._flight_origin[1] += pos_y_wf - self.telemetry[1]
+                self._flight_origin[2] += smallest_angle_diff_rad(yaw, self.telemetry[2])
+                self._flight_origin[2] = smallest_angle_diff_rad(_flight_origin[2], 0.0)  # FIXME: check that this works
+                return
 
         cos = np.cos(yaw)
         sin = np.sin(yaw)
