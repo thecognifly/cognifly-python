@@ -404,6 +404,8 @@ class CogniflyController:
         self.z_vel_gain = 1
         self.w_gain = 0.5
 
+        self._reset_pids()
+
         # filters:
 
         # self.filter_vel_z = Simple1DKalman(err_measure=0.3, q=0.9)
