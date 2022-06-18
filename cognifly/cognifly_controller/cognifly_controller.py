@@ -228,12 +228,12 @@ class PS4GamepadManager:
                 CMDS['throttle'] += vz * (ts - self.ts)
                 self.ts = ts
             elif self.mode == 2 and not override:  # override flight command
-                vx = joystick_to_cmd(- ay, deadband, default_cmd=0.0, min_cmd=-1.0, max_cmd=1.0)
-                vy = joystick_to_cmd(ax, deadband, default_cmd=0.0, min_cmd=-1.0, max_cmd=1.0)
-                w = joystick_to_cmd(arx, deadband, default_cmd=0.0, min_cmd=-np.pi/4.0, max_cmd=np.pi/4.0)
+                vx = joystick_to_cmd(- ay, deadband=0.05, default_cmd=0.0, min_cmd=-1.0, max_cmd=1.0)
+                vy = joystick_to_cmd(ax, deadband=0.05, default_cmd=0.0, min_cmd=-1.0, max_cmd=1.0)
+                w = joystick_to_cmd(arx, deadband=0.05, default_cmd=0.0, min_cmd=-np.pi/4.0, max_cmd=np.pi/4.0)
                 vz = 0
-                vz += joystick_to_t(az, deadband, max_cmd=0.5)
-                vz -= joystick_to_t(arz, deadband, max_cmd=0.5)
+                vz += joystick_to_t(az, deadband=0.05, max_cmd=0.5)
+                vz -= joystick_to_t(arz, deadband=0.05, max_cmd=0.5)
                 flight_command = ['VDF', vx, vy, vz, w, time.time() + 1.0]
 
         return CMDS, flight_command, False, self.mode
