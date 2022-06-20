@@ -234,7 +234,7 @@ class PS4GamepadManager:
                 vz = 0
                 vz += joystick_to_t(az, deadband=self.deadband, max_cmd=0.5)
                 vz -= joystick_to_t(arz, deadband=self.deadband, max_cmd=0.5)
-                flight_command = None if 0 == vx == vy == vz else ['VDF', vx, vy, vz, w, time.time() + 1.0]
+                flight_command = ['PDZ', 0, 0, 0, 0, 0.1, np.pi / 2, time.time() + 1.0] if 0 == vx == vy == vz else ['VDF', vx, vy, vz, w, time.time() + 1.0]
 
         return CMDS, flight_command, False, self.mode
 
@@ -536,7 +536,7 @@ class CogniflyController:
                     self._reset_pids()
                 elif command[2][0] in ("VDF", "VWF"):  # velocity
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
-                elif command[2][0] in ("PDF", "PWF"):  # position
+                elif command[2][0] in ("PDF", "PDZ", "PWF"):  # position
                     self.target_flag = True
                     self.target_id = identifier
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], command[2][5], command[2][6], time.time() + command[2][7]]
@@ -829,7 +829,7 @@ class CogniflyController:
                     self.CMDS['roll'] = DEFAULT_ROLL + y_target
                     self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
-            elif self.current_flight_command[0] == "PDF":  # position command drone frame
+            elif self.current_flight_command[0] in ("PDF", "PDZ"):  # position command drone frame
                 # command is ["PDF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
                 # we convert this into a command in world frame (it will be applied in the next iteration)
                 current_flight_command = list(self.current_flight_command)
@@ -843,6 +843,8 @@ class CogniflyController:
                 current_flight_command[1] = x_goal_wf
                 current_flight_command[2] = y_goal_wf
                 current_flight_command[4] = yaw_goal_wf
+                if self.current_flight_command[0] == "PDZ":
+                    current_flight_command[3] = pos_z_wf
                 self.current_flight_command = tuple(current_flight_command)
 
     def _check_batt_voltage(self):
