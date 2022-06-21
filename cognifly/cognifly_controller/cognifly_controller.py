@@ -159,7 +159,7 @@ class PS4GamepadManager:
         self.ts = None
         self.mode = 1
 
-    def get(self, CMDS, flight_command):
+    def get(self, CMDS, flight_command, screen):
         """
         Args:
             CMDS: the FC commands
@@ -234,7 +234,8 @@ class PS4GamepadManager:
                 vz = 0
                 vz += joystick_to_t(az, deadband=self.deadband, max_cmd=0.5)
                 vz -= joystick_to_t(arz, deadband=self.deadband, max_cmd=0.5)
-                flight_command = ['PDZ', 0, 0, 0, 0, 0.5, np.pi / 2, time.time() + 1.0] if 0 == vx == vy == vz == w else ['VDF', vx, vy, vz, w, time.time() + 1.0]
+                screen.addstr(25, 0, f"DEBUG GAMEPAD: [{vx}, {vy}, {vz}, {w}]")
+                flight_command = ['PDZ', 0, 0, 0, 0, 0.2, 0.5, time.time() + 1.0] if 0 == vx == vy == vz == w else ['VDF', vx, vy, vz, w, time.time() + 1.0]
                 # flight_command = ['PDF', 0, 0, 0.5, 0, 0.5, np.pi / 2, time.time() + 1.0] if 0 == vx == vy == vz == w else ['VDF', vx, vy, vz, w, time.time() + 1.0]
 
         return CMDS, flight_command, False, self.mode
@@ -759,7 +760,7 @@ class CogniflyController:
                     self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
                     screen.addstr(23, 0, f"DEBUG VELOCITY CONTROL")
-                    screen.addstr(24, 0, f"DEBUG POSITION Goal: [{self.CMDS['pitch']}, {self.CMDS['roll']}, {self.CMDS['throttle']}, {self.CMDS['yaw']}]")
+                    screen.addstr(24, 0, f"DEBUG VELOCITY Goal: [{self.CMDS['pitch']}, {self.CMDS['roll']}, {self.CMDS['throttle']}, {self.CMDS['yaw']}]")
             elif self.current_flight_command[0] == "PWF":  # position command
                 # command is ["PWF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
                 time_end = self.current_flight_command[7]
@@ -834,7 +835,6 @@ class CogniflyController:
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
                     screen.addstr(23, 0, f"DEBUG POSITION CONTROL Applied: p{self.CMDS['pitch']}, r{self.CMDS['roll']}, t{self.CMDS['throttle']}, y{self.CMDS['yaw']}")
                     screen.addstr(24, 0, f"DEBUG POSITION Goal: [{x_goal}, {y_goal}, {z_goal}, {yaw_goal}] ({vel_norm_goal}, {w_norm_goal})")
-
             elif self.current_flight_command[0] in ("PDF", "PDZ"):  # position command drone frame
                 # command is ["PDF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
                 # we convert this into a command in world frame (it will be applied in the next iteration)
@@ -968,7 +968,7 @@ class CogniflyController:
                     # Gamepad commands are overridden by key presses
                     #
 
-                    self.CMDS, self.current_flight_command, emergency, mode = self.gamepad_manager.get(self.CMDS, self.current_flight_command)
+                    self.CMDS, self.current_flight_command, emergency, mode = self.gamepad_manager.get(self.CMDS, self.current_flight_command, screen)
                     if emergency and not self.emergency:
                         self.emergency = True
                     override = mode == 1
