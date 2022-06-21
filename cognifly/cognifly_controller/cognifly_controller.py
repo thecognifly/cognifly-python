@@ -158,6 +158,7 @@ class PS4GamepadManager:
         self.vz = 0
         self.ts = None
         self.mode = 1
+        self.hover = False
 
     def get(self, CMDS, flight_command, screen):
         """
@@ -230,14 +231,18 @@ class PS4GamepadManager:
             elif self.mode == 2 and not override:  # override flight command
                 vx = joystick_to_cmd(- ay, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
                 vy = joystick_to_cmd(ax, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
-                w = joystick_to_cmd(arx, deadband=self.deadband, default_cmd=0.0, min_cmd=-np.pi, max_cmd=np.pi)
+                w = joystick_to_cmd(arx, deadband=self.deadband, default_cmd=0.0, min_cmd=-np.pi/2, max_cmd=np.pi/2)
                 vz = 0
                 vz += joystick_to_t(az, deadband=self.deadband, max_cmd=0.5)
                 vz -= joystick_to_t(arz, deadband=self.deadband, max_cmd=0.5)
                 screen.addstr(25, 0, f"DEBUG GAMEPAD: [{vx}, {vy}, {vz}, {w}]")
-                flight_command = ['PDZ', 0, 0, 0, 0, 0.2, 0.5, time.time() + 1.0] if 0 == vx == vy == vz == w else ['VDF', vx, vy, vz, w, time.time() + 1.0]
-                # flight_command = ['PDF', 0, 0, 0.5, 0, 0.5, np.pi / 2, time.time() + 1.0] if 0 == vx == vy == vz == w else ['VDF', vx, vy, vz, w, time.time() + 1.0]
-
+                if 0 == vx == vy == vz == w:
+                    if not self.hover:  # we have to send position command PDZ only once!
+                        flight_command = ['PDZ', 0, 0, 0, 0, 0.2, 0.5, time.time() + 1.0]
+                        self.hover = True
+                else:  # send velocity command
+                    self.hover = False
+                    flight_command = ['VDF', vx, vy, vz, w, time.time() + 1.0]
         return CMDS, flight_command, False, self.mode
 
 
