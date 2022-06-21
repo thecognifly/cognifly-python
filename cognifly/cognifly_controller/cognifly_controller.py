@@ -832,6 +832,8 @@ class CogniflyController:
                     self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
                     screen.addstr(23, 0, f"DEBUG Applied: p{self.CMDS['pitch']}, r{self.CMDS['roll']}, t{self.CMDS['throttle']}, y{self.CMDS['yaw']}")
+                    screen.addstr(24, 0, f"DEBUG Goal: [{x_goal}, {y_goal}, {z_goal}, {yaw_goal}] ({vel_norm_goal}, {w_norm_goal})")
+
             elif self.current_flight_command[0] in ("PDF", "PDZ"):  # position command drone frame
                 # command is ["PDF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
                 # we convert this into a command in world frame (it will be applied in the next iteration)
