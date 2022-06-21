@@ -759,6 +759,7 @@ class CogniflyController:
                     self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
                     screen.addstr(23, 0, f"DEBUG VELOCITY CONTROL")
+                    screen.addstr(24, 0, f"DEBUG POSITION Goal: [{self.CMDS['pitch']}, {self.CMDS['roll']}, {self.CMDS['throttle']}, {self.CMDS['yaw']}]")
             elif self.current_flight_command[0] == "PWF":  # position command
                 # command is ["PWF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
                 time_end = self.current_flight_command[7]
@@ -832,7 +833,7 @@ class CogniflyController:
                     self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
                     screen.addstr(23, 0, f"DEBUG POSITION CONTROL Applied: p{self.CMDS['pitch']}, r{self.CMDS['roll']}, t{self.CMDS['throttle']}, y{self.CMDS['yaw']}")
-                    screen.addstr(24, 0, f"DEBUG Goal: [{x_goal}, {y_goal}, {z_goal}, {yaw_goal}] ({vel_norm_goal}, {w_norm_goal})")
+                    screen.addstr(24, 0, f"DEBUG POSITION Goal: [{x_goal}, {y_goal}, {z_goal}, {yaw_goal}] ({vel_norm_goal}, {w_norm_goal})")
 
             elif self.current_flight_command[0] in ("PDF", "PDZ"):  # position command drone frame
                 # command is ["PDF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
