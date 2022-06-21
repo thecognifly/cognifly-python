@@ -234,8 +234,7 @@ class PS4GamepadManager:
                 vz = 0
                 vz += joystick_to_t(az, deadband=self.deadband, max_cmd=0.5)
                 vz -= joystick_to_t(arz, deadband=self.deadband, max_cmd=0.5)
-                flight_command = ['VDF', vx, vy, vz, w, time.time() + 1.0]
-                # flight_command = ['PDZ', 0, 0, 0, 0, 0.1, np.pi / 2, time.time() + 1.0] if 0 == vx == vy == vz else ['VDF', vx, vy, vz, w, time.time() + 1.0]
+                flight_command = ['PDZ', 0, 0, 0, 0, 0.1, np.pi / 2, time.time() + 1.0] if 0 == vx == vy == vz else ['VDF', vx, vy, vz, w, time.time() + 1.0]
 
         return CMDS, flight_command, False, self.mode
 
