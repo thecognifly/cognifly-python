@@ -231,7 +231,7 @@ class PS4GamepadManager:
             elif self.mode == 2 and not override:  # override flight command
                 vx = joystick_to_cmd(- ay, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
                 vy = joystick_to_cmd(ax, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
-                w = joystick_to_cmd(arx, deadband=self.deadband, default_cmd=0.0, min_cmd=-np.pi/2, max_cmd=np.pi/2)
+                w = joystick_to_cmd(arx, deadband=self.deadband, default_cmd=0.0, min_cmd=-0.5, max_cmd=0.5)
                 vz = 0
                 vz += joystick_to_t(az, deadband=self.deadband, max_cmd=0.5)
                 vz -= joystick_to_t(arz, deadband=self.deadband, max_cmd=0.5)
