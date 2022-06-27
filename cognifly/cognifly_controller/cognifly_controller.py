@@ -662,6 +662,12 @@ class CogniflyController:
             yaw_rate = self._compute_yaw_rate(yaw)
             vel_z_wf = self._compute_z_vel(pos_z_wf)
 
+        old_pos_x_wf = pos_x_wf
+        old_pos_y_wf = pos_y_wf
+        old_vel_x_wf = vel_x_wf
+        old_vel_y_wf = vel_y_wf
+        old_yaw = yaw
+
         if self._flight_origin is None:  # new basis at reset
             self._flight_origin = (pos_x_wf, pos_y_wf, yaw)
         else:
@@ -703,6 +709,9 @@ class CogniflyController:
             screen.addstr(20, 0, f"pos_wf: [{pos_x_wf: .5f},{pos_y_wf: .5f},{pos_z_wf: .5f}] m")
             screen.addstr(21, 0, f"vel_wf: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
             screen.addstr(22, 0, f"vel_df: [{vel_x_df: .5f},{vel_y_df: .5f},{vel_z_df: .5f}] m/s")
+            screen.addstr(24, 0, f"from yaw: {old_yaw / np.pi: .5f} pi rad")
+            screen.addstr(25, 0, f"from pos_wf: [{old_pos_x_wf: .5f},{old_pos_y_wf: .5f},{pos_z_wf: .5f}] m")
+            screen.addstr(21, 0, f"from vel_wf: [{old_vel_x_wf: .5f},{old_vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
             screen.clrtoeol()
 
         self.telemetry = (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
