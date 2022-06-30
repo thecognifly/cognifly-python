@@ -598,8 +598,6 @@ class CogniflyController:
                 self.prev_alt_prime_ts = (pos_z_wf, res, now)
         before_filter = res
         res = self.filter_vel_z.update_estimate(res)
-        if self.trace_logs:
-            self.z_tracer.write_line(f"{self.prev_alt_prime_ts[2]-self.start_time};{self.prev_alt_prime_ts[0]};{before_filter};{res}")
         return res
 
     def _compute_yaw_rate(self, yaw):
@@ -618,8 +616,6 @@ class CogniflyController:
                 self.prev_yaw_prime_ts = (yaw, res, now)
         before_filter = res
         res = self.filter_w_z.update_estimate(res)
-        if self.trace_logs:
-            self.w_tracer.write_line(f"{self.prev_yaw_prime_ts[2]-self.start_time};{self.prev_yaw_prime_ts[0]};{before_filter};{res}")
         return res
 
     def _flight(self, board, screen):
@@ -697,11 +693,6 @@ class CogniflyController:
         vel_z_df = vel_z_wf
         vel_x_df = vel_x_wf * cos + vel_y_wf * sin
         vel_y_df = vel_y_wf * cos - vel_x_wf * sin
-
-        if self.trace_logs:
-            now = time.time() - self.start_time
-            self.x_tracer.write_line(f"{now};{pos_x_wf};{vel_x_wf};{vel_x_df}")
-            self.y_tracer.write_line(f"{now};{pos_y_wf};{vel_y_wf};{vel_y_df}")
 
         if self.print_screen:
             screen.addstr(18, 0, f"yaw: {yaw/np.pi: .5f} pi rad")
@@ -859,6 +850,13 @@ class CogniflyController:
                 if self.current_flight_command[0] == "PDZ":
                     current_flight_command[3] = pos_z_wf
                 self.current_flight_command = tuple(current_flight_command)
+
+        if self.trace_logs:
+            now = time.time() - self.start_time
+            self.x_tracer.write_line(f"{now};{pos_x_wf};{vel_x_wf};{vel_x_df};{self.pid_vel_x.setpoint};{self.pid_vel_x._auto_mode}")
+            self.y_tracer.write_line(f"{now};{pos_y_wf};{vel_y_wf};{vel_y_df};{self.pid_vel_y.setpoint};{self.pid_vel_y._auto_mode}")
+            self.z_tracer.write_line(f"{now};{pos_z_wf};{vel_z_wf};{vel_z_df};{self.pid_vel_z.setpoint};{self.pid_vel_z._auto_mode}")
+            self.w_tracer.write_line(f"{now};{yaw};{yaw_rate};{yaw_rate};{self.pid_w_z.setpoint};{self.pid_w_z._auto_mode}")
 
     def _check_batt_voltage(self):
         if self.min_voltage < self.voltage <= self.warn_voltage:
