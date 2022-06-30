@@ -237,7 +237,7 @@ class PS4GamepadManager:
                 vz -= joystick_to_t(arz, deadband=self.deadband, max_cmd=0.5)
                 if 0 == vx == vy == vz == w:
                     if not self.hover:  # we have to send position command PDZ only once!
-                        flight_command = ['PDZ', 0, 0, 0, 0, 0.2, 0.5, time.time() + 10.0]
+                        flight_command = ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 10.0]
                         self.hover = True
                 else:  # send velocity command
                     self.hover = False
@@ -407,9 +407,9 @@ class CogniflyController:
         self.pid_vel_z = None
         self.pid_w_z = None
 
-        self.x_vel_gain = 1
-        self.y_vel_gain = 1
-        self.z_vel_gain = 1
+        self.x_vel_gain = 0.5
+        self.y_vel_gain = 0.5
+        self.z_vel_gain = 0.2
         self.w_gain = 0.5
 
         self.last_cmd_type = None
