@@ -853,10 +853,10 @@ class CogniflyController:
 
         if self.trace_logs:
             now = time.time() - self.start_time
-            self.x_tracer.write_line(f"{now};{pos_x_wf};{vel_x_wf};{vel_x_df};{self.pid_vel_x.setpoint};{self.pid_vel_x._auto_mode}")
-            self.y_tracer.write_line(f"{now};{pos_y_wf};{vel_y_wf};{vel_y_df};{self.pid_vel_y.setpoint};{self.pid_vel_y._auto_mode}")
-            self.z_tracer.write_line(f"{now};{pos_z_wf};{vel_z_wf};{vel_z_df};{self.pid_vel_z.setpoint};{self.pid_vel_z._auto_mode}")
-            self.w_tracer.write_line(f"{now};{yaw};{yaw_rate};{yaw_rate};{self.pid_w_z.setpoint};{self.pid_w_z._auto_mode}")
+            self.x_tracer.write_line(f"{now};{pos_x_wf};{vel_x_wf};{vel_x_df};{self.pid_vel_x.setpoint};{int(self.pid_vel_x._auto_mode)}")
+            self.y_tracer.write_line(f"{now};{pos_y_wf};{vel_y_wf};{vel_y_df};{self.pid_vel_y.setpoint};{int(self.pid_vel_y._auto_mode)}")
+            self.z_tracer.write_line(f"{now};{pos_z_wf};{vel_z_wf};{vel_z_df};{self.pid_vel_z.setpoint};{int(self.pid_vel_z._auto_mode)}")
+            self.w_tracer.write_line(f"{now};{yaw};{yaw_rate};{yaw_rate};{self.pid_w_z.setpoint};{int(self.pid_w_z._auto_mode)}")
 
     def _check_batt_voltage(self):
         if self.min_voltage < self.voltage <= self.warn_voltage:
