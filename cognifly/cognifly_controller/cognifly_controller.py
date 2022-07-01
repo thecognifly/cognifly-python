@@ -660,7 +660,7 @@ class CogniflyController:
                 if self.print_screen:
                     screen.addstr(28, 0, f"Custom estimate: INVALID")
                     screen.clrtoeol()
-            elif not self.valid_custom_estimate:
+            elif not failure_custom and not self.valid_custom_estimate:
                 self.valid_custom_estimate = True
                 recovery = True
                 if self.print_screen:
