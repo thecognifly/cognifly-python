@@ -307,7 +307,24 @@ class CogniflyController:
                  print_screen=True,
                  obs_loop_time=0.1,
                  trace_logs=False,
-                 pose_estimator=None):
+                 pose_estimator=None,
+                 pid_limit=500,
+                 vel_x_kp=750.0,
+                 vel_x_ki=400.0,
+                 vel_x_kd=50.0,
+                 vel_y_kp=750.0,
+                 vel_y_ki=400.0,
+                 vel_y_kd=50.0,
+                 vel_z_kp=50.0,
+                 vel_z_ki=20.0,
+                 vel_z_kd=0.0,  # 5.0
+                 vel_w_kp=400.0,
+                 vel_w_ki=200.0,
+                 vel_w_kd=0.0,
+                 x_vel_gain=0.5,
+                 y_vel_gain=0.5,
+                 z_vel_gain=0.2,
+                 w_gain=0.5):
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -382,35 +399,35 @@ class CogniflyController:
 
         # PID values:
 
-        self.pid_limits_xy = (-500, +500)
-        self.pid_limits_z = (-500, +500)
-        self.pid_limits_w = (-500, +500)
+        self.pid_limits_xy = (-pid_limit, +pid_limit)
+        self.pid_limits_z = (-pid_limit, +pid_limit)
+        self.pid_limits_w = (-pid_limit, +pid_limit)
 
-        self.vel_x_kp = 750.0
-        self.vel_x_ki = 400.0
-        self.vel_x_kd = 50.0
+        self.vel_x_kp = vel_x_kp
+        self.vel_x_ki = vel_x_ki
+        self.vel_x_kd = vel_x_kd
 
-        self.vel_y_kp = 750.0
-        self.vel_y_ki = 400.0
-        self.vel_y_kd = 50.0
+        self.vel_y_kp = vel_y_kp
+        self.vel_y_ki = vel_y_ki
+        self.vel_y_kd = vel_y_kd
 
-        self.vel_z_kp = 50.0
-        self.vel_z_ki = 20.0
-        self.vel_z_kd = 5.0
+        self.vel_z_kp = vel_z_kp
+        self.vel_z_ki = vel_z_ki
+        self.vel_z_kd = vel_z_kd
 
-        self.vel_w_kp = 400.0  # 500
-        self.vel_w_ki = 200.0  # 100
-        self.vel_w_kd = 0.0
+        self.vel_w_kp = vel_w_kp
+        self.vel_w_ki = vel_w_ki
+        self.vel_w_kd = vel_w_kd
 
         self.pid_vel_x = None
         self.pid_vel_y = None
         self.pid_vel_z = None
         self.pid_w_z = None
 
-        self.x_vel_gain = 0.5
-        self.y_vel_gain = 0.5
-        self.z_vel_gain = 0.2
-        self.w_gain = 0.5
+        self.x_vel_gain = x_vel_gain
+        self.y_vel_gain = y_vel_gain
+        self.z_vel_gain = z_vel_gain
+        self.w_gain = w_gain
 
         self.last_cmd_type = None
         self._reset_pids()
