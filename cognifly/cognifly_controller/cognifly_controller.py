@@ -707,7 +707,7 @@ class CogniflyController:
                 fo_yaw = smallest_angle_diff_rad(fo_yaw, 0.0)  # FIXME: check that this works
                 self._flight_origin = (fo_pos_x_wf, fo_pos_y_wf, fo_yaw)
                 if self.print_screen:
-                    screen.addstr(28, 0, f"FO changed from{fo_init: .5f} to {self._flight_origin: .5f}")
+                    screen.addstr(28, 0, f"FO changed from{fo_init} to {self._flight_origin}")
                     screen.clrtoeol()
                 return
 
