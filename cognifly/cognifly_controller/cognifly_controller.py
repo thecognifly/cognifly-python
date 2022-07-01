@@ -657,9 +657,15 @@ class CogniflyController:
             if failure_custom and self.valid_custom_estimate:
                 self.valid_custom_estimate = False
                 recovery = True
+                if self.print_screen:
+                    screen.addstr(28, 0, f"Custom estimate: INVALID")
+                    screen.clrtoeol()
             elif not self.valid_custom_estimate:
                 self.valid_custom_estimate = True
                 recovery = True
+                if self.print_screen:
+                    screen.addstr(28, 0, f"Custom estimate: valid")
+                    screen.clrtoeol()
         if self.pose_estimator is None or failure_custom:
             board.fast_read_attitude()
             yaw = board.SENSOR_DATA['kinematics'][2] * np.pi / 180.0
@@ -707,7 +713,7 @@ class CogniflyController:
                 fo_yaw = smallest_angle_diff_rad(fo_yaw, 0.0)  # FIXME: check that this works
                 self._flight_origin = (fo_pos_x_wf, fo_pos_y_wf, fo_yaw)
                 if self.print_screen:
-                    screen.addstr(28, 0, f"FO changed from{fo_init} to {self._flight_origin}")
+                    screen.addstr(29, 0, f"FO changed from{fo_init} to {self._flight_origin}")
                     screen.clrtoeol()
                 return
 
