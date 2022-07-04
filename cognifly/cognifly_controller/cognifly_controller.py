@@ -216,42 +216,41 @@ class PS4GamepadManager:
 
             if haty == -1:
                 CMDS['throttle'] = TAKEOFF
-                override = True
-                self.z_wait_until = now + 5.0
+                self.z_wait_until = now + 3.0
                 flight_command = None
             elif haty == 1:
                 CMDS['throttle'] = LAND
-                override = True
-                self.z_wait_until = now + 3.0
+                self.z_wait_until = now + 2.0
                 flight_command = None
 
             z_wait = now < self.z_wait_until
 
-            if self.mode == 1 or z_wait:  # override CMDS
-                CMDS['pitch'] = joystick_to_pitch(- ay, deadband=self.deadband)
-                CMDS['roll'] = joystick_to_roll(ax, deadband=self.deadband)
-                CMDS['yaw'] = joystick_to_yaw(arx, deadband=self.deadband)
-                vz = 0
-                vz += trigger_to_positive_vz(az, deadband=self.deadband)
-                vz += trigger_to_negative_vz(arz, deadband=self.deadband)
-                ts = time.time()
-                CMDS['throttle'] += vz * (ts - self.ts)
-                flight_command = None
-                self.ts = ts
-            elif self.mode == 2 and not override:  # override flight command
-                vx = joystick_to_cmd(- ay, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
-                vy = joystick_to_cmd(ax, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
-                w = joystick_to_cmd(arx, deadband=self.deadband, default_cmd=0.0, min_cmd=-0.5, max_cmd=0.5)
-                vz = 0
-                vz += joystick_to_t(az, deadband=self.deadband, max_cmd=0.5)
-                vz -= joystick_to_t(arz, deadband=self.deadband, max_cmd=0.5)
-                if 0 == vx == vy == vz == w:
-                    if not self.hover:  # we have to send position command PDZ only once!
-                        flight_command = ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 10.0]
-                        self.hover = True
-                else:  # send velocity command
-                    self.hover = False
-                    flight_command = ['VDF', vx, vy, vz, w, time.time() + 1.0]
+            if not override:
+                if self.mode == 1 or z_wait:  # override CMDS
+                    CMDS['pitch'] = joystick_to_pitch(- ay, deadband=self.deadband)
+                    CMDS['roll'] = joystick_to_roll(ax, deadband=self.deadband)
+                    CMDS['yaw'] = joystick_to_yaw(arx, deadband=self.deadband)
+                    vz = 0
+                    vz += trigger_to_positive_vz(az, deadband=self.deadband)
+                    vz += trigger_to_negative_vz(arz, deadband=self.deadband)
+                    ts = time.time()
+                    CMDS['throttle'] += vz * (ts - self.ts)
+                    flight_command = None
+                    self.ts = ts
+                elif self.mode == 2:  # override flight command
+                    vx = joystick_to_cmd(- ay, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
+                    vy = joystick_to_cmd(ax, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
+                    w = joystick_to_cmd(arx, deadband=self.deadband, default_cmd=0.0, min_cmd=-0.5, max_cmd=0.5)
+                    vz = 0
+                    vz += joystick_to_t(az, deadband=self.deadband, max_cmd=0.5)
+                    vz -= joystick_to_t(arz, deadband=self.deadband, max_cmd=0.5)
+                    if 0 == vx == vy == vz == w:
+                        if not self.hover:  # we have to send position command PDZ only once!
+                            flight_command = ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 10.0]
+                            self.hover = True
+                    else:  # send velocity command
+                        self.hover = False
+                        flight_command = ['VDF', vx, vy, vz, w, time.time() + 1.0]
         return CMDS, flight_command, False, self.mode
 
 
