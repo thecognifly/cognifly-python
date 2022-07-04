@@ -197,6 +197,7 @@ class PS4GamepadManager:
 
             if bx == 1:
                 self.mode = 1
+                self.ts = time.time()
             elif by == 1:
                 self.mode = 0
             elif bb == 1:
@@ -216,11 +217,11 @@ class PS4GamepadManager:
             if haty == -1:
                 CMDS['throttle'] = TAKEOFF
                 override = True
-                self.z_wait_until = now + 3.0
+                self.z_wait_until = now + 5.0
             elif haty == 1:
                 CMDS['throttle'] = LAND
                 override = True
-                self.z_wait_until = now + 2.0
+                self.z_wait_until = now + 5.0
 
             z_wait = now < self.z_wait_until
 
@@ -315,7 +316,6 @@ class CogniflyController:
                  trace_logs=False,
                  pose_estimator=None,
                  pid_limit=500,
-                 vel_x_kp=750.0,
                  vel_x_ki=400.0,
                  vel_x_kd=50.0,
                  vel_y_kp=750.0,
