@@ -236,6 +236,7 @@ class PS4GamepadManager:
                 vz += trigger_to_negative_vz(arz, deadband=self.deadband)
                 ts = time.time()
                 CMDS['throttle'] += vz * (ts - self.ts)
+                flight_command = None
                 self.ts = ts
             elif self.mode == 2 and not override:  # override flight command
                 vx = joystick_to_cmd(- ay, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
