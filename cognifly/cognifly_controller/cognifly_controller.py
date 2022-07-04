@@ -159,6 +159,7 @@ class PS4GamepadManager:
         self.ts = None
         self.mode = 1
         self.hover = False
+        self.z_wait_until = time.time()
 
     def get(self, CMDS, flight_command):
         """
@@ -202,6 +203,7 @@ class PS4GamepadManager:
                 self.mode = 2
 
             override = False
+            now = time.time()
 
             if tl == tr == 1:
                 CMDS['aux1'] = ARMED
@@ -214,11 +216,15 @@ class PS4GamepadManager:
             if haty == -1:
                 CMDS['throttle'] = TAKEOFF
                 override = True
+                self.z_wait_until = now + 3.0
             elif haty == 1:
                 CMDS['throttle'] = LAND
                 override = True
+                self.z_wait_until = now + 2.0
 
-            if self.mode == 1:  # override CMDS
+            z_wait = now < self.z_wait_until
+
+            if self.mode == 1 or z_wait:  # override CMDS
                 CMDS['pitch'] = joystick_to_pitch(- ay, deadband=self.deadband)
                 CMDS['roll'] = joystick_to_roll(ax, deadband=self.deadband)
                 CMDS['yaw'] = joystick_to_yaw(arx, deadband=self.deadband)
