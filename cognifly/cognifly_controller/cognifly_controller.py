@@ -218,10 +218,12 @@ class PS4GamepadManager:
                 CMDS['throttle'] = TAKEOFF
                 override = True
                 self.z_wait_until = now + 5.0
+                flight_command = None
             elif haty == 1:
                 CMDS['throttle'] = LAND
                 override = True
-                self.z_wait_until = now + 5.0
+                self.z_wait_until = now + 3.0
+                flight_command = None
 
             z_wait = now < self.z_wait_until
 
