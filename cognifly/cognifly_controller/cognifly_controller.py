@@ -316,6 +316,7 @@ class CogniflyController:
                  trace_logs=False,
                  pose_estimator=None,
                  pid_limit=500,
+                 vel_x_kp=750.0,
                  vel_x_ki=400.0,
                  vel_x_kd=50.0,
                  vel_y_kp=750.0,
