@@ -60,6 +60,7 @@ The easiest way of using `cognifly-python` is to flash our readily set up Rasbia
     - replace the default `K00` in the last line by your drone name
 - plug the SD card into the Raspberry Pi
 - plug a charged battery to start the drone
+- password for the user **pi**: `maplesyrup`
 
 ### Manual installation:
 
