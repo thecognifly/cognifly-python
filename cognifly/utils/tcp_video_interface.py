@@ -163,7 +163,7 @@ class TCPVideoInterface(object):
                 # send length and frame:
                 connection.write(struct.pack('<L', framelen))
                 connection.flush()
-                connection.write(frame)
+                connection.write(data)
                 # camera.wait_recording(wait_duration)
                 # check whether we must keep recording:
                 with self.__lock:
@@ -171,7 +171,7 @@ class TCPVideoInterface(object):
             connection.write(struct.pack('<L', 0))
 
         except Exception as e:
-            logging.info(f"error: {str(e)}")
+            logging.info(f"camera streaming error: {str(e)}")
             t_e = type(e)
             if t_e != OSError and not issubclass(t_e, ConnectionError):
                 with self.__lock:
@@ -289,16 +289,10 @@ class TCPVideoInterface(object):
                 image_len = struct.unpack('<L', connection.read(struct.calcsize('<L')))[0]
                 if not image_len:
                     break
-                # Construct a stream to hold the image data and read the image
-                # data from the connection
-                image_stream = io.BytesIO()
-                image_stream.write(connection.read(image_len))
-                # Rewind the stream, open it as an image with PIL and do some
-                # processing on it
-                image_stream.seek(0)
-                # image = Image.open(image_stream)
 
-                frame = pkl.loads(image_stream, fix_imports=True, encoding="bytes")
+                data = connection.read(image_len)
+
+                frame = pkl.loads(data, fix_imports=True, encoding="bytes")
                 image = cv2.imdecode(frame, cv2.IMREAD_COLOR)
 
                 # if display:
