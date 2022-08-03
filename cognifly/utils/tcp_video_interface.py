@@ -134,9 +134,6 @@ class TCPVideoInterface(object):
             import cv2
             import pickle as pkl
 
-            if resolution == 'VGA':
-                resolution = (320, 240)
-
             client_socket = socket.socket()
             client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             client_socket.connect((ip, port))
@@ -149,8 +146,9 @@ class TCPVideoInterface(object):
             assert cap.isOpened(), "VideoCapture could not be opened."
             encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
             cap.set(cv2.CAP_PROP_FPS, fps)
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
+            if resolution != 'VGA':
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
             ret, f = cap.read()
 
             while record:
