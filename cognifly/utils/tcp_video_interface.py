@@ -146,11 +146,11 @@ class TCPVideoInterface(object):
                 self.__record = True
                 record = True
             cap = cv2.VideoCapture(0)
+            assert cap.isOpened(), "VideoCapture could not be opened."
             encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
             cap.set(cv2.CAP_PROP_FPS, fps)
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
-            assert cap.isOpened()
             ret, f = cap.read()
 
             while record:
@@ -171,7 +171,7 @@ class TCPVideoInterface(object):
             connection.write(struct.pack('<L', 0))
 
         except Exception as e:
-            logging.info("error")
+            logging.info(f"error: {str(e)}")
             t_e = type(e)
             if t_e != OSError and not issubclass(t_e, ConnectionError):
                 with self.__lock:
