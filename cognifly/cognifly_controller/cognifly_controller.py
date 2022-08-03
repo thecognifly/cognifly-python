@@ -17,6 +17,7 @@ from pathlib import Path
 from yamspy import MSPy
 import logging
 from threading import Thread, Lock
+from abc import ABC, abstractmethod
 
 from cognifly.utils.udp_interface import UDPInterface
 from cognifly.utils.tcp_video_interface import TCPVideoInterface
@@ -150,16 +151,17 @@ def trigger_to_negative_vz(value, deadband=0.05):
 
 
 class PS4GamepadManager:
-    def __init__(self, device_path="/dev/input/event2", deadband=0.05):
-        self._device_path = device_path
-        self.deadband = deadband
+    def __init__(self):
+        self.deadband = 0.05
         self.gamepad = PS4Gamepad()
         self.connected, _, _ = self.gamepad.get()
         self.vz = 0
         self.ts = None
-        self.override = True
+        self.mode = 1
+        self.hover = False
+        self.z_wait_until = time.time()
 
-    def get(self, CMDS):
+    def get(self, CMDS, flight_command):
         """
         Args:
             CMDS: the FC commands
@@ -173,8 +175,8 @@ class PS4GamepadManager:
             if self.connected:
                 # gamepad has been disconnected, trigger emergency behavior
                 self.connected = False
-                return CMDS, True, True  # trigger emergency
-            return CMDS, False, False  # not connected
+                return CMDS, flight_command, True, True  # trigger emergency
+            return CMDS, flight_command, False, False  # not connected
         else:  # connected
             if not self.connected or self.ts is None:  # connection
                 self.ts = time.time()
@@ -194,34 +196,62 @@ class PS4GamepadManager:
             tr = button_states['tr']
 
             if bx == 1:
-                self.override = True
+                self.mode = 1
+                self.ts = time.time()
             elif by == 1:
-                self.override = False
-            
+                self.mode = 0
+            elif bb == 1:
+                self.mode = 2
+
+            override = False
+            now = time.time()
+
             if tl == tr == 1:
                 CMDS['aux1'] = ARMED
                 CMDS['throttle'] = DEFAULT_THROTTLE
-            elif ba == 1 or bb == 1:
+            elif ba == 1:
                 CMDS['aux1'] = DISARMED
                 CMDS['throttle'] = DEFAULT_THROTTLE
+                override = True
 
             if haty == -1:
                 CMDS['throttle'] = TAKEOFF
+                self.z_wait_until = now + 3.0
+                flight_command = None
             elif haty == 1:
                 CMDS['throttle'] = LAND
-            
-            CMDS['pitch'] = joystick_to_pitch(- ay, deadband=self.deadband)
-            CMDS['roll'] = joystick_to_roll(ax, deadband=self.deadband)
-            CMDS['yaw'] = joystick_to_yaw(arx, deadband=self.deadband)
+                self.z_wait_until = now + 2.0
+                flight_command = None
 
-            vz = 0
-            vz += trigger_to_positive_vz(az, deadband=self.deadband)
-            vz += trigger_to_negative_vz(arz, deadband=self.deadband)
-            ts = time.time()
-            CMDS['throttle'] += vz * (ts - self.ts)
-            self.ts = ts
+            z_wait = now < self.z_wait_until
 
-        return CMDS, False, self.override
+            if not override:
+                if self.mode == 1 or z_wait:  # override CMDS
+                    CMDS['pitch'] = joystick_to_pitch(- ay, deadband=self.deadband)
+                    CMDS['roll'] = joystick_to_roll(ax, deadband=self.deadband)
+                    CMDS['yaw'] = joystick_to_yaw(arx, deadband=self.deadband)
+                    vz = 0
+                    vz += trigger_to_positive_vz(az, deadband=self.deadband)
+                    vz += trigger_to_negative_vz(arz, deadband=self.deadband)
+                    ts = time.time()
+                    CMDS['throttle'] += vz * (ts - self.ts)
+                    flight_command = None
+                    self.ts = ts
+                elif self.mode == 2:  # override flight command
+                    vx = joystick_to_cmd(- ay, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
+                    vy = joystick_to_cmd(ax, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
+                    w = joystick_to_cmd(arx, deadband=self.deadband, default_cmd=0.0, min_cmd=-0.5, max_cmd=0.5)
+                    vz = 0
+                    vz += joystick_to_t(az, deadband=self.deadband, max_cmd=0.5)
+                    vz -= joystick_to_t(arz, deadband=self.deadband, max_cmd=0.5)
+                    if 0 == vx == vy == vz == w:
+                        if not self.hover:  # we have to send position command PDZ only once!
+                            flight_command = ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 10.0]
+                            self.hover = True
+                    else:  # send velocity command
+                        self.hover = False
+                        flight_command = ['VDF', vx, vy, vz, w, time.time() + 1.0]
+        return CMDS, flight_command, False, self.mode
 
 
 class SignalTracer:
@@ -255,6 +285,29 @@ def try_connect(drone_hostname, drone_port):
     return drone_hostname_, drone_ip, drone_port, udp_int, tcp_video_int
 
 
+class PoseEstimator(ABC):
+    """
+    Base interface for custom pose estimators
+    """
+    @abstractmethod
+    def get(self):
+        """
+        Must return a tuple of 8 values: (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
+        If any is None, this is considered failure and the onboard estimator will be used instead.
+
+        These values represent the drone attitude in the world frame:
+        pos_x_wf = x position (m)
+        pos_y_wf = y position (m)
+        pos_z_wf = z position (m)
+        yaw: yaw (rad)
+        vel_x_wf = x velocity (m/s)
+        vel_y_wf = y velocity (m/s)
+        vel_z_wf = z velocity (m/s)
+        yaw_rate: yaw rate (rad/s)
+        """
+        raise NotImplementedError
+
+
 class CogniflyController:
     def __init__(self,
                  network=True,
@@ -262,7 +315,25 @@ class CogniflyController:
                  drone_port=8988,
                  print_screen=True,
                  obs_loop_time=0.1,
-                 trace_logs=False):
+                 trace_logs=False,
+                 pose_estimator=None,
+                 pid_limit=500,
+                 vel_x_kp=750.0,
+                 vel_x_ki=400.0,
+                 vel_x_kd=50.0,
+                 vel_y_kp=750.0,
+                 vel_y_ki=400.0,
+                 vel_y_kd=50.0,
+                 vel_z_kp=50.0,
+                 vel_z_ki=20.0,
+                 vel_z_kd=0.0,  # 5.0
+                 vel_w_kp=400.0,
+                 vel_w_ki=200.0,
+                 vel_w_kd=0.0,
+                 x_vel_gain=0.5,
+                 y_vel_gain=0.5,
+                 z_vel_gain=0.2,
+                 w_gain=0.5):
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -276,7 +347,10 @@ class CogniflyController:
                 if None, an observation is sent by UDP as answer each time a UDP command is received
                 else, an observation is sent bu UDP every obs_loop_time seconds
             trace_logs: bool (optional): if True, flight telemetry will be printed in a CSV-like log file
+            pose_estimator: cognifly.cognifly_controller.cognifly_controller.PoseEstimator: custom pose estimator
         """
+        self.pose_estimator = pose_estimator
+        self.valid_custom_estimate = True
         self.network = network
         self.drone_hostname = drone_hostname
         self.drone_port = drone_port
@@ -334,35 +408,38 @@ class CogniflyController:
 
         # PID values:
 
-        self.pid_limits_xy = (-500, +500)
-        self.pid_limits_z = (-500, +500)
-        self.pid_limits_w = (-500, +500)
+        self.pid_limits_xy = (-pid_limit, +pid_limit)
+        self.pid_limits_z = (-pid_limit, +pid_limit)
+        self.pid_limits_w = (-pid_limit, +pid_limit)
 
-        self.vel_x_kp = 750.0
-        self.vel_x_ki = 400.0
-        self.vel_x_kd = 50.0
+        self.vel_x_kp = vel_x_kp
+        self.vel_x_ki = vel_x_ki
+        self.vel_x_kd = vel_x_kd
 
-        self.vel_y_kp = 750.0
-        self.vel_y_ki = 400.0
-        self.vel_y_kd = 50.0
+        self.vel_y_kp = vel_y_kp
+        self.vel_y_ki = vel_y_ki
+        self.vel_y_kd = vel_y_kd
 
-        self.vel_z_kp = 50.0
-        self.vel_z_ki = 20.0
-        self.vel_z_kd = 5.0
+        self.vel_z_kp = vel_z_kp
+        self.vel_z_ki = vel_z_ki
+        self.vel_z_kd = vel_z_kd
 
-        self.vel_w_kp = 400.0  # 500
-        self.vel_w_ki = 200.0  # 100
-        self.vel_w_kd = 0.0
+        self.vel_w_kp = vel_w_kp
+        self.vel_w_ki = vel_w_ki
+        self.vel_w_kd = vel_w_kd
 
         self.pid_vel_x = None
         self.pid_vel_y = None
         self.pid_vel_z = None
         self.pid_w_z = None
 
-        self.x_vel_gain = 1
-        self.y_vel_gain = 1
-        self.z_vel_gain = 1
-        self.w_gain = 0.5
+        self.x_vel_gain = x_vel_gain
+        self.y_vel_gain = y_vel_gain
+        self.z_vel_gain = z_vel_gain
+        self.w_gain = w_gain
+
+        self.last_cmd_type = None
+        self._reset_pids()
 
         # filters:
 
@@ -462,11 +539,13 @@ class CogniflyController:
             self._flight_origin = None
             self.udp_int.send(pkl.dumps(("RES", (self.drone_ip, self.drone_port))))
             self.current_flight_command = None
+            self._reset_pids()
         elif self.sender_initialized:  # do not take any udp order unless reset has been called
             identifier = command[1]
             if command[0] == "ACT":  # action
-                # hard-reset all PIDs (FIXME: this is to avoid a bug in the PID framework that seems to retain unsuitable values otherwise, correct this in the future)
-                self._reset_pids()
+                if self.last_cmd_type != command[2][0]:
+                    self._reset_pids()
+                    self.last_cmd_type = command[2][0]
                 if command[2][0] == "DISARM":
                     self.CMDS["aux1"] = DISARMED
                     self.CMDS["throttle"] = DEFAULT_THROTTLE
@@ -487,7 +566,7 @@ class CogniflyController:
                     self.current_flight_command = None
                 elif command[2][0] in ("VDF", "VWF"):  # velocity
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
-                elif command[2][0] in ("PDF", "PWF"):  # position
+                elif command[2][0] in ("PDF", "PDZ", "PWF"):  # position
                     self.target_flag = True
                     self.target_id = identifier
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], command[2][5], command[2][6], time.time() + command[2][7]]
@@ -545,8 +624,6 @@ class CogniflyController:
                 self.prev_alt_prime_ts = (pos_z_wf, res, now)
         before_filter = res
         res = self.filter_vel_z.update_estimate(res)
-        if self.trace_logs:
-            self.z_tracer.write_line(f"{self.prev_alt_prime_ts[2]-self.start_time};{self.prev_alt_prime_ts[0]};{before_filter};{res}")
         return res
 
     def _compute_yaw_rate(self, yaw):
@@ -565,8 +642,6 @@ class CogniflyController:
                 self.prev_yaw_prime_ts = (yaw, res, now)
         before_filter = res
         res = self.filter_w_z.update_estimate(res)
-        if self.trace_logs:
-            self.w_tracer.write_line(f"{self.prev_yaw_prime_ts[2]-self.start_time};{self.prev_yaw_prime_ts[0]};{before_filter};{res}")
         return res
 
     def _flight(self, board, screen):
@@ -582,19 +657,44 @@ class CogniflyController:
             We have not found the equivalent for z and yaw in inav code yet.
         """
         # retrieve the current state
-        board.fast_read_attitude()
-        yaw = board.SENSOR_DATA['kinematics'][2] * np.pi / 180.0
-        yaw_rate = self._compute_yaw_rate(yaw)
-        board.send_RAW_msg(MSPy.MSPCodes['MSP_DEBUG'])  # MSP2_INAV_DEBUG is too long to answer
-        data_handler = board.receive_msg()
-        board.process_recv_data(data_handler)
-        pos_x_wf = board.SENSOR_DATA['debug'][0] / 1e4
-        pos_y_wf = board.SENSOR_DATA['debug'][1] / 1e4
-        vel_x_wf = board.SENSOR_DATA['debug'][2] / 1e4
-        vel_y_wf = board.SENSOR_DATA['debug'][3] / 1e4
-        board.fast_read_altitude()
-        pos_z_wf = board.SENSOR_DATA['altitude']
-        vel_z_wf = self._compute_z_vel(pos_z_wf)
+        failure_custom = False
+        recovery = False
+        if self.pose_estimator is not None:  # TODO: test this part of the code (including recovery)
+            pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.get()
+            if None in (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate):
+                failure_custom = True
+            if failure_custom and self.valid_custom_estimate:
+                self.valid_custom_estimate = False
+                recovery = True
+                if self.print_screen:
+                    screen.addstr(28, 0, f"Custom estimate: INVALID")
+                    screen.clrtoeol()
+            elif not failure_custom and not self.valid_custom_estimate:
+                self.valid_custom_estimate = True
+                recovery = True
+                if self.print_screen:
+                    screen.addstr(28, 0, f"Custom estimate: valid")
+                    screen.clrtoeol()
+        if self.pose_estimator is None or failure_custom:
+            board.fast_read_attitude()
+            yaw = board.SENSOR_DATA['kinematics'][2] * np.pi / 180.0
+            board.send_RAW_msg(MSPy.MSPCodes['MSP_DEBUG'])  # MSP2_INAV_DEBUG is too long to answer
+            data_handler = board.receive_msg()
+            board.process_recv_data(data_handler)
+            pos_x_wf = board.SENSOR_DATA['debug'][0] / 1e4
+            pos_y_wf = board.SENSOR_DATA['debug'][1] / 1e4
+            vel_x_wf = board.SENSOR_DATA['debug'][2] / 1e4
+            vel_y_wf = board.SENSOR_DATA['debug'][3] / 1e4
+            board.fast_read_altitude()
+            pos_z_wf = board.SENSOR_DATA['altitude']
+            yaw_rate = self._compute_yaw_rate(yaw)
+            vel_z_wf = self._compute_z_vel(pos_z_wf)
+
+        old_pos_x_wf = pos_x_wf
+        old_pos_y_wf = pos_y_wf
+        old_vel_x_wf = vel_x_wf
+        old_vel_y_wf = vel_y_wf
+        old_yaw = yaw
 
         if self._flight_origin is None:  # new basis at reset
             self._flight_origin = (pos_x_wf, pos_y_wf, yaw)
@@ -613,16 +713,24 @@ class CogniflyController:
             vel_y_wf = vel_y_int * cos - vel_x_int * sin
             yaw = smallest_angle_diff_rad(yaw, self._flight_origin[2])
 
+            if recovery:  # change the origin to compensate for the glitch between estimators
+                fo_init = self._flight_origin
+                fo_pos_x_wf, fo_pos_y_wf, fo_yaw = self._flight_origin
+                fo_pos_x_wf += pos_x_wf - self.telemetry[0]
+                fo_pos_y_wf += pos_y_wf - self.telemetry[1]
+                fo_yaw += smallest_angle_diff_rad(yaw, self.telemetry[2])
+                fo_yaw = smallest_angle_diff_rad(fo_yaw, 0.0)  # FIXME: check that this works
+                self._flight_origin = (fo_pos_x_wf, fo_pos_y_wf, fo_yaw)
+                if self.print_screen:
+                    screen.addstr(29, 0, f"FO changed from{fo_init} to {self._flight_origin}")
+                    screen.clrtoeol()
+                return
+
         cos = np.cos(yaw)
         sin = np.sin(yaw)
         vel_z_df = vel_z_wf
         vel_x_df = vel_x_wf * cos + vel_y_wf * sin
         vel_y_df = vel_y_wf * cos - vel_x_wf * sin
-
-        if self.trace_logs:
-            now = time.time() - self.start_time
-            self.x_tracer.write_line(f"{now};{pos_x_wf};{vel_x_wf};{vel_x_df}")
-            self.y_tracer.write_line(f"{now};{pos_y_wf};{vel_y_wf};{vel_y_df}")
 
         if self.print_screen:
             screen.addstr(18, 0, f"yaw: {yaw/np.pi: .5f} pi rad")
@@ -630,6 +738,9 @@ class CogniflyController:
             screen.addstr(20, 0, f"pos_wf: [{pos_x_wf: .5f},{pos_y_wf: .5f},{pos_z_wf: .5f}] m")
             screen.addstr(21, 0, f"vel_wf: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
             screen.addstr(22, 0, f"vel_df: [{vel_x_df: .5f},{vel_y_df: .5f},{vel_z_df: .5f}] m/s")
+            screen.addstr(24, 0, f"from yaw: {old_yaw / np.pi: .5f} pi rad")
+            screen.addstr(25, 0, f"from pos_wf: [{old_pos_x_wf: .5f},{old_pos_y_wf: .5f},{pos_z_wf: .5f}] m")
+            screen.addstr(26, 0, f"from vel_wf: [{old_vel_x_wf: .5f},{old_vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
             screen.clrtoeol()
 
         self.telemetry = (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
@@ -760,7 +871,7 @@ class CogniflyController:
                     self.CMDS['roll'] = DEFAULT_ROLL + y_target
                     self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
-            elif self.current_flight_command[0] == "PDF":  # position command drone frame
+            elif self.current_flight_command[0] in ("PDF", "PDZ"):  # position command drone frame
                 # command is ["PDF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
                 # we convert this into a command in world frame (it will be applied in the next iteration)
                 current_flight_command = list(self.current_flight_command)
@@ -774,7 +885,16 @@ class CogniflyController:
                 current_flight_command[1] = x_goal_wf
                 current_flight_command[2] = y_goal_wf
                 current_flight_command[4] = yaw_goal_wf
+                if self.current_flight_command[0] == "PDZ":
+                    current_flight_command[3] = pos_z_wf
                 self.current_flight_command = tuple(current_flight_command)
+
+        if self.trace_logs:
+            now = time.time() - self.start_time
+            self.x_tracer.write_line(f"{now};{pos_x_wf};{vel_x_wf};{vel_x_df};{self.pid_vel_x.setpoint};{int(self.pid_vel_x._auto_mode)}")
+            self.y_tracer.write_line(f"{now};{pos_y_wf};{vel_y_wf};{vel_y_df};{self.pid_vel_y.setpoint};{int(self.pid_vel_y._auto_mode)}")
+            self.z_tracer.write_line(f"{now};{pos_z_wf};{vel_z_wf};{vel_z_df};{self.pid_vel_z.setpoint};{int(self.pid_vel_z._auto_mode)}")
+            self.w_tracer.write_line(f"{now};{yaw};{yaw_rate};{yaw_rate};{self.pid_w_z.setpoint};{int(self.pid_w_z._auto_mode)}")
 
     def _check_batt_voltage(self):
         if self.min_voltage < self.voltage <= self.warn_voltage:
@@ -891,9 +1011,11 @@ class CogniflyController:
                     # Gamepad commands are overridden by key presses
                     #
 
-                    self.CMDS, emergency, valid = self.gamepad_manager.get(self.CMDS)
+                    self.CMDS, self.current_flight_command, emergency, mode = self.gamepad_manager.get(self.CMDS, self.current_flight_command)
                     if emergency and not self.emergency:
                         self.emergency = True
+                    override = mode == 1
+                    gamepad = mode != 0
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
@@ -904,14 +1026,14 @@ class CogniflyController:
                         if len(udp_cmds) > 0:
                             for cmd in udp_cmds:
                                 self._udp_commands_handler(pkl.loads(cmd))
-                        if not valid:  # override the flight controller if valid PS4
+                        if not override:  # override the flight controller if valid PS4
                             self._flight(board, screen)
                         if self.obs_loop_time is not None:
                             tick = time.time()
                             if tick - self.last_obs_tick >= self.obs_loop_time and self.sender_initialized:
                                 self.last_obs_tick = tick
                                 self._i_obs += 1
-                                self.udp_int.send(pkl.dumps(("OBS", self._i_obs, self.telemetry, valid, self.voltage, self.debug_flags)))
+                                self.udp_int.send(pkl.dumps(("OBS", self._i_obs, self.telemetry, gamepad, self.voltage, self.debug_flags)))
                     #
                     # end of UDP recv non-blocking -----------------------------
                     #

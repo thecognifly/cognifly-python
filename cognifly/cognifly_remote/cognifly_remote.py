@@ -479,12 +479,12 @@ class Cognifly:
         frame_str = "VDF" if drone_frame else "VWF"
         self.send(msg_type="ACT", msg=(frame_str, v_x, v_y, v_z, w, duration))
 
-    def set_position_nonblocking(self, x, y, z, yaw=None, max_velocity=0.5, max_yaw_rate=0.5, max_duration=10.0, relative=False):
+    def set_position_nonblocking(self, x, y, z, yaw=None, max_velocity=0.5, max_yaw_rate=0.5, max_duration=10.0, relative=False, relative_z=False):
         """
         Sets a position target for the drone.
         If relative is False (default), the target is relative to the world axis.
         If relative is True, the target is relative to the drone frame.
-        Note: z is always in the world frame.
+        Note: z is always in the world frame, except if both relative and relative_z are True.
         The drone needs to be armed.
         Args:
             x: float: x target (m)
@@ -495,9 +495,13 @@ class Cognifly:
             max_yaw_rate: float (optional): maximum yaw rate used to go to yaw (rad/s)
             max_duration: float (optional): maximum duration of the command (s)
             relative: bool (optional): whether to use the drone frame (True) or the world frame (False, default)
+            relative_z: bool (optional): when both relative and relative_z are True, z is in the drone frame
         """
         if relative:
-            frame_str = "PDF"
+            if relative_z:
+                frame_str = "PDZ"
+            else:
+                frame_str = "PDF"
         else:
             frame_str = "PWF"
         self._lock.acquire()
