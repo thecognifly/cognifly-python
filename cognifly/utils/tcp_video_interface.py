@@ -153,7 +153,6 @@ class TCPVideoInterface(object):
 
             while record:
                 ret, frame = cap.read()
-                frame = cv2.flip(frame, 180)
                 ret, frame = cv2.imencode('.jpg', frame, encode_param)
                 data = pkl.dumps(frame, 0)
                 framelen = len(data)
