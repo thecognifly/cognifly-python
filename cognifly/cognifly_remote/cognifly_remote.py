@@ -833,7 +833,7 @@ class Cognifly:
         The image transfers happens over TCP, which comes with a noticeable delay.
         CAUTION: High fps may saturate the network in the presence of several drones.
         Args:
-            resolution: Tuple(float: height, float: width): resolution of the captured images.
+            resolution: Tuple(float: width, float: height): resolution of the captured images.
             fps: integer: maximum framerate (may not be attained),
             display: boolean: whether to display the stream in the GUI (requires GUI to be enabled),
             wait_first_frame: boolean: whether to sleep until the first frame is available.
