@@ -9,9 +9,11 @@ from threading import Thread, Lock, Condition
 from copy import deepcopy
 import numpy as np
 import traceback
-from cognifly.utils.ip_tools import get_free_port
 import cv2
 import pickle as pkl
+
+from cognifly.utils.ip_tools import get_free_port
+from cognifly.utils.functions import is_raspberrypi
 
 
 class SplitFrames(object):
@@ -156,7 +158,10 @@ class TCPVideoInterface(object):
             with self.__lock:
                 self.__record = True
                 record = True
-            cap = cv2.VideoCapture(0)
+            if is_raspberrypi():
+                cap = cv2.VideoCapture(0)
+            else:  # Coral board
+                cap = cv2.VideoCapture(1)
             assert cap.isOpened(), "VideoCapture could not be opened."
             cap.set(cv2.CAP_PROP_FPS, fps)
             if resolution != 'VGA':

@@ -1,4 +1,5 @@
 import numpy as np
+import io
 
 
 def clip(x, min_x, max_x):
@@ -33,3 +34,23 @@ def smallest_angle_diff_rad(theta_new, theta_old):
     mod_p = diff % (2 * np.pi)
     mod_n = diff % (-2 * np.pi)
     return mod_p if abs(mod_p) < abs(mod_n) else mod_n
+
+
+def is_raspberrypi():
+    try:
+        with io.open('/sys/firmware/devicetree/base/model', 'r') as m:
+            if 'raspberry pi' in m.read().lower():
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def is_coral():
+    try:
+        with io.open('/sys/firmware/devicetree/base/model', 'r') as m:
+            if 'coral' in m.read().lower():
+                return True
+    except Exception:
+        pass
+    return False

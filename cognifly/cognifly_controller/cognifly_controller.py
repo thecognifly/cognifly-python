@@ -24,7 +24,7 @@ from cognifly.utils.tcp_video_interface import TCPVideoInterface
 from cognifly.utils.ip_tools import extract_ip
 from cognifly.utils.pid import PID
 from cognifly.utils.filters import Simple1DKalman, Simple1DExponentialAverage
-from cognifly.utils.functions import clip, smallest_angle_diff_rad
+from cognifly.utils.functions import clip, smallest_angle_diff_rad, is_raspberrypi
 from cognifly.utils.joysticks import PS4Gamepad
 
 SWITCH_MODE_CHR = ord('m')
@@ -948,7 +948,8 @@ class CogniflyController:
             if self.print_screen:
                 try_addstr(screen, 15, 0, "Connecting to the FC...")
 
-            with MSPy(device="/dev/ttyS0", loglevel='WARNING', baudrate=115200) as board:
+            device_str = "/dev/ttyS0" if is_raspberrypi() else "/dev/ttyS1"
+            with MSPy(device=device_str, loglevel='WARNING', baudrate=115200) as board:
                 if board == 1:  # an error occurred...
                     return 1
 
