@@ -825,7 +825,7 @@ class Cognifly:
 
     # Methods common to both APIs:
 
-    def streamon(self, resolution="VGA", fps=10, display=False, wait_first_frame=True):
+    def streamon(self, resolution="VGA", fps=10, display=False, wait_first_frame=True, format='jpg', quality=95):
         """
         Starts camera streaming.
         CAUTION: This will slow the frequency of the onboard controller down and may make the drone unstable!
@@ -837,6 +837,8 @@ class Cognifly:
             fps: integer: maximum framerate (may not be attained),
             display: boolean: whether to display the stream in the GUI (requires GUI to be enabled),
             wait_first_frame: boolean: whether to sleep until the first frame is available.
+            format: string: one of 'jpg', 'webp' or 'png'
+            quality: int: image quality between 0 and 100
         """
         if not self.tcp_video_int.is_receiver_running():
             free_port = get_free_port(self.recv_port_video)

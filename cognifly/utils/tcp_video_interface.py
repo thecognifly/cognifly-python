@@ -125,7 +125,7 @@ class TCPVideoInterface(object):
     #             self.__stream_running = False
     #             self.__record = False
 
-    def __streaming_thread(self, ip, port, wait_duration, resolution, fps):
+    def __streaming_thread(self, ip, port, wait_duration, resolution, fps, compress_format, compress_quality):
         camera_error = False
         connection = None
         client_socket = None
@@ -133,6 +133,22 @@ class TCPVideoInterface(object):
         try:
             import cv2
             import pickle as pkl
+
+            if 'png' in compress_format.lower():
+                compress_format = '.png'
+                encode_param = []
+            elif 'webp' in compress_format.lower():
+                compress_format = '.webp'
+                if compress_quality < 10:
+                    compress_quality = 10
+                encode_param = [int(cv2.IMWRITE_WEBP_QUALITY), compress_quality]
+            else:
+                compress_format = '.jpg'
+                if compress_quality < 10:
+                    compress_quality = 10
+                if compress_quality > 100:
+                    compress_quality = 100
+                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), compress_quality]
 
             client_socket = socket.socket()
             client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -144,7 +160,6 @@ class TCPVideoInterface(object):
                 record = True
             cap = cv2.VideoCapture(0)
             assert cap.isOpened(), "VideoCapture could not be opened."
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
             cap.set(cv2.CAP_PROP_FPS, fps)
             if resolution != 'VGA':
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
@@ -153,7 +168,7 @@ class TCPVideoInterface(object):
 
             while record:
                 ret, frame = cap.read()
-                ret, frame = cv2.imencode('.jpg', frame, encode_param)
+                ret, frame = cv2.imencode(compress_format, frame, encode_param)
                 data = pkl.dumps(frame, 0)
                 framelen = len(data)
 
@@ -187,7 +202,7 @@ class TCPVideoInterface(object):
                 self.__stream_running = False
                 self.__record = False
 
-    def start_streaming(self, ip_dest, port_dest, wait_duration=1.0, resolution='VGA', fps=10):
+    def start_streaming(self, ip_dest, port_dest, wait_duration=1.0, resolution='VGA', fps=10, compress_format='jpg', compress_quality=95):
         """
         Starts the streaming thread on the drone.
         Caution: stop_streaming() must be called between calls to start_streaming().
@@ -197,7 +212,7 @@ class TCPVideoInterface(object):
             if not streaming_started:
                 self.__stream_running = True
         if not streaming_started:
-            start_streaming_thread = Thread(target=self.__streaming_thread, args=(ip_dest, port_dest, wait_duration, resolution, fps))
+            start_streaming_thread = Thread(target=self.__streaming_thread, args=(ip_dest, port_dest, wait_duration, resolution, fps, compress_format, compress_quality))
             start_streaming_thread.setDaemon(True)  # thread will be terminated at exit
             start_streaming_thread.start()
         else:

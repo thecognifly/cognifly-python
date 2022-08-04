@@ -572,7 +572,7 @@ class CogniflyController:
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], command[2][5], command[2][6], time.time() + command[2][7]]
             elif command[0] == "ST1":  # stream on
                 if self.tcp_video_int is not None:
-                    self.tcp_video_int.start_streaming(ip_dest=command[2][0], port_dest=command[2][1], resolution=command[2][2], fps=command[2][3])
+                    self.tcp_video_int.start_streaming(ip_dest=command[2][0], port_dest=command[2][1], resolution=command[2][2], fps=command[2][3], compress_format=command[2][4], compress_quality=command[2][5])
             elif command[0] == "ST0":  # stream off
                 if self.tcp_video_int is not None:
                     self.tcp_video_int.stop_streaming()
