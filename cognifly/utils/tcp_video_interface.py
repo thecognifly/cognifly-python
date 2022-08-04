@@ -5,12 +5,13 @@ import socket
 import struct
 import time
 import logging
-from PIL import Image
 from threading import Thread, Lock, Condition
 from copy import deepcopy
 import numpy as np
 import traceback
 from cognifly.utils.ip_tools import get_free_port
+import cv2
+import pickle as pkl
 
 
 class SplitFrames(object):
@@ -131,9 +132,6 @@ class TCPVideoInterface(object):
         client_socket = None
         cap = None
         try:
-            import cv2
-            import pickle as pkl
-
             if 'png' in compress_format.lower():
                 compress_format = '.png'
                 encode_param = []
@@ -292,9 +290,6 @@ class TCPVideoInterface(object):
         # Accept a single connection and make a file-like object out of it
         connection = server_socket.accept()[0].makefile('rb')
         try:
-            import cv2
-            import pickle as pkl
-
             while True:
                 # Read the length of the image as a 32-bit unsigned int. If the
                 # length is zero, quit the loop
@@ -357,7 +352,7 @@ class TCPVideoInterface(object):
         Args:
             min_image_i: int: identifier of the previously received image (starts at 0 and increases)
         Returns:
-            im: PIL.Image or None: None when the current identifier is not > inf_image_i
+            im: OpenCV image: None when the current identifier is not > inf_image_i
             im_i: int: identifier
         """
         with self.__lock:
