@@ -285,6 +285,15 @@ def try_connect(drone_hostname, drone_port):
     return drone_hostname_, drone_ip, drone_port, udp_int, tcp_video_int
 
 
+def try_addstr(*args):
+    screen = args[0]
+    args_addstr = args[1:]
+    try:
+        screen.addstr(*args_addstr)
+    except Exception as e:
+        pass
+
+
 class PoseEstimator(ABC):
     """
     Base interface for custom pose estimators
@@ -498,7 +507,7 @@ class CogniflyController:
                 screen.timeout(0)
                 # map arrow keys to special values
                 screen.keypad(True)
-                screen.addstr(1, 0, "Press 'q' to quit, 'r' to reboot, 'm' to change mode, 'a' to arm, 'd' to disarm and arrow keys to control", curses.A_BOLD)
+                try_addstr(screen, 1, 0, "Press 'q' to quit, 'r' to reboot, 'm' to change mode, 'a' to arm, 'd' to disarm and arrow keys to control", curses.A_BOLD)
             else:
                 screen = None
             result = self._controller(screen)
@@ -667,13 +676,13 @@ class CogniflyController:
                 self.valid_custom_estimate = False
                 recovery = True
                 if self.print_screen:
-                    screen.addstr(28, 0, f"Custom estimate: INVALID")
+                    try_addstr(screen, 28, 0, f"Custom estimate: INVALID")
                     screen.clrtoeol()
             elif not failure_custom and not self.valid_custom_estimate:
                 self.valid_custom_estimate = True
                 recovery = True
                 if self.print_screen:
-                    screen.addstr(28, 0, f"Custom estimate: valid")
+                    try_addstr(screen, 28, 0, f"Custom estimate: valid")
                     screen.clrtoeol()
         if self.pose_estimator is None or failure_custom:
             board.fast_read_attitude()
@@ -722,7 +731,7 @@ class CogniflyController:
                 fo_yaw = smallest_angle_diff_rad(fo_yaw, 0.0)  # FIXME: check that this works
                 self._flight_origin = (fo_pos_x_wf, fo_pos_y_wf, fo_yaw)
                 if self.print_screen:
-                    screen.addstr(29, 0, f"FO changed from{fo_init} to {self._flight_origin}")
+                    try_addstr(screen, 29, 0, f"FO changed from{fo_init} to {self._flight_origin}")
                     screen.clrtoeol()
                 return
 
@@ -733,14 +742,14 @@ class CogniflyController:
         vel_y_df = vel_y_wf * cos - vel_x_wf * sin
 
         if self.print_screen:
-            screen.addstr(18, 0, f"yaw: {yaw/np.pi: .5f} pi rad")
-            screen.addstr(19, 0, f"yaw rate: {yaw_rate/np.pi: .5f} pi rad/s")
-            screen.addstr(20, 0, f"pos_wf: [{pos_x_wf: .5f},{pos_y_wf: .5f},{pos_z_wf: .5f}] m")
-            screen.addstr(21, 0, f"vel_wf: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
-            screen.addstr(22, 0, f"vel_df: [{vel_x_df: .5f},{vel_y_df: .5f},{vel_z_df: .5f}] m/s")
-            screen.addstr(24, 0, f"from yaw: {old_yaw / np.pi: .5f} pi rad")
-            screen.addstr(25, 0, f"from pos_wf: [{old_pos_x_wf: .5f},{old_pos_y_wf: .5f},{pos_z_wf: .5f}] m")
-            screen.addstr(26, 0, f"from vel_wf: [{old_vel_x_wf: .5f},{old_vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
+            try_addstr(screen, 18, 0, f"yaw: {yaw/np.pi: .5f} pi rad")
+            try_addstr(screen, 19, 0, f"yaw rate: {yaw_rate/np.pi: .5f} pi rad/s")
+            try_addstr(screen, 20, 0, f"pos_wf: [{pos_x_wf: .5f},{pos_y_wf: .5f},{pos_z_wf: .5f}] m")
+            try_addstr(screen, 21, 0, f"vel_wf: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
+            try_addstr(screen, 22, 0, f"vel_df: [{vel_x_df: .5f},{vel_y_df: .5f},{vel_z_df: .5f}] m/s")
+            try_addstr(screen, 24, 0, f"from yaw: {old_yaw / np.pi: .5f} pi rad")
+            try_addstr(screen, 25, 0, f"from pos_wf: [{old_pos_x_wf: .5f},{old_pos_y_wf: .5f},{pos_z_wf: .5f}] m")
+            try_addstr(screen, 26, 0, f"from vel_wf: [{old_vel_x_wf: .5f},{old_vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
             screen.clrtoeol()
 
         self.telemetry = (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
@@ -937,14 +946,14 @@ class CogniflyController:
         # print doesn't work with curses, use addstr instead
         try:
             if self.print_screen:
-                screen.addstr(15, 0, "Connecting to the FC...")
+                try_addstr(screen, 15, 0, "Connecting to the FC...")
 
             with MSPy(device="/dev/ttyS0", loglevel='WARNING', baudrate=115200) as board:
                 if board == 1:  # an error occurred...
                     return 1
 
                 if self.print_screen:
-                    screen.addstr(15, 0, "Connecting to the FC... connected!")
+                    try_addstr(screen, 15, 0, "Connecting to the FC... connected!")
                     screen.clrtoeol()
                     screen.move(1, 0)
 
@@ -973,13 +982,13 @@ class CogniflyController:
                 self.max_voltage = board.BATTERY_CONFIG['vbatmaxcellvoltage'] * cell_count
 
                 if self.print_screen:
-                    screen.addstr(15, 0, "apiVersion: {}".format(board.CONFIG['apiVersion']))
+                    try_addstr(screen, 15, 0, "apiVersion: {}".format(board.CONFIG['apiVersion']))
                     screen.clrtoeol()
-                    screen.addstr(15, 50, "flightControllerIdentifier: {}".format(board.CONFIG['flightControllerIdentifier']))
-                    screen.addstr(16, 0, "flightControllerVersion: {}".format(board.CONFIG['flightControllerVersion']))
-                    screen.addstr(16, 50, "boardIdentifier: {}".format(board.CONFIG['boardIdentifier']))
-                    screen.addstr(17, 0, "boardName: {}".format(board.CONFIG['boardName']))
-                    screen.addstr(17, 50, "name: {}".format(board.CONFIG['name']))
+                    try_addstr(screen, 15, 50, "flightControllerIdentifier: {}".format(board.CONFIG['flightControllerIdentifier']))
+                    try_addstr(screen, 16, 0, "flightControllerVersion: {}".format(board.CONFIG['flightControllerVersion']))
+                    try_addstr(screen, 16, 50, "boardIdentifier: {}".format(board.CONFIG['boardIdentifier']))
+                    try_addstr(screen, 17, 0, "boardName: {}".format(board.CONFIG['boardName']))
+                    try_addstr(screen, 17, 50, "name: {}".format(board.CONFIG['name']))
 
                 slow_msgs = cycle(['MSP_ANALOG', 'MSP_MOTOR', 'MSP_STATUS_EX', 'MSP_RC'])
 
@@ -1060,7 +1069,7 @@ class CogniflyController:
 
                             elif char == REBOOT_CHR:
                                 if self.print_screen:
-                                    screen.addstr(3, 0, 'Rebooting...')
+                                    try_addstr(screen, 3, 0, 'Rebooting...')
                                     screen.clrtoeol()
                                 board.reboot()
                                 time.sleep(0.5)
@@ -1202,14 +1211,14 @@ class CogniflyController:
                                 elif self.__batt_state == BATT_TOO_HIGH:
                                     voltage_msg = "VOLTAGE TOO HIGH"
 
-                                screen.addstr(8, 0, "Battery Voltage: {:2.2f}V".format(self.voltage))
+                                try_addstr(screen, 8, 0, "Battery Voltage: {:2.2f}V".format(self.voltage))
                                 screen.clrtoeol()
-                                screen.addstr(8, 24, voltage_msg, curses.A_BOLD + curses.A_BLINK)
+                                try_addstr(screen, 8, 24, voltage_msg, curses.A_BOLD + curses.A_BLINK)
                                 screen.clrtoeol()
 
                             elif next_msg == 'MSP_STATUS_EX':
                                 armed = board.bit_check(board.CONFIG['mode'], 0)
-                                screen.addstr(5, 0, "ARMED: {}".format(armed), curses.A_BOLD)
+                                try_addstr(screen, 5, 0, "ARMED: {}".format(armed), curses.A_BOLD)
                                 screen.clrtoeol()
 
                                 self.debug_flags = board.process_armingDisableFlags(board.CONFIG['armingDisableFlags'])
@@ -1217,39 +1226,39 @@ class CogniflyController:
                                     cam_err, cam_exp, cam_trace = self.tcp_video_int.get_camera_error()
                                     if cam_err:
                                         self.debug_flags.append("CAMERA_ERROR")
-                                        screen.addstr(12, 0, f"CAMERA ERROR: {cam_exp}")
+                                        try_addstr(screen, 12, 0, f"CAMERA ERROR: {cam_exp}")
                                         screen.clrtoeol()
                                         # raise Exception(cam_trace)
-                                screen.addstr(5, 50, "armingDisableFlags: {}".format(self.debug_flags))
+                                try_addstr(screen, 5, 50, "armingDisableFlags: {}".format(self.debug_flags))
                                 screen.clrtoeol()
 
-                                screen.addstr(6, 0, "cpuload: {}".format(board.CONFIG['cpuload']))
+                                try_addstr(screen, 6, 0, "cpuload: {}".format(board.CONFIG['cpuload']))
                                 screen.clrtoeol()
-                                screen.addstr(6, 50, "cycleTime: {}".format(board.CONFIG['cycleTime']))
-                                screen.clrtoeol()
-
-                                screen.addstr(7, 0, "mode: {}".format(board.CONFIG['mode']))
+                                try_addstr(screen, 6, 50, "cycleTime: {}".format(board.CONFIG['cycleTime']))
                                 screen.clrtoeol()
 
-                                screen.addstr(7, 50, "Flight Mode: {}".format(board.process_mode(board.CONFIG['mode'])))
+                                try_addstr(screen, 7, 0, "mode: {}".format(board.CONFIG['mode']))
+                                screen.clrtoeol()
+
+                                try_addstr(screen, 7, 50, "Flight Mode: {}".format(board.process_mode(board.CONFIG['mode'])))
                                 screen.clrtoeol()
 
                             elif next_msg == 'MSP_MOTOR':
-                                screen.addstr(9, 0, "Motor Values: {}".format(board.MOTOR_DATA))
+                                try_addstr(screen, 9, 0, "Motor Values: {}".format(board.MOTOR_DATA))
                                 screen.clrtoeol()
 
                             elif next_msg == 'MSP_RC':
-                                screen.addstr(10, 0, "RC Channels Values: {}".format(board.RC['channels']))
+                                try_addstr(screen, 10, 0, "RC Channels Values: {}".format(board.RC['channels']))
                                 screen.clrtoeol()
 
                             _s1 = sum(average_cycle)
                             _s2 = len(average_cycle)
                             str_cycletime = "NaN" if _s1 == 0 or _s2 == 0 else \
                                 f"GUI cycleTime: {last_cycle_time * 1000:2.2f}ms (average {1 / (_s1 / _s2):2.2f}Hz)"
-                            screen.addstr(11, 0, str_cycletime)
+                            try_addstr(screen, 11, 0, str_cycletime)
                             screen.clrtoeol()
 
-                            screen.addstr(3, 0, cursor_msg)
+                            try_addstr(screen, 3, 0, cursor_msg)
                             screen.clrtoeol()
                     #
                     # end of SLOW MSG ------------------------------------------
@@ -1266,7 +1275,7 @@ class CogniflyController:
 
         finally:
             if self.print_screen:
-                screen.addstr(5, 0, "Disconnected from the FC!")
+                try_addstr(screen, 5, 0, "Disconnected from the FC!")
                 screen.clrtoeol()
             print("Bye!")
 
