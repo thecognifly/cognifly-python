@@ -1245,7 +1245,7 @@ class CogniflyController:
                             _s1 = sum(average_cycle)
                             _s2 = len(average_cycle)
                             str_cycletime = "NaN" if _s1 == 0 or _s2 == 0 else \
-                                f"GUI cycleTime: {last_cycle_time * 1000:2.2f}ms (average {1 / _s1 / _s2:2.2f}Hz)"
+                                f"GUI cycleTime: {last_cycle_time * 1000:2.2f}ms (average {1 / (_s1 / _s2):2.2f}Hz)"
                             screen.addstr(11, 0, str_cycletime)
                             screen.clrtoeol()
 
