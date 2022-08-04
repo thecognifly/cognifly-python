@@ -302,10 +302,7 @@ class TCPVideoInterface(object):
                 if not image_len:
                     break
 
-                data = connection.read(image_len)
-
-                frame = pkl.loads(data, fix_imports=True, encoding="bytes")
-                image = cv2.imdecode(frame, cv2.IMREAD_COLOR)
+                image = connection.read(image_len)  # raw undecoded pickle bytestring
 
                 # if display:
                 #     open_cv_image = np.array(image)
@@ -367,7 +364,8 @@ class TCPVideoInterface(object):
             im_i = self.__image_i
             data = deepcopy(self.__image) if im_i > min_image_i else None
         if data is not None:
-            im = data
+            frame = pkl.loads(data, fix_imports=True, encoding="bytes")
+            im = cv2.imdecode(frame, cv2.IMREAD_COLOR)
             # pil_image = data.convert('RGB')
             # open_cv_image = np.array(pil_image)
             # im = open_cv_image[:, :, ::-1].copy()
