@@ -848,18 +848,18 @@ class Cognifly:
                 self.recv_port_video = free_port
             self.tcp_video_int.start_receiver(self.recv_port_video)
             time.sleep(1.0)  # sleep a bit so the server starts before the drone tries to connect
-            self.send(msg_type="ST1", msg=(self.local_ip, self.recv_port_video, resolution, fps))
+            self.send(msg_type="ST1", msg=(self.local_ip, self.recv_port_video, resolution, fps, format, quality))
             if wait_first_frame:
                 _ = self.get_frame(wait_new_frame=True)
             self._gui_lock.acquire()
             self._gui_display = display
             self._gui_lock.release()
 
-    def stream(self, resolution="VGA", fps=10):
+    def stream(self, resolution="VGA", fps=10, format='jpg', quality=95):
         """
-        Alias for streamon(resolution, fps=fps, display=True)
+        Alias for streamon(resolution, fps=fps, display=True, format=format, quality=quality)
         """
-        self.streamon(resolution, fps, display=True)
+        self.streamon(resolution, fps, display=True, format=format, quality=quality)
 
     def get_frame(self, wait_new_frame=True, timeout=10.0, sleep_between_trials=0.05):
         """
