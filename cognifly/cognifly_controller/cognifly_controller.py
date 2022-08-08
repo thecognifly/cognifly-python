@@ -246,7 +246,7 @@ class PS4GamepadManager:
                     vz -= joystick_to_t(arz, deadband=self.deadband, max_cmd=0.5)
                     if 0 == vx == vy == vz == w:
                         if not self.hover:  # we have to send position command PDZ only once!
-                            flight_command = ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 10.0]
+                            flight_command = ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 1000000.0]
                             self.hover = True
                     else:  # send velocity command
                         self.hover = False
@@ -313,6 +313,11 @@ class PoseEstimator(ABC):
         vel_y_wf = y velocity (m/s)
         vel_z_wf = z velocity (m/s)
         yaw_rate: yaw rate (rad/s)
+
+        CAUTION: your estimator needs to respect the cognifly coordinate system, which is not standard:
+        x: FORWARD
+        y: RIGHT
+        z: UP
         """
         raise NotImplementedError
 
@@ -770,7 +775,6 @@ class CogniflyController:
                     self.pid_vel_y.set_auto_mode(False)
                     self.pid_vel_z.set_auto_mode(False)
                     self.pid_w_z.set_auto_mode(False)
-                    self.CMDS['pitch'] = DEFAULT_PITCH
                     self.CMDS['roll'] = DEFAULT_ROLL
                     self.CMDS['yaw'] = DEFAULT_YAW
                     self.current_flight_command = None
