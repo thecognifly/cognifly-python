@@ -449,13 +449,19 @@ class Cognifly:
         """
         self.send(msg_type="ACT", msg=("DISARM",))
 
-    def takeoff_nonblocking(self, altitude=None):
+    def takeoff_nonblocking(self, altitude=None, track_xy=False, max_duration=10.0, max_velocity=0.5):
         """
         The drone takes off.
 
         Do not use altitude (this currently refers to a FC throttle value and is likely to change in the future).
+
+        Args:
+            altitude: do not use
+            track_xy: bool (optional): if True, the drone will track X and Y while taking off
+            max_duration: float (optional): duration for which X and Y can be tracked if track_xy is True (s)
+            max_velocity: float (optional): maximum velocity used to track X and Y if track_xy is True (m/s)
         """
-        self.send(msg_type="ACT", msg=("TAKEOFF", altitude))
+        self.send(msg_type="ACT", msg=("TAKEOFF", altitude, track_xy, max_duration, max_velocity))
         self.time_takeoff = time.time()
 
     def land_nonblocking(self):
@@ -479,7 +485,7 @@ class Cognifly:
         frame_str = "VDF" if drone_frame else "VWF"
         self.send(msg_type="ACT", msg=(frame_str, v_x, v_y, v_z, w, duration))
 
-    def set_position_nonblocking(self, x, y, z, yaw=None, max_velocity=0.5, max_yaw_rate=0.5, max_duration=10.0, relative=False, relative_z=False):
+    def set_position_nonblocking(self, x, y, z=None, yaw=None, max_velocity=0.5, max_yaw_rate=0.5, max_duration=10.0, relative=False, relative_z=False):
         """
         Sets a position target for the drone.
         If relative is False (default), the target is relative to the world axis.
@@ -489,7 +495,7 @@ class Cognifly:
         Args:
             x: float: x target (m)
             y: float: y target (m)
-            z: float: z target (m); tested range: 0.3 - 0.9
+            z: float (optional): z target (m); tested range: 0.3 - 0.9; when None, z is not tracked
             yaw: float (optional): yaw target (rad); if None, the yaw is not changed
             max_velocity: float (optional): maximum velocity used to go to position (m/s)
             max_yaw_rate: float (optional): maximum yaw rate used to go to yaw (rad/s)

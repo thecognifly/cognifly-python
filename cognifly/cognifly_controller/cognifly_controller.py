@@ -571,9 +571,15 @@ class CogniflyController:
                     self.current_flight_command = None
                 elif command[2][0] == "TAKEOFF":
                     alt = command[2][1] if command[2][1] is not None else TAKEOFF
+                    track_xy = command[2][2]
+                    max_duration = command[2][3]
+                    max_velocity = command[2][4]
                     self.CMDS["throttle"] = alt  # TODO: replace by true altitude (now a throttle value)
                     self.CMDS["aux2"] = NAV_POSHOLD_MODE
-                    self.current_flight_command = None
+                    if track_xy:
+                        self.current_flight_command = ["PDF", 0.0, 0.0, None, None, max_velocity, 0.0, time.time() + max_duration]
+                    else:
+                        self.current_flight_command = None
                 elif command[2][0] == "LAND":
                     self.CMDS["throttle"] = LAND
                     self.CMDS["aux2"] = NAV_POSHOLD_MODE
@@ -835,7 +841,7 @@ class CogniflyController:
                     w_norm_goal = self.current_flight_command[6]
                     x_vector = x_goal - pos_x_wf
                     y_vector = y_goal - pos_y_wf
-                    z_vector = z_goal - pos_z_wf
+                    z_vector = z_goal - pos_z_wf if z_goal is not None else 0.0
                     yaw_vector = smallest_angle_diff_rad(yaw_goal, yaw) if yaw_goal is not None else None
                     if self.target_flag:  # check whether position target is reached
                         dist_condition = np.linalg.norm([x_vector, y_vector, z_vector]) <= EPSILON_DIST_TO_TARGET
@@ -850,7 +856,7 @@ class CogniflyController:
                     # compute the corresponding desired velocity (non-clipped):
                     v_x = self.x_vel_gain * x_vector_df
                     v_y = self.y_vel_gain * y_vector_df
-                    v_z = self.z_vel_gain * z_vector
+                    v_z = self.z_vel_gain * z_vector if z_goal is not None else 0.0
                     w = self.w_gain * yaw_vector if yaw_goal is not None else 0.0
                     # clip to desired velocty:
                     vel_norm = np.linalg.norm([v_x, v_y, v_z])
@@ -898,7 +904,7 @@ class CogniflyController:
                 current_flight_command[1] = x_goal_wf
                 current_flight_command[2] = y_goal_wf
                 current_flight_command[4] = yaw_goal_wf
-                if self.current_flight_command[0] == "PDZ":
+                if self.current_flight_command[0] == "PDZ" and current_flight_command[3] is not None:
                     current_flight_command[3] = pos_z_wf
                 self.current_flight_command = tuple(current_flight_command)
 
