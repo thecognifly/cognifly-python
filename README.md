@@ -12,6 +12,8 @@ Control the CogniFly open-source drone remotely from your python script.
     - [School API](#school-api)
     - [Streaming](#streaming)
 - [Troubleshooting](#troubleshooting)
+- [Advanced](#advanced-usage)
+  - [Custom estimator and PIDs](#custom-estimator-and-pids)
 
 
 ## Installation
@@ -281,4 +283,87 @@ cf.land()
 **Drift**: A slight horizontal drift of less than 1cm/s is to be expected.
 However, if the drone drifts badly, disarm it, move it around and check that the position and velocity estimates make sense.
 - If some estimates remain fixed: the drone is probably not in EST_POS debug mode. Carefully setup the flight controller again, according to the [drone setup instructions](/readme/DRONE_SETUP.md).
-- If some estimates behave crazily: the floor is probably not textured enough. The current iteration of CogniFly uses a cheap optical flow sensor to estimate its location, and this sensor needs a lot of texture on the ground to work properly.
+- If some estimates behave crazily: the floor is probably not textured enough. The current iteration of CogniFly uses a cheap optical flow sensor to estimate its location, and this sensor needs a lot of texture on the ground to work properly. See the [custom estimator](#custom-estimator) section to circumvent this issue.
+
+
+## Advanced usage
+
+### Custom estimator and PIDs
+`cognifly-python` supports custom estimators.
+A custom estimator overrides the position and velocity estimates that come from the flight controller, as these can be very poor when the ground is textureless or badly lit, due to the optical flow sensor performing poorly.
+
+In order to design and use your own custom estimator, you must not use the `cognifly-controller` bash command, but instead write a python script in which you instantiate a `CogniflyController` object, passing a custom `PoseEstimator` to the `pose_estimator` argument. 
+Doing this also enables you to customize the PID values without resorting to the API.
+
+This can be achieved as follows:
+
+```python
+# Script to be executed on the drone, instead of the cognifly-controller bash command
+
+from cognifly.cognifly_controller.cognifly_controller import CogniflyController, PoseEstimator
+
+# Definition of a custom estimator:
+class MyCustomEstimator(PoseEstimator):
+
+    def get(self):
+        """
+        Must return a tuple of 8 values: (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
+        If any is None, this is considered failure and the onboard estimator will be used instead.
+
+        These values represent the drone attitude in the world frame:
+        pos_x_wf = x position (m)
+        pos_y_wf = y position (m)
+        pos_z_wf = z position (m)
+        yaw: yaw (rad)
+        vel_x_wf = x velocity (m/s)
+        vel_y_wf = y velocity (m/s)
+        vel_z_wf = z velocity (m/s)
+        yaw_rate: yaw rate (rad/s)
+
+        CAUTION: your estimator needs to respect the cognifly coordinate system, which is not standard:
+        x: FORWARD
+        y: RIGHT
+        z: UP
+        """
+        
+        # compute pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate here
+        
+        return pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate
+
+if __name__ == '__main__':
+    # instantiate of the custom estimator:
+    ce = MyCustomEstimator()
+    
+    # instantiate of the CogniflyController object:
+    cc = CogniflyController(print_screen=True,  # set to false if you want to run headless
+                            pose_estimator=ce,  # your custom estimator
+                            trace_logs=False,  # if True, PIDs logs will be saved under .../cognifly-controller/trace_logs
+                            vel_x_kp=750.0,  # proportional gain for X velocity
+                            vel_x_ki=200.0,  # integral gain for X velocity
+                            vel_x_kd=10.0,  # derivative gain for X velocity
+                            vel_y_kp=750.0,  # proportional gain for Y velocity
+                            vel_y_ki=200.0,  # integral gain for Y velocity
+                            vel_y_kd=10.0,  # derivative gain for Y velocity
+                            vel_z_kp=5.0,  # proportional gain for Z velocity
+                            vel_z_ki=2.0,  # integral gain for Z velocity
+                            vel_z_kd=0.05,  # derivative gain for Z velocity
+                            vel_w_kp=75.0,  # proportional gain for yaw rate
+                            vel_w_ki=50.0,  # integral gain for yaw rate
+                            vel_w_kd=0.0,  # derivative gain for yaw rate
+                            pid_limit=400,  # PID clipping value, should not exceed 500
+                            x_vel_gain=0.5,  # proportional gain mapping X vector to X velocity in position control
+                            y_vel_gain=0.5,  # proportional gain mapping Y vector to Y velocity in position control
+                            z_vel_gain=0.2)  # proportional gain mapping Z vector to Z velocity in position control
+    
+    # run the controller:
+    cc.run_curses()
+```
+_Note 1: `cognifly-python` does not entirely override the flight controller estimates internally.
+Instead, it consists of an external control loop.
+The internal control loop performed within the flight controller is not altered, and still uses the flight controller estimates.
+Thus, the drone behavior may still differ depending on the texture of the ground._
+
+_Note 2: `mode 2` of the gamepad uses your custom estimator, whereas `mode 1` shuts down the external control loop.
+You can use `mode 2` to debug your estimator.
+**Caution**: taking off with the gamepad in `mode 2` momentarily shuts down the external control loop.
+However, you can take off using your estimator thanks to the API, using `takeoff_nonblocking(track_xy=True)`._
