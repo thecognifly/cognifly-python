@@ -337,7 +337,7 @@ if __name__ == '__main__':
     # instantiate of the CogniflyController object:
     cc = CogniflyController(print_screen=True,  # set to false if you want to run headless
                             pose_estimator=ce,  # your custom estimator
-                            trace_logs=False,  # if True, PIDs logs will be saved under .../cognifly-controller/trace_logs
+                            trace_logs=False,  # set to True to save PID logs
                             vel_x_kp=750.0,  # proportional gain for X velocity
                             vel_x_ki=200.0,  # integral gain for X velocity
                             vel_x_kd=10.0,  # derivative gain for X velocity
@@ -351,9 +351,9 @@ if __name__ == '__main__':
                             vel_w_ki=50.0,  # integral gain for yaw rate
                             vel_w_kd=0.0,  # derivative gain for yaw rate
                             pid_limit=400,  # PID clipping value, should not exceed 500
-                            x_vel_gain=0.5,  # proportional gain mapping X vector to X velocity in position control
-                            y_vel_gain=0.5,  # proportional gain mapping Y vector to Y velocity in position control
-                            z_vel_gain=0.2)  # proportional gain mapping Z vector to Z velocity in position control
+                            x_vel_gain=0.5,  # gain from X vector to X velocity (position control)
+                            y_vel_gain=0.5,  # gain from Y vector to Y velocity (position control)
+                            z_vel_gain=0.2)  # gain from Z vector to Z velocity (position control)
     
     # run the controller:
     cc.run_curses()
@@ -365,5 +365,8 @@ Thus, the drone behavior may still differ depending on the texture of the ground
 
 _Note 2: `mode 2` of the gamepad uses your custom estimator, whereas `mode 1` shuts down the external control loop.
 You can use `mode 2` to debug your estimator.
-**Caution**: taking off with the gamepad in `mode 2` momentarily shuts down the external control loop.
+The `trace_logs` argument can also be set to `True` for tuning your PIDs.
+Logs will then be saved under `cognifly/cognifly_controller/trace_logs`._
+
+:warning: _**Caution**: taking off with the gamepad in `mode 2` momentarily shuts down the external control loop.
 However, you can take off using your estimator thanks to the API, using `takeoff_nonblocking(track_xy=True)`._
