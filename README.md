@@ -307,7 +307,8 @@ class MyCustomEstimator(PoseEstimator):
 
     def get(self):
         """
-        Must return a tuple of 8 values: (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
+        Must return a tuple of 8 values:
+        (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
         If any is None, this is considered failure and the onboard estimator will be used instead.
 
         These values represent the drone attitude in the world frame:
