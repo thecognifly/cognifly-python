@@ -988,7 +988,7 @@ class CogniflyController:
                 else:
                     self.board = board
                     if self.pose_estimator is not None:
-                        self.pose_estimator._get_fc_estimate = self._read_board.__get__(self, PoseEstimator)
+                        self.pose_estimator.get_fc_estimate = self._read_board.__get__(self, PoseEstimator)
 
                 if self.print_screen:
                     try_addstr(screen, 15, 0, "Connecting to the FC... connected!")
