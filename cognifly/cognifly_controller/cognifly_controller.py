@@ -321,6 +321,14 @@ class PoseEstimator(ABC):
         """
         raise NotImplementedError
 
+    def get_fc_estimate(self):
+        """
+        Use this method if you wish to access the internal estimate of the flight controller
+        This method is redefined when run_curses() is executed in the CogniflyController object
+        Until then, it returns None for all estimates
+        """
+        return None, None, None, None, None, None, None, None
+
 
 class CogniflyController:
     def __init__(self,
@@ -364,6 +372,7 @@ class CogniflyController:
             pose_estimator: cognifly.cognifly_controller.cognifly_controller.PoseEstimator: custom pose estimator
         """
         self.pose_estimator = pose_estimator
+        self.board = None
         self.valid_custom_estimate = True
         self.network = network
         self.drone_hostname = drone_hostname
@@ -664,6 +673,32 @@ class CogniflyController:
         res = self.filter_w_z.update_estimate(res)
         return res
 
+    def _read_estimate(self, board):
+        """
+        Reads estimates from board
+        """
+        board.fast_read_attitude()
+        yaw = board.SENSOR_DATA['kinematics'][2] * np.pi / 180.0
+        board.send_RAW_msg(MSPy.MSPCodes['MSP_DEBUG'])  # MSP2_INAV_DEBUG is too long to answer
+        data_handler = board.receive_msg()
+        board.process_recv_data(data_handler)
+        pos_x_wf = board.SENSOR_DATA['debug'][0] / 1e4
+        pos_y_wf = board.SENSOR_DATA['debug'][1] / 1e4
+        vel_x_wf = board.SENSOR_DATA['debug'][2] / 1e4
+        vel_y_wf = board.SENSOR_DATA['debug'][3] / 1e4
+        board.fast_read_altitude()
+        pos_z_wf = board.SENSOR_DATA['altitude']
+        yaw_rate = self._compute_yaw_rate(yaw)
+        vel_z_wf = self._compute_z_vel(pos_z_wf)
+        return pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate
+
+    def _read_board(self):
+        board = self.board
+        if board is None:
+            return None, None, None, None, None, None, None, None
+        else:
+            return self._read_estimate(board)
+
     def _flight(self, board, screen):
         """
         This method is a high-level flight controller.
@@ -696,19 +731,7 @@ class CogniflyController:
                     try_addstr(screen, 28, 0, f"Custom estimate: valid")
                     screen.clrtoeol()
         if self.pose_estimator is None or failure_custom:
-            board.fast_read_attitude()
-            yaw = board.SENSOR_DATA['kinematics'][2] * np.pi / 180.0
-            board.send_RAW_msg(MSPy.MSPCodes['MSP_DEBUG'])  # MSP2_INAV_DEBUG is too long to answer
-            data_handler = board.receive_msg()
-            board.process_recv_data(data_handler)
-            pos_x_wf = board.SENSOR_DATA['debug'][0] / 1e4
-            pos_y_wf = board.SENSOR_DATA['debug'][1] / 1e4
-            vel_x_wf = board.SENSOR_DATA['debug'][2] / 1e4
-            vel_y_wf = board.SENSOR_DATA['debug'][3] / 1e4
-            board.fast_read_altitude()
-            pos_z_wf = board.SENSOR_DATA['altitude']
-            yaw_rate = self._compute_yaw_rate(yaw)
-            vel_z_wf = self._compute_z_vel(pos_z_wf)
+            pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self._read_estimate(board)
 
         old_pos_x_wf = pos_x_wf
         old_pos_y_wf = pos_y_wf
@@ -962,6 +985,10 @@ class CogniflyController:
             with MSPy(device=device_str, loglevel='WARNING', baudrate=115200) as board:
                 if board == 1:  # an error occurred...
                     return 1
+                else:
+                    self.board = board
+                    if self.pose_estimator is not None:
+                        self.pose_estimator._get_fc_estimate = self._read_board.__get__(self, PoseEstimator)
 
                 if self.print_screen:
                     try_addstr(screen, 15, 0, "Connecting to the FC... connected!")
@@ -1285,6 +1312,7 @@ class CogniflyController:
                     average_cycle.popleft()
 
         finally:
+            self.board = None
             if self.print_screen:
                 try_addstr(screen, 5, 0, "Disconnected from the FC!")
                 screen.clrtoeol()
