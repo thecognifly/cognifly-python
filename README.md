@@ -293,7 +293,7 @@ However, if the drone drifts badly, disarm it, move it around and check that the
 A custom estimator overrides the position and velocity estimates that come from the flight controller, as these can be very poor when the ground is textureless or badly lit, due to the optical flow sensor performing poorly.
 
 In order to design and use your own custom estimator, you must not use the `cognifly-controller` bash command, but instead write a python script in which you instantiate a `CogniflyController` object, passing a custom `PoseEstimator` to the `pose_estimator` argument. 
-Doing this also enables you to customize the PID values without resorting to the API.
+Doing this also enables customizing the PID values without resorting to the API.
 
 This can be achieved as follows:
 
@@ -359,6 +359,18 @@ if __name__ == '__main__':
     # run the controller:
     cc.run_curses()
 ```
+In case you need the estimates of the flight controller in your custom estimator (e.g., to merge them with your own estimates in a Kalman filter), the `PoseEstimator` class has a `get_fc_estimate()` method for that purpose:
+```python
+    def get(self):
+
+        pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.get_fc_estimate()
+
+        # do your stuff here
+        # (note that the fc estimates will be None before run_curses())
+
+        return pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate
+```
+
 _Note 1: `cognifly-python` does not entirely override the flight controller estimates internally.
 Instead, it consists of an external control loop.
 The internal control loop performed within the flight controller is not altered, and still uses the flight controller estimates.
