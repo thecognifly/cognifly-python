@@ -216,8 +216,11 @@ class PS4GamepadManager:
 
             if haty == -1:
                 CMDS['throttle'] = TAKEOFF
-                self.z_wait_until = now + 3.0
-                flight_command = None
+                if self.mode == 2:
+                    flight_command = ['PDF', 0.0, 0.0, None, None, 0.1, 0.0, time.time() + 1000000.0]
+                    self.hover = True
+                else:
+                    flight_command = None
             elif haty == 1:
                 CMDS['throttle'] = LAND
                 self.z_wait_until = now + 2.0
@@ -799,14 +802,18 @@ class CogniflyController:
                 # command is ["VXF", x, y, z, time_end]
                 time_end = self.current_flight_command[5]
                 if time.time() >= time_end:
-                    # stop moving and remove flight command
-                    self.pid_vel_x.set_auto_mode(False)
-                    self.pid_vel_y.set_auto_mode(False)
-                    self.pid_vel_z.set_auto_mode(False)
-                    self.pid_w_z.set_auto_mode(False)
-                    self.CMDS['roll'] = DEFAULT_ROLL
-                    self.CMDS['yaw'] = DEFAULT_YAW
-                    self.current_flight_command = None
+                    if self.pose_estimator is None:
+                        # stop moving and remove flight command
+                        self.pid_vel_x.set_auto_mode(False)
+                        self.pid_vel_y.set_auto_mode(False)
+                        self.pid_vel_z.set_auto_mode(False)
+                        self.pid_w_z.set_auto_mode(False)
+                        self.CMDS['roll'] = DEFAULT_ROLL
+                        self.CMDS['yaw'] = DEFAULT_YAW
+                        self.current_flight_command = None
+                    else:
+                        # track current position
+                        self.current_flight_command = ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 1000000.0]
                 else:
                     if self.current_flight_command[0] == "VDF":  # drone frame
                         v_x = self.current_flight_command[1]
@@ -845,15 +852,19 @@ class CogniflyController:
                 # command is ["PWF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
                 time_end = self.current_flight_command[7]
                 if time.time() >= time_end:
-                    # stop moving and remove flight command
-                    self.pid_vel_x.set_auto_mode(False)
-                    self.pid_vel_y.set_auto_mode(False)
-                    self.pid_vel_z.set_auto_mode(False)
-                    self.pid_w_z.set_auto_mode(False)
-                    self.CMDS['pitch'] = DEFAULT_PITCH
-                    self.CMDS['roll'] = DEFAULT_ROLL
-                    self.CMDS['yaw'] = DEFAULT_YAW
-                    self.current_flight_command = None
+                    if self.pose_estimator is None:
+                        # stop moving and remove flight command
+                        self.pid_vel_x.set_auto_mode(False)
+                        self.pid_vel_y.set_auto_mode(False)
+                        self.pid_vel_z.set_auto_mode(False)
+                        self.pid_w_z.set_auto_mode(False)
+                        self.CMDS['pitch'] = DEFAULT_PITCH
+                        self.CMDS['roll'] = DEFAULT_ROLL
+                        self.CMDS['yaw'] = DEFAULT_YAW
+                        self.current_flight_command = None
+                    else:
+                        # track current position
+                        self.current_flight_command = ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 1000000.0]
                 else:
                     # compute a 4D vector toward the goal:
                     x_goal = self.current_flight_command[1]
