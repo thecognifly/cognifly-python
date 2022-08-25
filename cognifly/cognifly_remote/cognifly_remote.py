@@ -631,21 +631,23 @@ class Cognifly:
     # (don't use along the pro API, otherwise weird things will happen with altitude)
     # (sleeps after calls, uses cm instead of m, and uses degrees instead of rad):
 
-    def takeoff(self, altitude=None, alt_duration=10.0):
+    def takeoff(self, altitude=None, alt_duration=10.0, track_xy=False, wait_before_control=10.0):
         """
         Arms the drone and takes off
 
         Args:
             altitude: float (optional): target altitude (cm)
             alt_duration: float (optional): additional max duration to reach the target altitude
+            track_xy: bool (optional): if True, the drone will track X and Y while taking off
+            wait_before_control: float (optional): time after takeoff before control starts
         """
         altitude = altitude / 100.0 if altitude is not None else EASY_API_TAKEOFF_ALTITUDE
         self.reset()
         self.arm()
         time.sleep(1.0)
         # the takeoff altitude might depend on the battery with this and Z will only be defined properly later:
-        self.takeoff_nonblocking()
-        time.sleep(10.0)
+        self.takeoff_nonblocking(track_xy=track_xy)
+        time.sleep(wait_before_control)
         self.easy_api_cur_z = altitude
         # this works (Z properly defined) but when done from the ground it is a bit violent and not very stable:
         self.set_position_nonblocking(x=0.0, y=0.0, z=self.easy_api_cur_z, yaw=0.0,
