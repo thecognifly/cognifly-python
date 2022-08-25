@@ -426,7 +426,7 @@ class CogniflyController:
         self.prev_yaw_prime_ts = None
         self.prev_alt_prime_ts = None
 
-        self.telemetry = None
+        self.telemetry = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         self.debug_flags = []
         self._i_obs = 0
         self.target_flag = False
@@ -639,6 +639,28 @@ class CogniflyController:
                     self.vel_w_ki = command[2][1]
                 if command[2][2] is not None:
                     self.vel_w_kd = command[2][2]
+                self._reset_pids()
+            elif command[0] == "SCO":  # set current drone position (XY) and yaw
+                cur_x_wf = self.telemetry[0]
+                cur_y_wf = self.telemetry[1]
+                cur_yaw = self.telemetry[2]
+                fo = (0, 0, 0) if self._flight_origin is None else self._flight_origin
+                new_x_wf = command[2][0] if command[2][0] is not None else cur_x_wf
+                new_y_wf = command[2][1] if command[2][1] is not None else cur_y_wf
+                new_yaw = command[2][2] if command[2][2] is not None else cur_yaw
+                new_fo_x = fo[0] + cur_x_wf - new_x_wf
+                new_fo_y = fo[1] + cur_y_wf - new_y_wf
+                new_fo_yaw = fo[2] + cur_yaw - new_yaw
+                new_fo_yaw = smallest_angle_diff_rad(new_fo_yaw, 0.0)
+                self._flight_origin = (new_fo_x, new_fo_y, new_fo_yaw)
+                self._reset_pids()
+            elif command[0] == "SFO":  # directly set flight origin
+                fo = (0, 0, 0) if self._flight_origin is None else self._flight_origin
+                new_fo_x = command[2][0] if command[2][0] is not None else fo[0]
+                new_fo_y = command[2][1] if command[2][1] is not None else fo[1]
+                new_fo_yaw = command[2][2] if command[2][2] is not None else fo[2]
+                new_fo_yaw = smallest_angle_diff_rad(new_fo_yaw, 0.0)
+                self._flight_origin = (new_fo_x, new_fo_y, new_fo_yaw)
                 self._reset_pids()
             self.udp_int.send(pkl.dumps(("ACK", identifier)))
 

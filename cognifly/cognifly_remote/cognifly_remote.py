@@ -351,6 +351,7 @@ class Cognifly:
     def send(self, msg_type, msg=None):
         """
         Send an UDP message to the drone.
+
         Args:
             msg_type: string in ["RES", ACT"].
             msg: tuple of the form (str:command, ...:args).
@@ -404,6 +405,7 @@ class Cognifly:
     def reset(self, sleep_duration=0.1):
         """
         Resets the drone and waits for reset acknowlegement.
+
         Args:
             sleep_duration: float: the reset command waits for at least this amount of time
         """
@@ -436,6 +438,35 @@ class Cognifly:
                 if obs is not None:
                     break
             logger.info("observation initialized")
+
+    def set_coordinates(self, x=None, y=None, yaw=None):
+        """
+        Sets the drone current coordinates.
+
+        This computes a new flight origin.
+
+        Args:
+            x: float (optional): new coordinate on the X axis (m)
+            y: float (optional): new coordinate on the Y axis (m)
+            yaw: float (optional): new coordinate on the yaw axis (rad)
+        """
+        self.send(msg_type="SCO", msg=(x, y, yaw))
+
+    def set_flight_origin(self, x=None, y=None, yaw=None):
+        """
+        Sets the drone flight origin directly.
+
+        Use with x=0, y=0 and yaw=0 if you wish the origin to be the same as the pose estimator.
+        This is useful when you are using a custom pose estimator.
+        Note that calling reset() resets the flight origin to the current position of the drone.
+        This also happens on instantiation of the Cognifly object.
+
+        Args:
+            x: float (optional): origin on the X axis (m)
+            y: float (optional): origin on the Y axis (m)
+            yaw: float (optional): origin on the yaw axis (rad)
+        """
+        self.send(msg_type="SFO", msg=(x, y, yaw))
 
     def arm(self):
         """
@@ -473,7 +504,9 @@ class Cognifly:
     def set_velocity_nonblocking(self, v_x=0.0, v_y=0.0, v_z=0.0, w=0.0, duration=1.0, drone_frame=True):
         """
         Sets the drone velocity.
+
         The drone needs to be armed.
+
         Args:
             v_x: float (optional): velocity target on the frontward axis (m/s); tested range: 0.1 - 0.5
             v_y: float (optional): velocity target on the rightward axis (m/s); tested range: 0.1 - 0.5
@@ -492,6 +525,7 @@ class Cognifly:
         If relative is True, the target is relative to the drone frame.
         Note: z is always in the world frame, except if both relative and relative_z are True.
         The drone needs to be armed.
+
         Args:
             x: float: x target (m)
             y: float: y target (m)
@@ -518,11 +552,13 @@ class Cognifly:
     def set_pid_vel_x(self, k_p=None, k_i=None, k_d=None, timeout=1.0):
         """
         Sets the gains of the PID for the x velocity tracker.
+
         Gains left as None are not affected.
         Example of reasonable values:
             k_p = 750.0
             k_i = 400.0
             k_d = 50.0
+
         Args:
             k_p: float (optional): proportional gain
             k_i: float (optional): integral gain
@@ -535,11 +571,13 @@ class Cognifly:
     def set_pid_vel_y(self, k_p=None, k_i=None, k_d=None, timeout=1.0):
         """
         Sets the gains of the PID for the y velocity tracker.
+
         Gains left as None are not affected.
         Example of reasonable values:
             k_p = 750.0
             k_i = 400.0
             k_d = 50.0
+
         Args:
             k_p: float (optional): proportional gain
             k_i: float (optional): integral gain
@@ -552,11 +590,13 @@ class Cognifly:
     def set_pid_vel_z(self, k_p=None, k_i=None, k_d=None, timeout=1.0):
         """
         Sets the gains of the PID for the z velocity tracker.
+
         Gains left as None are not affected.
         Example of reasonable values:
             k_p = 50.0
             k_i = 20.0
             k_d = 5.0
+
         Args:
             k_p: float (optional): proportional gain
             k_i: float (optional): integral gain
@@ -569,11 +609,13 @@ class Cognifly:
     def set_pid_vel_w(self, k_p=None, k_i=None, k_d=None, timeout=1.0):
         """
         Sets the gains of the PID for the yaw rate tracker.
+
         Gains left as None are not affected.
         Example of reasonable values:
             k_p = 400.0
             k_i = 200.0
             k_d = 0.0
+
         Args:
             k_p: float (optional): proportional gain
             k_i: float (optional): integral gain
@@ -592,6 +634,7 @@ class Cognifly:
     def takeoff(self, altitude=None, alt_duration=10.0):
         """
         Arms the drone and takes off
+
         Args:
             altitude: float (optional): target altitude (cm)
             alt_duration: float (optional): additional max duration to reach the target altitude
@@ -768,6 +811,7 @@ class Cognifly:
     def position_sequence(self, sequence, max_duration=60.0, relative=False, speed=None, yaw_rate=None):
         """
         The drone follows a roadmap defined by a sequence of targets.
+
         Args:
             sequence: a sequence of sequence-like elements, each of length 3 or 4 (mixing 3 and 4 is possible).
                 If the length of an element is 3, it is interpreted as (x, y, z) (cm).
@@ -807,6 +851,7 @@ class Cognifly:
     def curve(self, x1, y1, z1, x2, y2, z2, speed):
         """
         2-positions roadmap.
+
         This is an alias for position_sequence(sequence=[[x1, y1, z1],[x2, y2, z2]], speed=speed).
         """
         self.position_sequence(sequence=[[x1, y1, z1],[x2, y2, z2]], speed=speed)
@@ -814,6 +859,7 @@ class Cognifly:
     def set_speed(self, speed):
         """
         Sets the maximum speed of the drone in the school API
+
         Args:
             speed: float: speed in cm/s; a reasonable value is 20.
         """
@@ -822,6 +868,7 @@ class Cognifly:
     def set_yaw_rate(self, yaw_rate):
         """
         Sets the maximum yaw rate of the drone in the school API
+
         Args:
             yaw_rate: float: yaw rate in deg/s; a reasonable value is 30.
         """
@@ -834,10 +881,12 @@ class Cognifly:
     def streamon(self, resolution="VGA", fps=10, display=False, wait_first_frame=True, format='jpg', quality=95):
         """
         Starts camera streaming.
+
         CAUTION: This will slow the frequency of the onboard controller down and may make the drone unstable!
         The highest resolution and fps are, the worst the influence on the onboard controller.
         The image transfers happens over TCP, which comes with a noticeable delay.
         CAUTION: High fps may saturate the network in the presence of several drones.
+
         Args:
             resolution: Tuple(float: width, float: height): resolution of the captured images.
             fps: integer: maximum framerate (may not be attained),
@@ -870,6 +919,7 @@ class Cognifly:
     def get_frame(self, wait_new_frame=True, timeout=10.0, sleep_between_trials=0.05):
         """
         Retrieves a single frame from the stream.
+
         Args:
             wait_new_frame: boolean: if True, two consecutive calls to the fonction will not return identical frames.
             timeout: after this duration without retrieving a frame, a TimeoutException will be raised.
@@ -911,7 +961,9 @@ class Cognifly:
     def get_telemetry(self):
         """
         Gets a tuple that describe the state of the drone in the world frame.
+
         Angles are in radians.
+
         Returns:
             telemetry: Tuple: (x: float,
                                y: float,
