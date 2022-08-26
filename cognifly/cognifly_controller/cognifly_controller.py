@@ -643,7 +643,7 @@ class CogniflyController:
             elif command[0] == "SCO":  # set current drone position (XY) and yaw
                 cur_x_wf = self.telemetry[0]
                 cur_y_wf = self.telemetry[1]
-                cur_yaw = self.telemetry[2]
+                cur_yaw = self.telemetry[3]
                 fo = (0, 0, 0) if self._flight_origin is None else self._flight_origin
                 new_x_wf = command[2][0] if command[2][0] is not None else cur_x_wf
                 new_y_wf = command[2][1] if command[2][1] is not None else cur_y_wf
@@ -786,7 +786,7 @@ class CogniflyController:
                 fo_pos_x_wf, fo_pos_y_wf, fo_yaw = self._flight_origin
                 fo_pos_x_wf += pos_x_wf - self.telemetry[0]
                 fo_pos_y_wf += pos_y_wf - self.telemetry[1]
-                fo_yaw += smallest_angle_diff_rad(yaw, self.telemetry[2])
+                fo_yaw += smallest_angle_diff_rad(yaw, self.telemetry[3])
                 fo_yaw = smallest_angle_diff_rad(fo_yaw, 0.0)  # FIXME: check that this works
                 self._flight_origin = (fo_pos_x_wf, fo_pos_y_wf, fo_yaw)
                 if self.print_screen:
