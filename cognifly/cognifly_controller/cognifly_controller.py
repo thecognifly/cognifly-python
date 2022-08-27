@@ -109,6 +109,10 @@ EPSILON_DIST_TO_TARGET = 0.05  # (m)
 EPSILON_ANGLE_TO_TARGET = 1 * np.pi / 180.0  # (rad)
 
 
+def hover_command():
+    return ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 1000000.0]
+
+
 def joystick_to_cmd(value, deadband, default_cmd, min_cmd, max_cmd):
     """
     value between -1.0 and 1.0
@@ -249,7 +253,7 @@ class PS4GamepadManager:
                     vz -= joystick_to_t(arz, deadband=self.deadband, max_cmd=0.2)
                     if 0 == vx == vy == vz == w:
                         if not self.hover:  # we have to send position command PDZ only once!
-                            flight_command = ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 1000000.0]
+                            flight_command = hover_command()
                             self.hover = True
                     else:  # send velocity command
                         self.hover = False
@@ -654,6 +658,10 @@ class CogniflyController:
                 new_fo_y = fo[1] + cur_x_wf * np.sin(fo[2]) + cur_y_wf * np.cos(fo[2]) - new_x_wf * np.sin(new_fo_yaw) - new_y_wf * np.cos(new_fo_yaw)
                 self._flight_origin = (new_fo_x, new_fo_y, new_fo_yaw)
                 self._reset_pids()
+                if self.current_flight_command is not None and self.pose_estimator is not None:  # if not on the ground
+                    self.current_flight_command = hover_command()
+                else:
+                    self.current_flight_command = None
             elif command[0] == "SFO":  # directly set flight origin
                 fo = (0, 0, 0) if self._flight_origin is None else self._flight_origin
                 new_fo_x = command[2][0] if command[2][0] is not None else fo[0]
@@ -662,6 +670,10 @@ class CogniflyController:
                 new_fo_yaw = smallest_angle_diff_rad(new_fo_yaw, 0.0)
                 self._flight_origin = (new_fo_x, new_fo_y, new_fo_yaw)
                 self._reset_pids()
+                if self.current_flight_command is not None and self.pose_estimator is not None:  # if not on the ground
+                    self.current_flight_command = hover_command()
+                else:
+                    self.current_flight_command = None
             self.udp_int.send(pkl.dumps(("ACK", identifier)))
 
     def _compute_z_vel(self, pos_z_wf):
@@ -835,7 +847,7 @@ class CogniflyController:
                         self.current_flight_command = None
                     else:
                         # track current position
-                        self.current_flight_command = ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 1000000.0]
+                        self.current_flight_command = hover_command()
                 else:
                     if self.current_flight_command[0] == "VDF":  # drone frame
                         v_x = self.current_flight_command[1]
@@ -886,7 +898,7 @@ class CogniflyController:
                         self.current_flight_command = None
                     else:
                         # track current position
-                        self.current_flight_command = ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 1000000.0]
+                        self.current_flight_command = hover_command()
                 else:
                     # compute a 4D vector toward the goal:
                     x_goal = self.current_flight_command[1]
