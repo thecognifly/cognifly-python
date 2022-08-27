@@ -648,10 +648,10 @@ class CogniflyController:
                 new_x_wf = command[2][0] if command[2][0] is not None else cur_x_wf
                 new_y_wf = command[2][1] if command[2][1] is not None else cur_y_wf
                 new_yaw = command[2][2] if command[2][2] is not None else cur_yaw
-                new_fo_x = fo[0] + cur_x_wf * np.cos(cur_yaw) - cur_y_wf * np.sin(cur_yaw) - new_x_wf * np.cos(new_yaw) + new_y_wf * np.sin(new_yaw)
-                new_fo_y = fo[1] + cur_x_wf * np.sin(cur_yaw) + cur_y_wf * np.cos(cur_yaw) - new_x_wf * np.sin(new_yaw) - new_y_wf * np.cos(new_yaw)
                 new_fo_yaw = fo[2] + cur_yaw - new_yaw
                 new_fo_yaw = smallest_angle_diff_rad(new_fo_yaw, 0.0)
+                new_fo_x = fo[0] + cur_x_wf * np.cos(fo[2]) - cur_y_wf * np.sin(fo[2]) - new_x_wf * np.cos(new_fo_yaw) + new_y_wf * np.sin(new_fo_yaw)
+                new_fo_y = fo[1] + cur_x_wf * np.sin(fo[2]) + cur_y_wf * np.cos(fo[2]) - new_x_wf * np.sin(new_fo_yaw) - new_y_wf * np.cos(new_fo_yaw)
                 self._flight_origin = (new_fo_x, new_fo_y, new_fo_yaw)
                 self._reset_pids()
             elif command[0] == "SFO":  # directly set flight origin
