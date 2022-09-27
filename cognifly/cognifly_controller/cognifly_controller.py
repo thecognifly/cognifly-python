@@ -387,7 +387,7 @@ class CogniflyController:
         self.udp_int = None
         self.tcp_video_int = None
         self.drone_ip = None
-        self.armed = False
+        self._armed = False
         self._lock_connect = Lock()
         self._drone_hostname = drone_hostname
         self._drone_ip = self.drone_ip
@@ -822,6 +822,7 @@ class CogniflyController:
             try_addstr(screen, 24, 0, f"from yaw: {old_yaw / np.pi: .5f} pi rad")
             try_addstr(screen, 25, 0, f"from pos_wf: [{old_pos_x_wf: .5f},{old_pos_y_wf: .5f},{pos_z_wf: .5f}] m")
             try_addstr(screen, 26, 0, f"from vel_wf: [{old_vel_x_wf: .5f},{old_vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
+            try_addstr(screen, 27, 0, f"DEBUG CMDS: {self.CMDS}")
             screen.clrtoeol()
 
         self.telemetry = (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
@@ -1244,12 +1245,22 @@ class CogniflyController:
                     # RESET ON ARMING ------------------------------------------
                     #
                     if self.CMDS['aux1'] == ARMED:
-                        if not self.armed:
-                            self.armed = True
+                        if not self._armed:
+                            self._armed = True
                             self.current_flight_command = None
                             self._reset_pids()
+                            self.CMDS['roll'] = DEFAULT_ROLL
+                            self.CMDS['pitch'] = DEFAULT_PITCH
+                            self.CMDS['yaw'] = DEFAULT_YAW
+                            self.CMDS['throttle'] = DEFAULT_THROTTLE
                     else:
-                        self.armed = False
+                        self._armed = False
+                        self.current_flight_command = None
+                        self._reset_pids()
+                        self.CMDS['roll'] = DEFAULT_ROLL
+                        self.CMDS['pitch'] = DEFAULT_PITCH
+                        self.CMDS['yaw'] = DEFAULT_YAW
+                        self.CMDS['throttle'] = DEFAULT_THROTTLE
                     #
                     # END RESET ON ARMING ---------------------------------------
                     #
