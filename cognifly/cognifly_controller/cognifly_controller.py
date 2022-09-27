@@ -568,7 +568,7 @@ class CogniflyController:
             self.udp_int.init_sender(ip=command[2][0], port=command[2][1])
             self.sender_initialized = True
             self._flight_origin = None
-            self.udp_int.send(pkl.dumps(("RES", (self.drone_ip, self.drone_port))))
+            self.udp_int.send(pkl.dumps(("RES", (self.drone_ip, self.drone_port)),protocol=2))
             self.current_flight_command = None
             self._reset_pids()
         elif self.sender_initialized:  # do not take any udp order unless reset has been called
@@ -675,7 +675,7 @@ class CogniflyController:
                     self.current_flight_command = hover_command()
                 else:
                     self.current_flight_command = None
-            self.udp_int.send(pkl.dumps(("ACK", identifier)))
+            self.udp_int.send(pkl.dumps(("ACK", identifier),protocol=2))
 
     def _compute_z_vel(self, pos_z_wf):
         if self.prev_alt_prime_ts is None:
@@ -919,7 +919,7 @@ class CogniflyController:
                         if dist_condition and angle_condition:
                             self.target_flag = False  # disable the flag
                             if self.sender_initialized:
-                                self.udp_int.send(pkl.dumps(("DON", self.target_id)))  # notify the remote control
+                                self.udp_int.send(pkl.dumps(("DON", self.target_id),protocol=2))  # notify the remote control
                     # convert x and y to the drone frame:
                     x_vector_df = x_vector * cos + y_vector * sin
                     y_vector_df = y_vector * cos - x_vector * sin
@@ -1003,7 +1003,7 @@ class CogniflyController:
             if self.__batt_state == BATT_TOO_LOW:
                 self.emergency = True
             if self.sender_initialized and time.time() - self.last_bat_tick >= BATT_UDP_MSG_TIME:
-                self.udp_int.send(pkl.dumps(("BBT", (self.voltage, ))))
+                self.udp_int.send(pkl.dumps(("BBT", (self.voltage, )),protocol=2))
                 self.last_bat_tick = time.time()
 
     def _emergency_handler(self, board):
@@ -1119,7 +1119,7 @@ class CogniflyController:
                         udp_cmds = self.udp_int.recv_nonblocking()
                         if len(udp_cmds) > 0:
                             for cmd in udp_cmds:
-                                self._udp_commands_handler(pkl.loads(cmd))
+                                self._udp_commands_handler(pkl.loads(cmd,encoding="latin1"))
                         if not override:  # override the flight controller if valid PS4
                             self._flight(board, screen)
                         if self.obs_loop_time is not None:
@@ -1127,7 +1127,7 @@ class CogniflyController:
                             if tick - self.last_obs_tick >= self.obs_loop_time and self.sender_initialized:
                                 self.last_obs_tick = tick
                                 self._i_obs += 1
-                                self.udp_int.send(pkl.dumps(("OBS", self._i_obs, self.telemetry, gamepad, self.voltage, self.debug_flags)))
+                                self.udp_int.send(pkl.dumps(("OBS", self._i_obs, self.telemetry, gamepad, self.voltage, self.debug_flags),protocol=2))
                     #
                     # end of UDP recv non-blocking -----------------------------
                     #
