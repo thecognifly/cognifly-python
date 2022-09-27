@@ -387,6 +387,7 @@ class CogniflyController:
         self.udp_int = None
         self.tcp_video_int = None
         self.drone_ip = None
+        self.armed = False
         self._lock_connect = Lock()
         self._drone_hostname = drone_hostname
         self._drone_ip = self.drone_ip
@@ -1148,7 +1149,7 @@ class CogniflyController:
 
                             elif char == DISARM_CHR:
                                 cursor_msg = 'Disarming...'
-                                self.CMDS['aux1'] = 1000
+                                self.CMDS['aux1'] = DISARMED
 
                             elif char == REBOOT_CHR:
                                 if self.print_screen:
@@ -1160,7 +1161,7 @@ class CogniflyController:
 
                             elif char == ARM_CHR:
                                 cursor_msg = 'Arming...'
-                                self.CMDS['aux1'] = 1800
+                                self.CMDS['aux1'] = ARMED
 
                             elif char == SWITCH_MODE_CHR:
                                 if self.CMDS['aux2'] <= 1300:
@@ -1237,6 +1238,20 @@ class CogniflyController:
                     self.CMDS['throttle'] = clip(self.CMDS['throttle'], MIN_CMD_THROTTLE, MAX_CMD_THROTTLE)
                     #
                     # END CLIP RC VALUES ---------------------------------------
+                    #
+
+                    #
+                    # RESET ON ARMING ------------------------------------------
+                    #
+                    if self.CMDS['aux1'] == ARMED:
+                        if not self.armed:
+                            self.armed = True
+                            self.current_flight_command = None
+                            self._reset_pids()
+                    else:
+                        self.armed = False
+                    #
+                    # END RESET ON ARMING ---------------------------------------
                     #
 
                     #
