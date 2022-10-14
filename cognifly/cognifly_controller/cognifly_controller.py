@@ -754,10 +754,6 @@ class CogniflyController:
         recovery = False
         if self.pose_estimator is not None:  # TODO: test this part of the code (including recovery)
             pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.get()
-
-            try_addstr(screen, 30, 0, f"retrieved {(pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)}")
-            screen.clrtoeol()
-
             if None in (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate):
                 failure_custom = True
             if failure_custom and self.valid_custom_estimate:
