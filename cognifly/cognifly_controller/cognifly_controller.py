@@ -1050,7 +1050,7 @@ class CogniflyController:
                                 'MSP_BATTERY_CONFIG', 'MSP_BATTERY_STATE', 'MSP_BOXNAMES']
 
                 if board.INAV:
-                    command_list.append('MSPV2_INAV_ANALOG')
+                    command_list.append('MSP2_INAV_ANALOG')
                     command_list.append('MSP_VOLTAGE_METER_CONFIG')
 
                 for msg in command_list:
@@ -1060,7 +1060,7 @@ class CogniflyController:
                 if board.INAV:
                     cell_count = board.BATTERY_STATE['cellCount']
                 else:
-                    cell_count = 0  # MSPV2_INAV_ANALOG is necessary
+                    cell_count = 0  # MSP2_INAV_ANALOG is necessary
                 self.min_voltage = board.BATTERY_CONFIG['vbatmincellvoltage'] * cell_count
                 self.warn_voltage = board.BATTERY_CONFIG['vbatwarningcellvoltage'] * cell_count
                 self.max_voltage = board.BATTERY_CONFIG['vbatmaxcellvoltage'] * cell_count
