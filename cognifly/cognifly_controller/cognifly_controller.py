@@ -5,7 +5,8 @@ TO USE THIS SCRIPT, COGNIFLY MUST BE IN EST_POS DEBUG MODE
 
 Copyright (C) 2021 Yann Bouteiller, Ricardo de Azambuja
 """
-
+import datetime
+import struct
 import time
 import curses
 from collections import deque
@@ -337,6 +338,55 @@ class PoseEstimator(ABC):
         return None, None, None, None, None, None, None, None
 
 
+def set_gps(board,
+            longitude,
+            latitude,
+            mslAltitude,
+            nedVelNorth=0,
+            nedVelEast=0,
+            nedVelDown=0,
+            groundCourse=0):
+    msp2_gps_format = '<BHIBBHHHHiiiiiiHHHBBBBB'  # https://docs.python.org/3/library/struct.html#format-characters
+    now = datetime.datetime.now()
+    gps_data = {
+        'instance': 1,  # uint8 -  sensor instance number to support multi-sensor setups
+        'gpsWeek': 0xFFFF,  # uint16 - GPS week, 0xFFFF if not available
+        'msTOW': 0,  # uint32
+        'fixType': 10,  # uint8
+        'satellitesInView': 10,  # uint8
+        'horizontalPosAccuracy': 1,  # uint16 - [cm]
+        'verticalPosAccuracy': 1,  # uint16 - [cm]
+        'horizontalVelAccuracy': 1,  # uint16 - [cm/s]
+        'hdop': 100,  # uint16
+        'longitude': longitude * 10000000,  # int32
+        'latitude': latitude * 10000000,  # int32
+        'mslAltitude': mslAltitude,  # int32 - [cm]
+        'nedVelNorth': nedVelNorth,  # int32 - [cm/s]
+        'nedVelEast': nedVelEast,  # int32
+        'nedVelDown': nedVelDown,  # int32
+        'groundCourse': groundCourse,  # uint16 - deg * 100, 0..36000
+        'trueYaw': 65535,  # uint16 - deg * 100, values of 0..36000 are valid. 65535 = no data available
+        'year': now.year,  # uint16
+        'month': now.month,  # uint8
+        'day': now.day,  # uint8
+        'hour': now.hour,  # uint8
+        'min': now.minute,  # uint8
+        'sec': now.second,  # uint8
+    }
+    data = struct.pack(msp2_gps_format, *[int(i) for i in gps_data.values()])
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_GPS'], data=data)
+
+
+def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
+    """
+    x is north, y is east, z is up, from longitude 0, latitude 0 and sea level.
+    """
+    longitude = y / 111000.0
+    latitude = x / 111000.0
+    mslAltitude = z * 100.0
+    set_gps(board, longitude, latitude, mslAltitude)
+
+
 class CogniflyController:
     def __init__(self,
                  network=True,
@@ -362,7 +412,10 @@ class CogniflyController:
                  x_vel_gain=0.5,
                  y_vel_gain=0.5,
                  z_vel_gain=0.2,
-                 w_gain=0.5):
+                 w_gain=0.5,
+                 custom_gps=True,
+                 custom_compass=True,
+                 custom_barometer=True):
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -379,6 +432,14 @@ class CogniflyController:
             pose_estimator: cognifly.cognifly_controller.cognifly_controller.PoseEstimator: custom pose estimator
         """
         self.pose_estimator = pose_estimator
+        if self.pose_estimator is None:
+            self.custom_gps = False
+            self.custom_compass = False
+            self.custom_barometer = False
+        else:
+            self.custom_gps = custom_gps
+            self.custom_compass = custom_compass
+            self.custom_barometer = custom_barometer
         self.board = None
         self.valid_custom_estimate = True
         self.network = network
@@ -770,6 +831,9 @@ class CogniflyController:
                     screen.clrtoeol()
         if self.pose_estimator is None or failure_custom:
             pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self._read_estimate(board)
+        else:
+            if self.custom_gps:
+                set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
 
         old_pos_x_wf = pos_x_wf
         old_pos_y_wf = pos_y_wf
