@@ -833,7 +833,8 @@ class CogniflyController:
             pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self._read_estimate(board)
         else:
             if self.custom_gps:
-                set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
+                pass
+                # set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
 
         old_pos_x_wf = pos_x_wf
         old_pos_y_wf = pos_y_wf
