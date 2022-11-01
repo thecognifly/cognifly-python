@@ -416,7 +416,8 @@ class CogniflyController:
                  w_gain=0.5,
                  custom_gps=True,
                  custom_compass=True,
-                 custom_barometer=True):
+                 custom_barometer=True,
+                 custom_debug_mode=False):  # FIXME: must be True in regular cognifly-python...
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -432,6 +433,7 @@ class CogniflyController:
             trace_logs: bool (optional): if True, flight telemetry will be printed in a CSV-like log file
             pose_estimator: cognifly.cognifly_controller.cognifly_controller.PoseEstimator: custom pose estimator
         """
+        self.custom_debug_mode = custom_debug_mode
         self.pose_estimator = pose_estimator
         if self.pose_estimator is None:
             self.custom_gps = False
@@ -779,13 +781,19 @@ class CogniflyController:
         """
         board.fast_read_attitude()
         yaw = board.SENSOR_DATA['kinematics'][2] * np.pi / 180.0
-        board.send_RAW_msg(MSPy.MSPCodes['MSP_DEBUG'])  # MSP2_INAV_DEBUG is too long to answer
-        data_handler = board.receive_msg()
-        board.process_recv_data(data_handler)
-        pos_x_wf = board.SENSOR_DATA['debug'][0] / 1e4
-        pos_y_wf = board.SENSOR_DATA['debug'][1] / 1e4
-        vel_x_wf = board.SENSOR_DATA['debug'][2] / 1e4
-        vel_y_wf = board.SENSOR_DATA['debug'][3] / 1e4
+        if self.custom_debug_mode:
+            board.send_RAW_msg(MSPy.MSPCodes['MSP_DEBUG'])  # MSP2_INAV_DEBUG is too long to answer
+            data_handler = board.receive_msg()
+            board.process_recv_data(data_handler)
+            pos_x_wf = board.SENSOR_DATA['debug'][0] / 1e4
+            pos_y_wf = board.SENSOR_DATA['debug'][1] / 1e4
+            vel_x_wf = board.SENSOR_DATA['debug'][2] / 1e4
+            vel_y_wf = board.SENSOR_DATA['debug'][3] / 1e4
+        else:
+            pos_x_wf = None
+            pos_y_wf = None
+            vel_x_wf = None
+            vel_y_wf = None
         board.fast_read_altitude()
         pos_z_wf = board.SENSOR_DATA['altitude']
         yaw_rate = self._compute_yaw_rate(yaw)
@@ -831,7 +839,12 @@ class CogniflyController:
                     try_addstr(screen, 28, 0, f"Custom estimate: valid")
                     screen.clrtoeol()
         if self.pose_estimator is None or failure_custom:
-            pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self._read_estimate(board)
+            if self.custom_debug_mode:
+                pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self._read_estimate(board)
+            else:
+                # cannot retrieve from the FC if custom_debug_mode is not active!
+                self.current_flight_command = None
+                return
         else:
             if self.custom_gps:
                 set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
