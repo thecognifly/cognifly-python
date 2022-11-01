@@ -381,9 +381,10 @@ def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
     """
     x is north, y is east, z is up, from longitude 0, latitude 0 and sea level.
     """
-    longitude = y / 111000.0
     latitude = x / 111000.0
+    longitude = y / 111000.0
     mslAltitude = z * 100.0
+    print(f"DEBUG: x:{x}, x:{y}, z:{z}, latitude:{latitude}, longitude:{longitude}, mslAltitude:{mslAltitude}")
     set_gps(board, longitude, latitude, mslAltitude)
 
 
