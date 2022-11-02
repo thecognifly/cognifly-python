@@ -391,17 +391,15 @@ def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
 
 
 def set_compass(board, magX, magY, magZ, t_start):
-    timeMs = round((time.time() - t_start) * 1000)
-    # timeMs = 0
     msp2_compass_format = '<BIhhh'  # https://docs.python.org/3/library/struct.html#format-characters
     compass_data = {
         'instance': 2,  # uint8 -  sensor instance number to support multi-sensor setups
-        'timeMs': timeMs,  # uint32
-        'magX': magX,  # int16_t mGauss, front
-        'magY': magY,  # int16_t mGauss, right
-        'magZ': magZ  # int16_t mGauss, down
+        'timeMs': round((time.time() - t_start) * 1000),  # uint32
+        'magX': round(magX),  # int16_t mGauss, front
+        'magY': round(magY),  # int16_t mGauss, right
+        'magZ': round(magZ)  # int16_t mGauss, down
     }
-    # data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
+    data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
     # board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
     # print(f"compass_data:{compass_data}")
 
