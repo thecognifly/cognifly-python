@@ -395,18 +395,18 @@ def set_compass(board, magX, magY, magZ, t_start):
     compass_data = {
         'instance': 2,  # uint8 -  sensor instance number to support multi-sensor setups
         'timeMs': round((time.time() - t_start) * 1000),  # uint32
-        'magX': 0,  #round(magX),  # int16_t mGauss, front
-        'magY': 0,  #round(magY),  # int16_t mGauss, right
+        'magX': round(magX),  # int16_t mGauss, front
+        'magY': round(magY),  # int16_t mGauss, right
         'magZ': round(magZ)  # int16_t mGauss, down
     }
     data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
-    # board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
-    # print(f"compass_data:{compass_data}")
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
+    print(f"compass_data:{compass_data}")
 
 
 def set_compass_from_yaw(board, yaw, t_start):
-    x = np.sin(yaw) * 32767
-    y = np.cos(yaw) * 32767
+    x = np.cos(yaw) * 32767
+    y = np.sin(yaw) * 32767
     set_compass(board, x, y, 0, t_start)
 
 
