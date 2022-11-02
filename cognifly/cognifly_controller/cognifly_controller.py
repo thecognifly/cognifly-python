@@ -376,8 +376,12 @@ def set_gps(board,
         'min': now.minute,  # uint8
         'sec': now.second,  # uint8
     }
-    data = struct.pack(msp2_gps_format, *[int(i) for i in gps_data.values()])
-    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_GPS'], data=data)
+    try:
+        data = struct.pack(msp2_gps_format, *[int(i) for i in gps_data.values()])
+        board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_GPS'], data=data)
+    except Exception as e:
+        print(f"EXCEPTION with gps_data:{gps_data}")
+        raise e
 
 
 def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
@@ -401,10 +405,12 @@ def set_compass(board, magX, magY, magZ, t_start):
         'magY': magY,  # int16_t mGauss, right
         'magZ': magZ  # int16_t mGauss, down
     }
-    print(f"DEBUG: custom compass: magX:{magX}, magY:{magY}, timeMs:{timeMs}")
-    data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
-    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
-
+    try:
+        data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
+        board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
+    except Exception as e:
+        print(f"EXCEPTION with compass_data:{compass_data}")
+        raise e
 
 def set_compass_from_yaw(board, yaw, t_start):
     x = np.sin(yaw) * 32767
