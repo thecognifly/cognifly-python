@@ -376,8 +376,8 @@ def set_gps(board,
         'min': now.minute,  # uint8
         'sec': now.second,  # uint8
     }
-    data = struct.pack(msp2_gps_format, *[int(i) for i in gps_data.values()])
-    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_GPS'], data=data)
+    # data = struct.pack(msp2_gps_format, *[int(i) for i in gps_data.values()])
+    # board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_GPS'], data=data)
 
 
 def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
