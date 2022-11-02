@@ -391,8 +391,8 @@ def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
     set_gps(board, longitude, latitude, mslAltitude)
 
 
-def set_compass(board, magX, magY, magZ):
-    timeMs = round(time.time()*1000)
+def set_compass(board, magX, magY, magZ, t_start):
+    timeMs = round((time.time() - t_start) * 1000)
     # timeMs = 0
     msp2_compass_format = '<BIhhh'  # https://docs.python.org/3/library/struct.html#format-characters
     compass_data = {
@@ -407,10 +407,10 @@ def set_compass(board, magX, magY, magZ):
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
 
 
-def set_compass_from_yaw(board, yaw):
+def set_compass_from_yaw(board, yaw, t_start):
     x = np.sin(yaw) * 32767
     y = np.cos(yaw) * 32767
-    set_compass(board, x, y, 0)
+    set_compass(board, x, y, 0, t_start)
 
 
 class CogniflyController:
@@ -590,6 +590,7 @@ class CogniflyController:
         # Others:
 
         self.emergency = False
+        self._t_start = time.time()
 
     def _try_connect_thread(self, drone_hostname, drone_port):
         _drone_hostname, _drone_ip, _drone_port, _udp_int, _tcp_video_int = None, None, None, None, None
@@ -874,7 +875,7 @@ class CogniflyController:
             if self.custom_gps:
                 set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
             if self.custom_compass:
-                set_compass_from_yaw(board=board, yaw=yaw)
+                set_compass_from_yaw(board=board, yaw=yaw, t_start=self._t_start)
 
         old_pos_x_wf = pos_x_wf
         old_pos_y_wf = pos_y_wf
