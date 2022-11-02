@@ -395,8 +395,8 @@ def set_compass(board, magX, magY, magZ, t_start):
     compass_data = {
         'instance': 2,  # uint8 -  sensor instance number to support multi-sensor setups
         'timeMs': round((time.time() - t_start) * 1000),  # uint32
-        'magX': round(magX),  # int16_t mGauss, front
-        'magY': round(magY),  # int16_t mGauss, right
+        'magX': 0,  #round(magX),  # int16_t mGauss, front
+        'magY': 0,  #round(magY),  # int16_t mGauss, right
         'magZ': round(magZ)  # int16_t mGauss, down
     }
     data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
