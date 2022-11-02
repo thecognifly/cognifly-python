@@ -393,7 +393,8 @@ def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
 
 def set_compass(board, magX, magY, magZ):
     timeMs = round(time.time()*1000)
-    msp2_compass_format = '<BIHHH'  # https://docs.python.org/3/library/struct.html#format-characters
+    # timeMs = 0
+    msp2_compass_format = '<BIhhh'  # https://docs.python.org/3/library/struct.html#format-characters
     compass_data = {
         'instance': 2,  # uint8 -  sensor instance number to support multi-sensor setups
         'timeMs': timeMs,  # uint32
@@ -406,8 +407,8 @@ def set_compass(board, magX, magY, magZ):
 
 
 def set_compass_from_yaw(board, yaw):
-    x = np.sin(yaw)
-    y = np.cos(yaw)
+    x = np.sin(yaw) * 32767
+    y = np.cos(yaw) * 32767
     set_compass(board, x, y, 0)
 
 
