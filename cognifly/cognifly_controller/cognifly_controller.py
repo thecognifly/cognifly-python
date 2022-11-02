@@ -402,6 +402,7 @@ def set_compass(board, magX, magY, magZ):
         'magY': magY,  # int16_t mGauss, right
         'magZ': magZ  # int16_t mGauss, down
     }
+    print(f"DEBUG: compass_data:{compass_data}")
     data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
 
