@@ -391,6 +391,26 @@ def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
     set_gps(board, longitude, latitude, mslAltitude)
 
 
+def set_compass(board, magX, magY, magZ):
+    timeMs = round(time.time()*1000)
+    msp2_compass_format = '<BIHHH'  # https://docs.python.org/3/library/struct.html#format-characters
+    compass_data = {
+        'instance': 2,  # uint8 -  sensor instance number to support multi-sensor setups
+        'timeMs': timeMs,  # uint32
+        'magX': magX,  # int16_t mGauss, front
+        'magY': magY,  # int16_t mGauss, right
+        'magZ': magZ  # int16_t mGauss, down
+    }
+    data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
+
+
+def set_compass_from_yaw(board, yaw):
+    x = np.sin(yaw)
+    y = np.cos(yaw)
+    set_compass(board, x, y, 0)
+
+
 class CogniflyController:
     def __init__(self,
                  network=True,
@@ -851,6 +871,8 @@ class CogniflyController:
         else:
             if self.custom_gps:
                 set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
+            if self.custom_compass:
+                set_compass_from_yaw(board=board, yaw=yaw)
 
         old_pos_x_wf = pos_x_wf
         old_pos_y_wf = pos_y_wf
