@@ -387,7 +387,6 @@ def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
     latitude = x / 111000.0
     longitude = y / 111000.0
     mslAltitude = z * 100.0
-    print(f"DEBUG: x:{x}, x:{y}, z:{z}, latitude:{latitude}, longitude:{longitude}, mslAltitude:{mslAltitude}")
     set_gps(board, longitude, latitude, mslAltitude)
 
 
@@ -402,7 +401,6 @@ def set_compass(board, magX, magY, magZ, t_start):
         'magY': magY,  # int16_t mGauss, right
         'magZ': magZ  # int16_t mGauss, down
     }
-    print(f"DEBUG: compass_data:{compass_data}")
     data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
 
