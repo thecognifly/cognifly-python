@@ -822,7 +822,6 @@ class CogniflyController:
             try_addstr(screen, 24, 0, f"from yaw: {old_yaw / np.pi: .5f} pi rad")
             try_addstr(screen, 25, 0, f"from pos_wf: [{old_pos_x_wf: .5f},{old_pos_y_wf: .5f},{pos_z_wf: .5f}] m")
             try_addstr(screen, 26, 0, f"from vel_wf: [{old_vel_x_wf: .5f},{old_vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
-            try_addstr(screen, 27, 0, f"DEBUG CMDS: {self.CMDS}")
             screen.clrtoeol()
 
         self.telemetry = (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
