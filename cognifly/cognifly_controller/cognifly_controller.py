@@ -161,7 +161,7 @@ class PS4GamepadManager:
         self.connected, _, _ = self.gamepad.get()
         self.vz = 0
         self.ts = None
-        self.mode = 1
+        self.mode = 2
         self.hover = False
         self.z_wait_until = time.time()
 
