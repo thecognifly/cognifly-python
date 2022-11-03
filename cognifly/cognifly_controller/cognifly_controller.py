@@ -501,6 +501,7 @@ class CogniflyController:
         # Others:
 
         self.emergency = False
+        self.device_str = "/dev/ttyS0" if is_raspberrypi() else "/dev/ttyS1"
 
     def _try_connect_thread(self, drone_hostname, drone_port):
         _drone_hostname, _drone_ip, _drone_port, _udp_int, _tcp_video_int = None, None, None, None, None
@@ -515,8 +516,20 @@ class CogniflyController:
             self._udp_int = _udp_int
             self._tcp_video_int = _tcp_video_int
 
-    def run_curses(self):
-        result = 1
+    def run_curses(self, reboot_fc=True):
+        """
+        Runs the controller.
+
+        Args:
+            reboot_fc: bool: if True, the flight controller will first reboot.
+        """
+        if reboot_fc:
+            with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200) as board:
+                if board == 1:  # an error occurred...
+                    raise RuntimeError('board unavailable')
+                else:
+                    board.reboot()
+                    time.sleep(5)
         try:
             if self.print_screen:
                 # get the curses screen window
@@ -1027,8 +1040,7 @@ class CogniflyController:
             if self.print_screen:
                 try_addstr(screen, 15, 0, "Connecting to the FC...")
 
-            device_str = "/dev/ttyS0" if is_raspberrypi() else "/dev/ttyS1"
-            with MSPy(device=device_str, loglevel='WARNING', baudrate=115200) as board:
+            with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200) as board:
                 if board == 1:  # an error occurred...
                     return 1
                 else:
