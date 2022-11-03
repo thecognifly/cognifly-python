@@ -528,8 +528,10 @@ class CogniflyController:
                 if board == 1:  # an error occurred...
                     raise RuntimeError('board unavailable')
                 else:
+                    print("Rebooting flight controller...")
                     board.reboot()
                     time.sleep(5)
+                    print("Flight controller ready.")
         try:
             if self.print_screen:
                 # get the curses screen window
