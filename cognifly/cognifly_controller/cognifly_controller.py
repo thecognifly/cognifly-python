@@ -875,7 +875,6 @@ class CogniflyController:
         # retrieve the current state
         failure_custom = False
         recovery = False  # when this flag becomes True, we switch estimators and must change the flight origin
-        t_s = time.time()
         if self.pose_estimator is not None:  # TODO: test this part of the code (including recovery)
             pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.get()
             if None in (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate):
@@ -900,15 +899,19 @@ class CogniflyController:
                 self.current_flight_command = None
                 return
         else:
-            t_s2 = time.time()
+            t_s = time.time()
             if self.custom_barometer:
                 set_barometer(board=board, pressurePa=100745.83, temp=25*100, t_start=self._t_start)
+            self._d1 = (1 - self._alpha_d) * self._d1 + self._alpha_d * (time.time() - t_s)
+            t_s = time.time()
             if self.custom_gps:
                 set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
+            self._d2 = (1 - self._alpha_d) * self._d2 + self._alpha_d * (time.time() - t_s)
+            t_s = time.time()
             if self.custom_compass:
                 set_compass_from_yaw(board=board, yaw=yaw, t_start=self._t_start)
-            self._d3 = (1 - self._alpha_d) * self._d3 + self._alpha_d * (time.time() - t_s2)
-        self._d2 = (1 - self._alpha_d) * self._d2 + self._alpha_d * (time.time() - t_s)
+            self._d3 = (1 - self._alpha_d) * self._d3 + self._alpha_d * (time.time() - t_s)
+
 
         old_pos_x_wf = pos_x_wf
         old_pos_y_wf = pos_y_wf
@@ -1258,9 +1261,7 @@ class CogniflyController:
                             for cmd in udp_cmds:
                                 self._udp_commands_handler(pkl.loads(cmd))
                         if not override:  # override the flight controller if valid PS4
-                            t_s_flight = time.time()
                             self._flight(board, screen)
-                            self._d1 = (1 - self._alpha_d) * self._d1 + self._alpha_d * (time.time() - t_s_flight)
                         if self.obs_loop_time is not None:
                             tick = time.time()
                             if tick - self.last_obs_tick >= self.obs_loop_time and self.sender_initialized:
@@ -1502,7 +1503,7 @@ class CogniflyController:
                             _s1 = sum(average_cycle)
                             _s2 = len(average_cycle)
                             str_cycletime = "NaN" if _s1 == 0 or _s2 == 0 else \
-                                f"GUI cycleTime: {last_cycle_time * 1000:2.2f}ms (average {1 / (_s1 / _s2):2.2f}Hz), flight: {self._d1 * 1000:2.2f}ms, communication: {self._d2 * 1000:2.2f}ms, sensor faking: {self._d3 * 1000:2.2f}ms"
+                                f"GUI cycleTime: {last_cycle_time * 1000:2.2f}ms (average {1 / (_s1 / _s2):2.2f}Hz), barometer: {self._d1 * 1000:2.2f}ms, gps: {self._d2 * 1000:2.2f}ms, compass: {self._d3 * 1000:2.2f}ms"
                             try_addstr(screen, 11, 0, str_cycletime)
                             screen.clrtoeol()
 
