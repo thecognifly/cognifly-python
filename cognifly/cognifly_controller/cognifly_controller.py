@@ -376,8 +376,8 @@ def set_gps(board,
         'min': now.minute,  # uint8
         'sec': now.second,  # uint8
     }
-    # data = struct.pack(msp2_gps_format, *[int(i) for i in gps_data.values()])
-    # board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_GPS'], data=data)
+    data = struct.pack(msp2_gps_format, *[int(i) for i in gps_data.values()])
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_GPS'], data=data)
 
 
 def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
@@ -399,8 +399,8 @@ def set_compass(board, magX, magY, magZ, t_start):
         'magY': round(magY),  # int16_t mGauss, right
         'magZ': round(magZ)  # int16_t mGauss, down
     }
-    # data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
-    # board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
+    data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
     # print(f"compass_data:{compass_data}")
 
 
@@ -859,7 +859,7 @@ class CogniflyController:
         """
         # retrieve the current state
         failure_custom = False
-        recovery = False
+        recovery = False  # when this flag becomes True, we switch estimators and must change the flight origin
         if self.pose_estimator is not None:  # TODO: test this part of the code (including recovery)
             pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.get()
             if None in (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate):
