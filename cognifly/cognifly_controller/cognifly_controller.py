@@ -900,12 +900,14 @@ class CogniflyController:
                 self.current_flight_command = None
                 return
         else:
+            t_s2 = time.time()
             if self.custom_barometer:
                 set_barometer(board=board, pressurePa=100745.83, temp=25*100, t_start=self._t_start)
             if self.custom_gps:
                 set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
             if self.custom_compass:
                 set_compass_from_yaw(board=board, yaw=yaw, t_start=self._t_start)
+            self._d3 = (1 - self._alpha_d) * self._d3 + self._alpha_d * (time.time() - t_s2)
         self._d2 = (1 - self._alpha_d) * self._d2 + self._alpha_d * (time.time() - t_s)
 
         old_pos_x_wf = pos_x_wf
@@ -1500,7 +1502,7 @@ class CogniflyController:
                             _s1 = sum(average_cycle)
                             _s2 = len(average_cycle)
                             str_cycletime = "NaN" if _s1 == 0 or _s2 == 0 else \
-                                f"GUI cycleTime: {last_cycle_time * 1000:2.2f}ms (average {1 / (_s1 / _s2):2.2f}Hz), flight: {self._d1 * 1000:2.2f}ms, communication: {self._d2 * 1000:2.2f}ms"
+                                f"GUI cycleTime: {last_cycle_time * 1000:2.2f}ms (average {1 / (_s1 / _s2):2.2f}Hz), flight: {self._d1 * 1000:2.2f}ms, communication: {self._d2 * 1000:2.2f}ms, sensor faking: {self._d3 * 1000:2.2f}ms"
                             try_addstr(screen, 11, 0, str_cycletime)
                             screen.clrtoeol()
 
