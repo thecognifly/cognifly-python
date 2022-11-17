@@ -896,7 +896,7 @@ class CogniflyController:
                 return
         else:
             if self.custom_barometer:
-                set_barometer(board=board, pressurePa=100745.83, temp=25*100)
+                set_barometer(board=board, pressurePa=100745.83, temp=25*100, t_start=self._t_start)
             if self.custom_gps:
                 set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
             if self.custom_compass:
