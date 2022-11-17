@@ -400,7 +400,7 @@ def set_compass(board, magX, magY, magZ, t_start):
         'magZ': round(magZ)  # int16_t mGauss, down
     }
     data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
-    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
+    # board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
 
 
 def set_barometer(board, pressurePa, temp, t_start):
@@ -412,7 +412,7 @@ def set_barometer(board, pressurePa, temp, t_start):
         'temp': round(temp),  # int16_t centi-degrees C
     }
     data = struct.pack(msp2_baro_format, *barometer_data.values())
-    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_BAROMETER'], data=data)
+    # board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_BAROMETER'], data=data)
 
 
 def set_compass_from_yaw(board, yaw, t_start):
