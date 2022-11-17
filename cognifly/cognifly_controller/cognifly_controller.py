@@ -377,7 +377,7 @@ def set_gps(board,
         'sec': now.second,  # uint8
     }
     data = struct.pack(msp2_gps_format, *[int(i) for i in gps_data.values()])
-    # board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_GPS'], data=data)
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_GPS'], data=data)
 
 
 def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
@@ -400,7 +400,7 @@ def set_compass(board, magX, magY, magZ, t_start):
         'magZ': round(magZ)  # int16_t mGauss, down
     }
     data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
-    # board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
 
 
 def set_barometer(board, pressurePa, temp, t_start):
@@ -412,7 +412,7 @@ def set_barometer(board, pressurePa, temp, t_start):
         'temp': round(temp),  # int16_t centi-degrees C
     }
     data = struct.pack(msp2_baro_format, *barometer_data.values())
-    # board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_BAROMETER'], data=data)
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_BAROMETER'], data=data)
 
 
 def set_compass_from_yaw(board, yaw, t_start):
@@ -600,6 +600,10 @@ class CogniflyController:
         self.emergency = False
         self._t_start = time.time()
         self.device_str = "/dev/ttyS0" if is_raspberrypi() else "/dev/ttyS1"
+        self._alpha_d = 0.1
+        self._d1 = 0
+        self._d2 = 0
+        self._d3 = 0
 
     def _try_connect_thread(self, drone_hostname, drone_port):
         _drone_hostname, _drone_ip, _drone_port, _udp_int, _tcp_video_int = None, None, None, None, None
@@ -1250,7 +1254,9 @@ class CogniflyController:
                             for cmd in udp_cmds:
                                 self._udp_commands_handler(pkl.loads(cmd))
                         if not override:  # override the flight controller if valid PS4
+                            t_s_flight = time.time()
                             self._flight(board, screen)
+                            self._d1 = (1 - self._alpha_d) * self._d1 + self._alpha_d * (time.time() - t_s_flight)
                         if self.obs_loop_time is not None:
                             tick = time.time()
                             if tick - self.last_obs_tick >= self.obs_loop_time and self.sender_initialized:
@@ -1492,7 +1498,7 @@ class CogniflyController:
                             _s1 = sum(average_cycle)
                             _s2 = len(average_cycle)
                             str_cycletime = "NaN" if _s1 == 0 or _s2 == 0 else \
-                                f"GUI cycleTime: {last_cycle_time * 1000:2.2f}ms (average {1 / (_s1 / _s2):2.2f}Hz)"
+                                f"GUI cycleTime: {last_cycle_time * 1000:2.2f}ms (average {1 / (_s1 / _s2):2.2f}Hz), flight: {self._d1:2.2f}ms"
                             try_addstr(screen, 11, 0, str_cycletime)
                             screen.clrtoeol()
 
