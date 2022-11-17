@@ -401,7 +401,18 @@ def set_compass(board, magX, magY, magZ, t_start):
     }
     data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
-    # print(f"compass_data:{compass_data}")
+
+
+def set_barometer(board, pressurePa, temp, t_start):
+    msp2_baro_format = '<BIfh'  # https://docs.python.org/3/library/struct.html#format-characters
+    barometer_data = {
+        'instance': 3,  # uint8 -  sensor instance number to support multi-sensor setups
+        'timeMs': round((time.time() - t_start) * 1000),  # uint32
+        'pressurePa': pressurePa,  # float
+        'temp': round(temp),  # int16_t centi-degrees C
+    }
+    data = struct.pack(msp2_baro_format, *barometer_data.values())
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_BAROMETER'], data=data)
 
 
 def set_compass_from_yaw(board, yaw, t_start):
@@ -884,6 +895,8 @@ class CogniflyController:
                 self.current_flight_command = None
                 return
         else:
+            if self.custom_barometer:
+                set_barometer(board=board, pressurePa=100745.83, temp=25*100)
             if self.custom_gps:
                 set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
             if self.custom_compass:
