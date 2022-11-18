@@ -450,7 +450,7 @@ class CogniflyController:
                  custom_gps=True,
                  custom_compass=True,
                  custom_barometer=True,
-                 custom_debug_mode=False):  # FIXME: must be True in regular cognifly-python...
+                 custom_debug_mode=False):
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -618,12 +618,13 @@ class CogniflyController:
             self._udp_int = _udp_int
             self._tcp_video_int = _tcp_video_int
 
-    def run_curses(self, reboot_fc=True):
+    def run_curses(self, reboot_fc=True, profiling_duration=-1):
         """
         Runs the controller.
 
         Args:
             reboot_fc: bool: if True, the flight controller will first reboot.
+            profiling_duration: float: if >= 0, profile code for this number of seconds.
         """
         if reboot_fc:
             with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200) as board:
@@ -649,7 +650,7 @@ class CogniflyController:
                 try_addstr(screen, 1, 0, "Press 'q' to quit, 'r' to reboot, 'm' to change mode, 'a' to arm, 'd' to disarm and arrow keys to control", curses.A_BOLD)
             else:
                 screen = None
-            result = self._controller(screen)
+            result = self._controller(screen, profiling_duration=profiling_duration)
         finally:
             # shut down cleanly
             if self.print_screen:
@@ -1163,8 +1164,10 @@ class CogniflyController:
                 self._flight_origin = None  # reset flight origin after an emergency
                 self.emergency = False
 
-    def _controller(self, screen):
+    def _controller(self, screen, profiling_duration=-1):
         # print doesn't work with curses, use addstr instead
+        profile = False
+
         try:
             if self.print_screen:
                 try_addstr(screen, 15, 0, "Connecting to the FC...")
@@ -1222,6 +1225,13 @@ class CogniflyController:
                 self._check_batt_voltage()
 
                 cursor_msg = ""
+
+                if profiling_duration >= 0:
+                    from pyinstrument import Profiler
+                    profile = True
+                    pro = Profiler()
+                    stop_profiling_time = time.time() + profiling_duration
+                    pro.start()
 
                 last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
                 while True:
@@ -1522,12 +1532,20 @@ class CogniflyController:
                     average_cycle.append(last_cycle_time)
                     average_cycle.popleft()
 
+                    if profile:
+                        if time.time() >= stop_profiling_time:
+                            pro.stop()
+                            break
+
         finally:
             self.board = None
             if self.print_screen:
                 try_addstr(screen, 5, 0, "Disconnected from the FC!")
                 screen.clrtoeol()
             print("Bye!")
+
+            if profile:
+                pro.print()
 
 
 def run_controller(print_screen=True, trace_logs=False):
