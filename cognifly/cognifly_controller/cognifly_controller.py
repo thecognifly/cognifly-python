@@ -660,6 +660,7 @@ class CogniflyController:
                 curses.endwin()
             if result == 1:
                 print("An error occurred, probably the serial port is not available")
+            return result
 
     def _reset_pids(self):
         """
