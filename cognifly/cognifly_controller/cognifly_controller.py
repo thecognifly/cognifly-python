@@ -1535,7 +1535,8 @@ class CogniflyController:
                     if profile:
                         if time.time() >= stop_profiling_time:
                             pro.stop()
-                            return pro
+                            pro.print()
+                            time.sleep(60)
 
         finally:
             self.board = None
