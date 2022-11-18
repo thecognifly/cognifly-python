@@ -1545,7 +1545,9 @@ class CogniflyController:
             print("Bye!")
 
             if profile:
-                pro.print()
+                return pro
+            else:
+                return None
 
 
 def run_controller(print_screen=True, trace_logs=False):
