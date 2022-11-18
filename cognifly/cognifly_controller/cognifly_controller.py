@@ -1535,7 +1535,7 @@ class CogniflyController:
                     if profile:
                         if time.time() >= stop_profiling_time:
                             pro.stop()
-                            break
+                            return pro
 
         finally:
             self.board = None
@@ -1543,11 +1543,6 @@ class CogniflyController:
                 try_addstr(screen, 5, 0, "Disconnected from the FC!")
                 screen.clrtoeol()
             print("Bye!")
-
-            if profile:
-                return pro
-            else:
-                return None
 
 
 def run_controller(print_screen=True, trace_logs=False):
