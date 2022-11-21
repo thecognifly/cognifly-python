@@ -14,6 +14,7 @@ from itertools import cycle
 import socket
 import pickle as pkl
 import numpy as np
+import math
 from pathlib import Path
 from yamspy import MSPy
 import logging
@@ -403,6 +404,12 @@ def set_compass(board, magX, magY, magZ, t_start):
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data, flush=False)
 
 
+def set_compass_from_yaw(board, yaw, t_start):
+    x = np.cos(yaw) * 32767
+    y = np.sin(yaw) * 32767
+    set_compass(board, x, y, 0, t_start)
+
+
 def set_barometer(board, pressurePa, temp, t_start):
     msp2_baro_format = '<BIfh'  # https://docs.python.org/3/library/struct.html#format-characters
     barometer_data = {
@@ -415,10 +422,10 @@ def set_barometer(board, pressurePa, temp, t_start):
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_BAROMETER'], data=data, flush=False)
 
 
-def set_compass_from_yaw(board, yaw, t_start):
-    x = np.cos(yaw) * 32767
-    y = np.sin(yaw) * 32767
-    set_compass(board, x, y, 0, t_start)
+def set_barometer_from_altitude(board, altitude, t_start):
+    temp = 2500  # centi-degrees C
+    pressure_pa = math.pow(1.0 - (altitude / 44330.0), 5.254999) * 101325.0
+    set_barometer(board, pressure_pa, temp, t_start)
 
 
 class CogniflyController:
@@ -903,7 +910,7 @@ class CogniflyController:
         else:
             t_s = time.time()
             if self.custom_barometer:
-                set_barometer(board=board, pressurePa=100745.83, temp=25*100, t_start=self._t_start)
+                set_barometer_from_altitude(board=board, altitude=pos_z_wf, t_start=self._t_start)
             self._d1 = (1 - self._alpha_d) * self._d1 + self._alpha_d * (time.time() - t_s)
             t_s = time.time()
             if self.custom_gps:
