@@ -491,6 +491,7 @@ class CogniflyController:
         self.tcp_video_int = None
         self.drone_ip = None
         self._armed = False
+        self._arming = False
         self._lock_connect = Lock()
         self._drone_hostname = drone_hostname
         self._drone_ip = self.drone_ip
@@ -682,8 +683,9 @@ class CogniflyController:
             data_handler = board.receive_msg()
             board.process_recv_data(data_handler)
 
-    def _arm(self, board):
-        if not self._armed:
+    def _start_arming(self, board):
+        if not self._armed and not self._arming:
+            self._arming = True
             self.current_flight_command = None
             self._reset_pids()
             self.CMDS['aux1'] = ARMED
@@ -693,10 +695,12 @@ class CogniflyController:
             self.CMDS['yaw'] = DEFAULT_YAW
             self.CMDS['aux2'] = ANGLE_MODE
             self._send_cmds(board)
-            time.sleep(3.0)
-            self.CMDS['aux2'] = NAV_POSHOLD_MODE
-            self._send_cmds(board)
-            self._armed = True
+
+    def _complete_arming(self, board):
+        self.CMDS['aux2'] = NAV_POSHOLD_MODE
+        self._send_cmds(board)
+        self._armed = True
+        self._arming = False
 
     def _disarm(self, board):
         self.CMDS['aux1'] = DISARMED
@@ -739,7 +743,7 @@ class CogniflyController:
                 if command[2][0] == "DISARM":
                     self._disarm(board)
                 elif command[2][0] == "ARM":
-                    self._arm(board)
+                    self._start_arming(board)
                 elif command[2][0] == "TAKEOFF":
                     alt = command[2][1] if command[2][1] is not None else TAKEOFF
                     track_xy = command[2][2]
@@ -1299,7 +1303,7 @@ class CogniflyController:
                     if disarm:
                         self._disarm(board)
                     elif arm:
-                        self._arm(board)
+                        self._start_arming(board)
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
@@ -1352,7 +1356,7 @@ class CogniflyController:
 
                             elif char == ARM_CHR:
                                 cursor_msg = 'Arming...'
-                                self._arm(board)
+                                self._start_arming(board)
 
                             elif char == SWITCH_MODE_CHR:
                                 if self.CMDS['aux2'] <= 1300:
@@ -1419,6 +1423,18 @@ class CogniflyController:
                         #
                         # End of KEYS ----------------------------------------------
                         #
+
+                    #
+                    # ARMING PROCEDURE -----------------------------------------
+                    #
+
+                    if self._arming:
+                        armed = board.bit_check(board.CONFIG['mode'], 0)
+                        if armed:
+                            self._complete_arming(board)
+                    #
+                    # END ARMING PROCEDURE -------------------------------------
+                    #
 
                     #
                     # CLIP RC VALUES -------------------------------------------
