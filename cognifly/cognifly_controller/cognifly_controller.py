@@ -90,7 +90,7 @@ NAV_ALTHOLD_MODE = 1500
 NAV_POSHOLD_MODE = 1800
 
 DEFAULT_AUX1 = DISARMED  # DISARMED (1000) / ARMED (1800)
-DEFAULT_AUX2 = NAV_POSHOLD_MODE  # Angle (1000) / NAV_ALTHOLD (1500) / NAV_POSHOLD (1800)
+DEFAULT_AUX2 = ANGLE_MODE  # Angle (1000) / NAV_ALTHOLD (1500) / NAV_POSHOLD (1800)
 
 # Max periods for:
 CTRL_LOOP_TIME = 1 / 100
@@ -211,12 +211,12 @@ class PS4GamepadManager:
             override = False
             now = time.time()
 
+            disarm = False
+            arm = False
             if tl == tr == 1:
-                CMDS['aux1'] = ARMED
-                CMDS['throttle'] = DEFAULT_THROTTLE
+                arm = True
             elif ba == 1:
-                CMDS['aux1'] = DISARMED
-                CMDS['throttle'] = DEFAULT_THROTTLE
+                disarm = True
                 override = True
 
             if haty == -1:
@@ -259,7 +259,7 @@ class PS4GamepadManager:
                     else:  # send velocity command
                         self.hover = False
                         flight_command = ['VDF', vx, vy, vz, w, time.time() + 1.0]
-        return CMDS, flight_command, False, self.mode
+        return CMDS, flight_command, False, self.mode, arm, disarm
 
 
 class SignalTracer:
@@ -677,13 +677,44 @@ class CogniflyController:
         self.pid_vel_z = PID(kp=self.vel_z_kp, ki=self.vel_z_ki, kd=self.vel_z_kd, sample_time=0.01, output_limits=self.pid_limits_z, auto_mode=False)
         self.pid_w_z = PID(kp=self.vel_w_kp, ki=self.vel_w_ki, kd=self.vel_w_kd, sample_time=0.01, output_limits=self.pid_limits_w, auto_mode=False)
 
-    def _udp_commands_handler(self, command):
+    def _send_cmds(self, board):
+        if board.send_RAW_RC([int(self.CMDS[ki]) for ki in self.CMDS_ORDER]):
+            data_handler = board.receive_msg()
+            board.process_recv_data(data_handler)
+
+    def _arm(self, board):
+        if not self._armed:
+            self.current_flight_command = None
+            self._reset_pids()
+            self.CMDS['aux1'] = ARMED
+            self.CMDS['roll'] = DEFAULT_ROLL
+            self.CMDS['pitch'] = DEFAULT_PITCH
+            self.CMDS['throttle'] = DEFAULT_THROTTLE  # throttle bellow a certain value disarms the FC
+            self.CMDS['yaw'] = DEFAULT_YAW
+            self.CMDS['aux2'] = NAV_POSHOLD_MODE
+            self._send_cmds(board)
+            self._armed = True
+
+    def _disarm(self, board):
+        self.CMDS['aux1'] = DISARMED
+        self.CMDS['roll'] = DEFAULT_ROLL
+        self.CMDS['pitch'] = DEFAULT_PITCH
+        self.CMDS['throttle'] = DEFAULT_THROTTLE  # throttle bellow a certain value disarms the FC
+        self.CMDS['yaw'] = DEFAULT_YAW
+        self.CMDS['aux2'] = DEFAULT_AUX2
+        self._send_cmds(board)
+        self._armed = False
+        self.current_flight_command = None
+        self._reset_pids()
+
+    def _udp_commands_handler(self, command, board):
         """
         Args:
             command: a command of the form (str:command, ...:args)
+            board: used for arming and disarming
         """
         if command[0] == "RES":  # reset drone
-            if self.CMDS['aux1'] != DISARMED:
+            if self._armed:
                 self.emergency = True  # land if not disarmed
             self.CMDS['roll'] = DEFAULT_ROLL
             self.CMDS['pitch'] = DEFAULT_PITCH
@@ -703,14 +734,9 @@ class CogniflyController:
                     self._reset_pids()
                     self.last_cmd_type = command[2][0]
                 if command[2][0] == "DISARM":
-                    self.CMDS["aux1"] = DISARMED
-                    self.CMDS["throttle"] = DEFAULT_THROTTLE
-                    self.current_flight_command = None
+                    self._disarm(board)
                 elif command[2][0] == "ARM":
-                    self.CMDS["aux1"] = ARMED
-                    self.CMDS["aux2"] = NAV_POSHOLD_MODE
-                    self.CMDS["throttle"] = DEFAULT_THROTTLE
-                    self.current_flight_command = None
+                    self._arm(board)
                 elif command[2][0] == "TAKEOFF":
                     alt = command[2][1] if command[2][1] is not None else TAKEOFF
                     track_xy = command[2][2]
@@ -1166,8 +1192,7 @@ class CogniflyController:
             self.CMDS['yaw'] = DEFAULT_YAW
             board.fast_read_altitude()
             if board.SENSOR_DATA['altitude'] <= 0.1:
-                self.CMDS['aux1'] = DISARMED
-                self.CMDS['throttle'] = DEFAULT_THROTTLE
+                self._disarm(board)
                 self._flight_origin = None  # reset flight origin after an emergency
                 self.emergency = False
 
@@ -1262,11 +1287,16 @@ class CogniflyController:
                     # Gamepad commands are overridden by key presses
                     #
 
-                    self.CMDS, self.current_flight_command, emergency, mode = self.gamepad_manager.get(self.CMDS, self.current_flight_command)
+                    self.CMDS, self.current_flight_command, emergency, mode, arm, disarm = self.gamepad_manager.get(self.CMDS, self.current_flight_command)
                     if emergency and not self.emergency:
                         self.emergency = True
                     override = mode == 1
                     gamepad = mode != 0
+
+                    if disarm:
+                        self._disarm(board)
+                    elif arm:
+                        self._arm(board)
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
@@ -1276,7 +1306,7 @@ class CogniflyController:
                         udp_cmds = self.udp_int.recv_nonblocking()
                         if len(udp_cmds) > 0:
                             for cmd in udp_cmds:
-                                self._udp_commands_handler(pkl.loads(cmd))
+                                self._udp_commands_handler(pkl.loads(cmd), board)
                         if not override:  # override the flight controller if valid PS4
                             self._flight(board, screen)
                         if self.obs_loop_time is not None:
@@ -1307,7 +1337,7 @@ class CogniflyController:
 
                             elif char == DISARM_CHR:
                                 cursor_msg = 'Disarming...'
-                                self.CMDS['aux1'] = DISARMED
+                                self._disarm(board)
 
                             elif char == REBOOT_CHR:
                                 if self.print_screen:
@@ -1319,7 +1349,7 @@ class CogniflyController:
 
                             elif char == ARM_CHR:
                                 cursor_msg = 'Arming...'
-                                self.CMDS['aux1'] = ARMED
+                                self._arm(board)
 
                             elif char == SWITCH_MODE_CHR:
                                 if self.CMDS['aux2'] <= 1300:
@@ -1399,38 +1429,12 @@ class CogniflyController:
                     #
 
                     #
-                    # RESET ON ARMING ------------------------------------------
-                    #
-                    if self.CMDS['aux1'] == ARMED:
-                        if not self._armed:
-                            self._armed = True
-                            self.current_flight_command = None
-                            self._reset_pids()
-                            self.CMDS['roll'] = DEFAULT_ROLL
-                            self.CMDS['pitch'] = DEFAULT_PITCH
-                            self.CMDS['yaw'] = DEFAULT_YAW
-                            self.CMDS['throttle'] = DEFAULT_THROTTLE
-                    else:
-                        self._armed = False
-                        self.current_flight_command = None
-                        self._reset_pids()
-                        self.CMDS['roll'] = DEFAULT_ROLL
-                        self.CMDS['pitch'] = DEFAULT_PITCH
-                        self.CMDS['yaw'] = DEFAULT_YAW
-                        self.CMDS['throttle'] = DEFAULT_THROTTLE
-                    #
-                    # END RESET ON ARMING ---------------------------------------
-                    #
-
-                    #
                     # IMPORTANT MESSAGES (CTRL_LOOP_TIME based) ----------------
                     #
                     if (time.time() - last_loop_time) >= CTRL_LOOP_TIME:
                         last_loop_time = time.time()
                         # Send the RC channel values to the FC
-                        if board.send_RAW_RC([int(self.CMDS[ki]) for ki in self.CMDS_ORDER]):
-                            data_handler = board.receive_msg()
-                            board.process_recv_data(data_handler)
+                        self._send_cmds(board)
                     #
                     # End of IMPORTANT MESSAGES --------------------------------
                     #
