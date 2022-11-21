@@ -691,6 +691,9 @@ class CogniflyController:
             self.CMDS['pitch'] = DEFAULT_PITCH
             self.CMDS['throttle'] = DEFAULT_THROTTLE  # throttle bellow a certain value disarms the FC
             self.CMDS['yaw'] = DEFAULT_YAW
+            self.CMDS['aux2'] = ANGLE_MODE
+            self._send_cmds(board)
+            time.sleep(1.0)
             self.CMDS['aux2'] = NAV_POSHOLD_MODE
             self._send_cmds(board)
             self._armed = True
