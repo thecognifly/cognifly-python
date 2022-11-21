@@ -424,7 +424,7 @@ def set_barometer(board, pressurePa, temp, t_start):
 
 def set_barometer_from_altitude(board, altitude, t_start):
     temp = 2500  # centi-degrees C
-    pressure_pa = math.pow(1.0 - (altitude / 44330.0), 5.254999) * 101325.0
+    pressure_pa = ((1.0 - (altitude / 44330.0)) ** 5.254999) * 101325.0
     set_barometer(board, pressure_pa, temp, t_start)
 
 
