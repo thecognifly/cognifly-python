@@ -693,7 +693,7 @@ class CogniflyController:
             self.CMDS['yaw'] = DEFAULT_YAW
             self.CMDS['aux2'] = ANGLE_MODE
             self._send_cmds(board)
-            time.sleep(1.0)
+            time.sleep(3.0)
             self.CMDS['aux2'] = NAV_POSHOLD_MODE
             self._send_cmds(board)
             self._armed = True
