@@ -377,7 +377,7 @@ def set_gps(board,
         'sec': now.second,  # uint8
     }
     data = struct.pack(msp2_gps_format, *[int(i) for i in gps_data.values()])
-    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_GPS'], data=data)
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_GPS'], data=data, flush=False)
 
 
 def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
@@ -400,7 +400,7 @@ def set_compass(board, magX, magY, magZ, t_start):
         'magZ': round(magZ)  # int16_t mGauss, down
     }
     data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
-    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data)
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data, flush=False)
 
 
 def set_barometer(board, pressurePa, temp, t_start):
@@ -412,7 +412,7 @@ def set_barometer(board, pressurePa, temp, t_start):
         'temp': round(temp),  # int16_t centi-degrees C
     }
     data = struct.pack(msp2_baro_format, *barometer_data.values())
-    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_BAROMETER'], data=data)
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_BAROMETER'], data=data, flush=False)
 
 
 def set_compass_from_yaw(board, yaw, t_start):
@@ -1173,7 +1173,7 @@ class CogniflyController:
             if self.print_screen:
                 try_addstr(screen, 15, 0, "Connecting to the FC...")
 
-            with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200) as board:
+            with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200, timeout=0) as board:
                 if board == 1:  # an error occurred...
                     return 1
                 else:
