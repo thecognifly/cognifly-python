@@ -14,7 +14,6 @@ from itertools import cycle
 import socket
 import pickle as pkl
 import numpy as np
-import math
 from pathlib import Path
 from yamspy import MSPy
 import logging
