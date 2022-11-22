@@ -455,8 +455,7 @@ class CogniflyController:
                  w_gain=0.5,
                  custom_gps=True,
                  custom_compass=True,
-                 custom_barometer=True,
-                 custom_debug_mode=False):
+                 custom_barometer=True):
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -472,7 +471,6 @@ class CogniflyController:
             trace_logs: bool (optional): if True, flight telemetry will be printed in a CSV-like log file
             pose_estimator: cognifly.cognifly_controller.cognifly_controller.PoseEstimator: custom pose estimator
         """
-        self.custom_debug_mode = custom_debug_mode
         self.pose_estimator = pose_estimator
         if self.pose_estimator is None:
             self.custom_gps = False
@@ -483,7 +481,6 @@ class CogniflyController:
             self.custom_compass = custom_compass
             self.custom_barometer = custom_barometer
         self.board = None
-        self.valid_custom_estimate = True
         self.network = network
         self.drone_hostname = drone_hostname
         self.drone_port = drone_port
@@ -601,6 +598,22 @@ class CogniflyController:
         # PS4 controller:
 
         self.gamepad_manager = PS4GamepadManager()
+
+        # Flight:
+
+        self.pos_x_wf = 0
+        self.pos_y_wf = 0
+        self.pos_z_wf = 0
+        self.yaw = 0
+        self.vel_x_wf = 0
+        self.vel_y_wf = 0
+        self.vel_z_wf = 0
+        self.yaw_rate = 0
+        self.valid_input_barometer = False
+        self.valid_input_compass = False
+        self.valid_input_gps = False
+        self._failure_custom = False
+        self._custom_was_valid = True
 
         # Others:
 
@@ -873,25 +886,37 @@ class CogniflyController:
         """
         Reads estimates from board
         """
-        board.fast_read_attitude()
-        yaw = board.SENSOR_DATA['kinematics'][2] * np.pi / 180.0
-        if self.custom_debug_mode:
-            board.send_RAW_msg(MSPy.MSPCodes['MSP_DEBUG'])  # MSP2_INAV_DEBUG is too long to answer
-            data_handler = board.receive_msg()
-            board.process_recv_data(data_handler)
-            pos_x_wf = board.SENSOR_DATA['debug'][0] / 1e4
-            pos_y_wf = board.SENSOR_DATA['debug'][1] / 1e4
-            vel_x_wf = board.SENSOR_DATA['debug'][2] / 1e4
-            vel_y_wf = board.SENSOR_DATA['debug'][3] / 1e4
-        else:
-            pos_x_wf = None
-            pos_y_wf = None
-            vel_x_wf = None
-            vel_y_wf = None
-        board.fast_read_altitude()
-        pos_z_wf = board.SENSOR_DATA['altitude']
-        yaw_rate = self._compute_yaw_rate(yaw)
-        vel_z_wf = self._compute_z_vel(pos_z_wf)
+
+        try:
+            if board.send_RAW_msg(MSPy.MSPCodes['MSP2_INAV_DEBUG'], data=[]):
+                dataHandler = board.receive_msg()
+                board.process_recv_data(dataHandler)
+            else:
+                raise RuntimeError
+            pos_x_wf = board.SENSOR_DATA['debug'][0] / 1000.0
+            pos_y_wf = board.SENSOR_DATA['debug'][1] / 1000.0
+            pos_z_wf = board.SENSOR_DATA['debug'][2] / 1000.0
+            vel_x_wf = board.SENSOR_DATA['debug'][3] / 1000.0
+            vel_y_wf = board.SENSOR_DATA['debug'][4] / 1000.0
+            vel_z_wf = board.SENSOR_DATA['debug'][5] / 1000.0
+            yaw = board.SENSOR_DATA['debug'][6] * np.pi / 1800
+            yaw = smallest_angle_diff_rad(yaw, 0.0)
+            nav_epv = board.SENSOR_DATA['debug'][7] & 0x3FF
+            nav_eph = (board.SENSOR_DATA['debug'][7] & 0xFFC00) >> 10
+            flags = (board.SENSOR_DATA['debug'][7] & 0xFFF00000) >> 20
+            est_gps_xy_valid = bool(flags & (1 << 0))
+            est_gps_z_valid = bool(flags & (1 << 1))
+            est_baro_valid = bool(flags & (1 << 2))
+            est_surface_valid = bool(flags & (1 << 3))
+            est_flow_valid = bool(flags & (1 << 4))
+            est_xy_valid = bool(flags & (1 << 5))
+            est_z_valid = bool(flags & (1 << 6))
+
+            yaw_rate = self._compute_yaw_rate(yaw)
+
+        except Exception as e:
+            return None, None, None, None, None, None, None, None
+
         return pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate
 
     def _read_board(self):
@@ -901,58 +926,103 @@ class CogniflyController:
         else:
             return self._read_estimate(board)
 
-    def _flight(self, board, screen):
+    def _update_pose(self, board, retrieve_all):
+        """
+        This method handles pose retrieval and sensor faking.
+
+        If retrieve_all is True, all pose attributes are updated.
+        Otherwise, only the pose attributes relevant to sensor faking are updated.
+        Only the sensors defined as custom are updated.
+        self._failure_custom is also updated for _flight() to recover in case the custom estimator fails.
+        """
+        read_pos_z_wf = False
+        write_barometer, write_compass, write_gps = False, False, False
+
+        pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = None, None, None, None, None, None, None, None
+        r_pos_x_wf, r_pos_y_wf, r_pos_z_wf, r_yaw, r_vel_x_wf, r_vel_y_wf, r_vel_z_wf, r_yaw_rate = None, None, None, None, None, None, None, None
+
+        if self.pose_estimator is not None:  # if there is a custom estimator
+            # retrieve custom estimate
+            pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.get()
+            self._failure_custom = None in (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
+
+            # check whether the custom barometer input is valid:
+            self.valid_input_barometer = pos_z_wf is not None
+            if self.custom_barometer:  # if we use a fake MSP barometer:
+                write_barometer = True  # we will need to send our estimate to the FC
+                if not self.valid_input_barometer:
+                    # if our current estimate is wrong, we need to loopback the barometer estimate from the FC
+                    read_pos_z_wf = True
+
+            # check whether the custom compass input is valid:
+            self.valid_input_compass = yaw is not None
+            # if we use a fake compass and the estimate is OK, send it to the FC, otherwise do nothing
+            if self.custom_compass and self.valid_input_compass:
+                write_compass = True
+
+            # check whether the custom gps input is valid:
+            self.valid_input_gps = None not in (pos_x_wf, pos_y_wf, pos_z_wf)
+            # if we use a fake gps and the estimate is OK, send it to the FC, otherwise do nothing
+            if self.custom_gps and self.valid_input_gps:
+                write_gps = True
+        else:  # if there is no custom estimator
+            read_pos_z_wf = True  # we need to read Z from the FC
+            write_barometer = True  # and to loop it back the barometer in order to make inav happy
+
+        # read from fc and replace whatever we need to replace for writing:
+        if read_pos_z_wf or retrieve_all:
+            r_pos_x_wf, r_pos_y_wf, r_pos_z_wf, r_yaw, r_vel_x_wf, r_vel_y_wf, r_vel_z_wf, r_yaw_rate = self._read_estimate(board)
+            if read_pos_z_wf:
+                pos_z_wf = r_pos_z_wf
+
+        # replace remaining None
+        if pos_x_wf is None:
+            pos_x_wf = r_pos_x_wf if r_pos_x_wf is not None else self.pos_x_wf
+        if pos_y_wf is None:
+            pos_y_wf = r_pos_y_wf if r_pos_y_wf is not None else self.pos_y_wf
+        if pos_z_wf is None:
+            pos_z_wf = r_pos_z_wf if r_pos_z_wf is not None else self.pos_z_wf
+        if yaw is None:
+            yaw = r_yaw if r_yaw is not None else self.yaw
+        if vel_x_wf is None:
+            vel_x_wf = r_vel_x_wf if r_vel_x_wf is not None else self.vel_x_wf
+        if vel_y_wf is None:
+            vel_y_wf = r_vel_y_wf if r_vel_y_wf is not None else self.vel_y_wf
+        if vel_z_wf is None:
+            vel_z_wf = r_vel_z_wf if r_vel_z_wf is not None else self.vel_z_wf
+        if yaw_rate is None:
+            yaw_rate = r_yaw_rate if r_yaw_rate is not None else self.yaw_rate
+
+        # fake the sensors we want to fake:
+        if write_barometer:
+            set_barometer_from_altitude(board=board, altitude=pos_z_wf, t_start=self._t_start)
+        if write_compass:
+            set_compass_from_yaw(board=board, yaw=yaw, t_start=self._t_start)
+        if write_gps:
+            set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
+
+    def _flight(self, screen):
         """
         This method is a high-level flight controller.
         Depending on the current flight command and state of the drone, it outputs relevant MSP commands.
         This is done thanks to python PIDs and filters.
-        In the future, most of this should be integrated directly in the inav flight controller.
-        Indeed, the use of PIDs here is redundant with what happens in inav.
-        However, the cognifly version of inav will not take position/velocities as input at the moment but only RPYT, hence this method.
-        The use of PIDs for velocities should be removed fairly easily, if we can find the mapping from velocities to RPYT.
-            This is the inverse of a monotonic polynomial for x and y, see inav code (potentially no closed form?).
-            We have not found the equivalent for z and yaw in inav code yet.
         """
         # retrieve the current state
-        failure_custom = False
+        pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pos_x_wf, self.pos_y_wf, self.pos_z_wf, self.yaw, self.vel_x_wf, self.vel_y_wf, self.vel_z_wf, self.yaw_rate
         recovery = False  # when this flag becomes True, we switch estimators and must change the flight origin
-        if self.pose_estimator is not None:  # TODO: test this part of the code (including recovery)
-            pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.get()
-            if None in (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate):
-                failure_custom = True
-            if failure_custom and self.valid_custom_estimate:
-                self.valid_custom_estimate = False
-                recovery = True
-                if self.print_screen:
-                    try_addstr(screen, 28, 0, f"Custom estimate: INVALID")
-                    screen.clrtoeol()
-            elif not failure_custom and not self.valid_custom_estimate:
-                self.valid_custom_estimate = True
-                recovery = True
-                if self.print_screen:
-                    try_addstr(screen, 28, 0, f"Custom estimate: valid")
-                    screen.clrtoeol()
-        if self.pose_estimator is None or failure_custom:
-            if self.custom_debug_mode:
-                pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self._read_estimate(board)
-            else:
-                # cannot retrieve from the FC if custom_debug_mode is not active!
-                self.current_flight_command = None
-                return
-        else:
-            t_s = time.time()
-            if self.custom_barometer:
-                set_barometer_from_altitude(board=board, altitude=pos_z_wf, t_start=self._t_start)
-            self._d1 = (1 - self._alpha_d) * self._d1 + self._alpha_d * (time.time() - t_s)
-            t_s = time.time()
-            if self.custom_gps:
-                set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
-            self._d2 = (1 - self._alpha_d) * self._d2 + self._alpha_d * (time.time() - t_s)
-            t_s = time.time()
-            if self.custom_compass:
-                set_compass_from_yaw(board=board, yaw=yaw, t_start=self._t_start)
-            self._d3 = (1 - self._alpha_d) * self._d3 + self._alpha_d * (time.time() - t_s)
 
+        if self._failure_custom and self._custom_was_valid:
+            self._custom_was_valid = False
+            recovery = True
+            if self.print_screen:
+                try_addstr(screen, 28, 0, f"Custom estimate: INVALID")
+                screen.clrtoeol()
+        elif not self._failure_custom and not self._custom_was_valid:
+            self._custom_was_valid = True
+            recovery = True
+            if self.print_screen:
+                try_addstr(screen, 28, 0, f"Custom estimate: valid")
+                screen.clrtoeol()
 
         old_pos_x_wf = pos_x_wf
         old_pos_y_wf = pos_y_wf
@@ -1275,7 +1345,6 @@ class CogniflyController:
                 last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
                 while True:
                     start_time = time.time()
-
                     #
                     # checking connection result  (NO DELAYS) ------------------
                     #
@@ -1293,7 +1362,6 @@ class CogniflyController:
                     # UDP commands are ignored when a gamepad is connected
                     # Gamepad commands are overridden by key presses
                     #
-
                     self.CMDS, self.current_flight_command, emergency, mode, arm, disarm = self.gamepad_manager.get(self.CMDS, self.current_flight_command)
                     if emergency and not self.emergency:
                         self.emergency = True
@@ -1306,6 +1374,14 @@ class CogniflyController:
                         self._start_arming(board)
 
                     #
+                    # Pose handler  (NO DELAYS) --------------------------------
+                    #
+                    if override:  # in free flight mode, no need to retrieve all pose attributes
+                        self._update_pose(board=board, retrieve_all=False)
+                    else:  # otherwise, we need to retrieve them all for _flight()
+                        self._update_pose(board=board, retrieve_all=True)
+
+                    #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
                     # For safety, UDP commands are overridden by key presses
                     #
@@ -1315,7 +1391,7 @@ class CogniflyController:
                             for cmd in udp_cmds:
                                 self._udp_commands_handler(pkl.loads(cmd), board)
                         if not override:  # override the flight controller if valid PS4
-                            self._flight(board, screen)
+                            self._flight(screen)
                         if self.obs_loop_time is not None:
                             tick = time.time()
                             if tick - self.last_obs_tick >= self.obs_loop_time and self.sender_initialized:
