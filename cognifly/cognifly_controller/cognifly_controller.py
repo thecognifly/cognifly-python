@@ -970,7 +970,7 @@ class CogniflyController:
             write_barometer = True  # and to loop it back the barometer in order to make inav happy
 
         # read from fc and replace whatever we need to replace for writing:
-        if read_pos_z_wf or retrieve_all:
+        if read_pos_z_wf or (retrieve_all and self._failure_custom):
             r_pos_x_wf, r_pos_y_wf, r_pos_z_wf, r_yaw, r_vel_x_wf, r_vel_y_wf, r_vel_z_wf, r_yaw_rate = self._read_estimate(board)
             if read_pos_z_wf:
                 pos_z_wf = r_pos_z_wf
@@ -993,13 +993,16 @@ class CogniflyController:
         if yaw_rate is None:
             yaw_rate = r_yaw_rate if r_yaw_rate is not None else self.yaw_rate
 
-        # fake the sensors we want to fake:
+        # fake the sensors we need to fake:
         if write_barometer:
             set_barometer_from_altitude(board=board, altitude=pos_z_wf, t_start=self._t_start)
         if write_compass:
             set_compass_from_yaw(board=board, yaw=yaw, t_start=self._t_start)
         if write_gps:
             set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
+
+        # update pose attributes:
+        self.pos_x_wf, self.pos_y_wf, self.pos_z_wf, self.yaw, self.vel_x_wf, self.vel_y_wf, self.vel_z_wf, self.yaw_rate = pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate
 
     def _flight(self, screen):
         """
