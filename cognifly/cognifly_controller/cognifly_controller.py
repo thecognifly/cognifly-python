@@ -926,7 +926,7 @@ class CogniflyController:
         else:
             return self._read_estimate(board)
 
-    def _update_pose(self, board, retrieve_all):
+    def _update_pose(self, board, screen, retrieve_all):
         """
         This method handles pose retrieval and sensor faking.
 
@@ -1004,6 +1004,13 @@ class CogniflyController:
         # update pose attributes:
         self.pos_x_wf, self.pos_y_wf, self.pos_z_wf, self.yaw, self.vel_x_wf, self.vel_y_wf, self.vel_z_wf, self.yaw_rate = pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate
 
+        # print results
+        if self.print_screen:
+            try_addstr(screen, 18, 0, f"yaw: {yaw/np.pi: .5f} pi rad")
+            try_addstr(screen, 19, 0, f"yaw rate: {yaw_rate/np.pi: .5f} pi rad/s")
+            try_addstr(screen, 20, 0, f"pos_wf: [{pos_x_wf: .5f},{pos_y_wf: .5f},{pos_z_wf: .5f}] m")
+            try_addstr(screen, 21, 0, f"vel_wf: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
+
     def _flight(self, screen):
         """
         This method is a high-level flight controller.
@@ -1070,10 +1077,6 @@ class CogniflyController:
         vel_y_df = vel_y_wf * cos - vel_x_wf * sin
 
         if self.print_screen:
-            try_addstr(screen, 18, 0, f"yaw: {yaw/np.pi: .5f} pi rad")
-            try_addstr(screen, 19, 0, f"yaw rate: {yaw_rate/np.pi: .5f} pi rad/s")
-            try_addstr(screen, 20, 0, f"pos_wf: [{pos_x_wf: .5f},{pos_y_wf: .5f},{pos_z_wf: .5f}] m")
-            try_addstr(screen, 21, 0, f"vel_wf: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
             try_addstr(screen, 22, 0, f"vel_df: [{vel_x_df: .5f},{vel_y_df: .5f},{vel_z_df: .5f}] m/s")
             try_addstr(screen, 24, 0, f"from yaw: {old_yaw / np.pi: .5f} pi rad")
             try_addstr(screen, 25, 0, f"from pos_wf: [{old_pos_x_wf: .5f},{old_pos_y_wf: .5f},{pos_z_wf: .5f}] m")
@@ -1380,9 +1383,9 @@ class CogniflyController:
                     # Pose handler  (NO DELAYS) --------------------------------
                     #
                     if override:  # in free flight mode, no need to retrieve all pose attributes
-                        self._update_pose(board=board, retrieve_all=False)
+                        self._update_pose(board=board, screen=screen, retrieve_all=False)
                     else:  # otherwise, we need to retrieve them all for _flight()
-                        self._update_pose(board=board, retrieve_all=True)
+                        self._update_pose(board=board, screen=screen, retrieve_all=True)
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
