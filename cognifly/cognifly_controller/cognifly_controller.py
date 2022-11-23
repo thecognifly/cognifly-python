@@ -1268,7 +1268,7 @@ class CogniflyController:
                 self.udp_int.send(pkl.dumps(("BBT", (self.voltage, ))))
                 self.last_bat_tick = time.time()
 
-    def _emergency_handler(self, board):
+    def _emergency_handler(self, board, screen):
         """
         This overrides all commands when an emergency occurs
         """
@@ -1277,8 +1277,8 @@ class CogniflyController:
             self.CMDS['pitch'] = DEFAULT_PITCH
             self.CMDS['throttle'] = LAND
             self.CMDS['yaw'] = DEFAULT_YAW
-            board.fast_read_altitude()
-            if board.SENSOR_DATA['altitude'] <= 0.1:
+            self._update_pose(board=board, screen=screen, retrieve_all=True)
+            if self.pos_z_wf <= 0.1:
                 self._disarm(board)
                 self._flight_origin = None  # reset flight origin after an emergency
                 self.emergency = False
@@ -1413,7 +1413,7 @@ class CogniflyController:
                     #
 
                     self._batt_handler(board)
-                    self._emergency_handler(board)
+                    self._emergency_handler(board, screen)
 
                     if self.print_screen:
                         char = screen.getch()  # get keypress
