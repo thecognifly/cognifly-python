@@ -454,7 +454,7 @@ class CogniflyController:
                  z_vel_gain=0.2,
                  w_gain=0.5,
                  custom_gps=True,
-                 custom_compass=True,
+                 custom_compass=False,
                  custom_barometer=True):
         """
         Custom controller and udp interface for Cognifly
