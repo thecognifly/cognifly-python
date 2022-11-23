@@ -404,8 +404,12 @@ def set_compass(board, magX, magY, magZ, t_start):
 
 
 def set_compass_from_yaw(board, yaw, t_start):
-    x = np.cos(yaw) * 32767
-    y = np.sin(yaw) * 32767
+    """
+    Caution: yaw is computed with z pointing down
+    """
+    c_yaw = smallest_angle_diff_rad(yaw + np.pi / 2, 0.0)
+    x = np.cos(c_yaw) * 32767
+    y = np.sin(c_yaw) * 32767
     set_compass(board, x, y, 0, t_start)
 
 
@@ -454,7 +458,7 @@ class CogniflyController:
                  z_vel_gain=0.2,
                  w_gain=0.5,
                  custom_gps=True,
-                 custom_compass=False,
+                 custom_compass=True,
                  custom_barometer=True):
         """
         Custom controller and udp interface for Cognifly
