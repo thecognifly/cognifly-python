@@ -435,6 +435,21 @@ def set_barometer_from_altitude(board, altitude, t_start):
     set_barometer(board, pressure_pa, temp, t_start)
 
 
+def set_rangefinder(board, distance_mm, quality=255):
+    msp2_range_format = '<Bi'  # https://docs.python.org/3/library/struct.html#format-characters
+    range_data = {
+        'quality': quality,  # uint8 - [0;255]
+        'distanceMm': round(distance_mm),  # int32_t - Negative value for out of range
+    }
+    data = struct.pack(msp2_range_format, *range_data.values())
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_RANGEFINDER'], data=data, flush=False)
+
+
+def set_rangefinder_from_altitude(board, altitude):
+    distance_mm = max(altitude * 1000, 0)
+    set_rangefinder(board, distance_mm)
+
+
 class CogniflyController:
     def __init__(self,
                  network=True,
@@ -463,7 +478,8 @@ class CogniflyController:
                  w_gain=0.5,
                  custom_gps=True,
                  custom_compass=True,
-                 custom_barometer=True):
+                 custom_barometer=True,
+                 custom_rangefinder=True):
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -484,10 +500,12 @@ class CogniflyController:
             self.custom_gps = False
             self.custom_compass = False
             self.custom_barometer = False
+            self.custom_rangefinder = False
         else:
             self.custom_gps = custom_gps
             self.custom_compass = custom_compass
             self.custom_barometer = custom_barometer
+            self.custom_rangefinder = custom_rangefinder
         self.board = None
         self.network = network
         self.drone_hostname = drone_hostname
@@ -617,7 +635,7 @@ class CogniflyController:
         self.vel_y_wf = 0
         self.vel_z_wf = 0
         self.yaw_rate = 0
-        self.valid_input_barometer = False
+        self.valid_input_altitude = False
         self.valid_input_compass = False
         self.valid_input_gps = False
         self._failure_custom = False
@@ -950,7 +968,7 @@ class CogniflyController:
         self._failure_custom is also updated for _flight() to recover in case the custom estimator fails.
         """
         read_pos_z_wf = False
-        write_barometer, write_compass, write_gps = False, False, False
+        write_barometer, write_rangefinder, write_compass, write_gps = False, False, False, False
 
         pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = None, None, None, None, None, None, None, None
         r_pos_x_wf, r_pos_y_wf, r_pos_z_wf, r_yaw, r_vel_x_wf, r_vel_y_wf, r_vel_z_wf, r_yaw_rate = None, None, None, None, None, None, None, None
@@ -960,12 +978,16 @@ class CogniflyController:
             pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.get()
             self._failure_custom = None in (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
 
-            # check whether the custom barometer input is valid:
-            self.valid_input_barometer = pos_z_wf is not None
+            # check whether the custom barometer/rangefinder input is valid:
+            self.valid_input_altitude = pos_z_wf is not None
             if self.custom_barometer:  # if we use a fake MSP barometer:
                 write_barometer = True  # we will need to send our estimate to the FC
-                if not self.valid_input_barometer:
+                if not self.valid_input_altitude:
                     # if our current estimate is wrong, we need to loopback the barometer estimate from the FC
+                    read_pos_z_wf = True
+            if self.custom_rangefinder:
+                write_rangefinder = True
+                if not self.valid_input_altitude:
                     read_pos_z_wf = True
 
             # check whether the custom compass input is valid:
@@ -1010,6 +1032,8 @@ class CogniflyController:
         # fake the sensors we need to fake:
         if write_barometer:
             set_barometer_from_altitude(board=board, altitude=pos_z_wf, t_start=self._t_start)
+        if write_rangefinder:
+            set_rangefinder_from_altitude(board=board, altitude=pos_z_wf)
         if write_compass:
             set_compass_from_yaw(board=board, yaw=yaw, t_start=self._t_start)
         if write_gps:
