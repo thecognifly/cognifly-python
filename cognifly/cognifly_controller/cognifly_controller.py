@@ -920,8 +920,8 @@ class CogniflyController:
 
             if screen is not None and self.print_screen:
                 try_addstr(screen, 28, 0, f"FC internal estimates:")
-                try_addstr(screen, 29, 0, f"pos: [{pos_x_wf: .5f},{pos_y_wf: .5f},{pos_z_wf: .5f}] m, yaw: {yaw} rad")
-                try_addstr(screen, 30, 0, f"vel: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s, w: {yaw_rate} rad/s")
+                try_addstr(screen, 29, 0, f"pos: [{pos_x_wf: .5f},{pos_y_wf: .5f},{pos_z_wf: .5f}] m, yaw: {yaw: .5f} rad")
+                try_addstr(screen, 30, 0, f"vel: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s, w: {yaw_rate: .5f} rad/s")
                 try_addstr(screen, 31, 0, f"nav_epv: {nav_epv}, nav_eph: {nav_eph}, flags: {bin(flags)}")
 
         except Exception as e:
