@@ -980,7 +980,7 @@ class CogniflyController:
             write_barometer = True  # and to loop it back the barometer in order to make inav happy
 
         # read from fc and replace whatever we need to replace for writing:
-        if read_pos_z_wf or (retrieve_all and self._failure_custom):
+        if read_pos_z_wf or (retrieve_all and self._failure_custom) or True:  # FIXME: remove True
             r_pos_x_wf, r_pos_y_wf, r_pos_z_wf, r_yaw, r_vel_x_wf, r_vel_y_wf, r_vel_z_wf, r_yaw_rate = self._read_estimate(board, screen)
             if read_pos_z_wf:
                 pos_z_wf = r_pos_z_wf
