@@ -388,7 +388,10 @@ def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
     latitude = x / 111000.0
     longitude = y / 111000.0
     mslAltitude = z * 100.0
-    set_gps(board, longitude, latitude, mslAltitude)
+    nedVelNorth = vx * 100.0
+    nedVelEast = vy * 100.0
+    nedVelDown = vz * 100.0
+    set_gps(board, longitude, latitude, mslAltitude, nedVelNorth, nedVelEast, nedVelDown)
 
 
 def set_compass(board, magX, magY, magZ, t_start):
@@ -1010,7 +1013,7 @@ class CogniflyController:
         if write_compass:
             set_compass_from_yaw(board=board, yaw=yaw, t_start=self._t_start)
         if write_gps:
-            set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf)
+            set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf, vx=vel_x_wf, vy=vel_y_wf, vz=vel_z_wf)
 
         # update pose attributes:
         self.pos_x_wf, self.pos_y_wf, self.pos_z_wf, self.yaw, self.vel_x_wf, self.vel_y_wf, self.vel_z_wf, self.yaw_rate = pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate
