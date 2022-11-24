@@ -937,7 +937,7 @@ class CogniflyController:
         else:
             return self._read_estimate(board)
 
-    def _update_pose(self, board, screen, retrieve_all):
+    def _update_pose(self, board, screen, retrieve_all, force_retrieve=False):
         """
         This method handles pose retrieval and sensor faking.
 
@@ -981,7 +981,7 @@ class CogniflyController:
             write_barometer = True  # and to loop it back the barometer in order to make inav happy
 
         # read from fc and replace whatever we need to replace for writing:
-        if read_pos_z_wf or (retrieve_all and self._failure_custom) or True:  # FIXME: remove True
+        if force_retrieve or read_pos_z_wf or (retrieve_all and self._failure_custom):
             r_pos_x_wf, r_pos_y_wf, r_pos_z_wf, r_yaw, r_vel_x_wf, r_vel_y_wf, r_vel_z_wf, r_yaw_rate = self._read_estimate(board, screen)
             if read_pos_z_wf:
                 pos_z_wf = r_pos_z_wf
@@ -1390,7 +1390,7 @@ class CogniflyController:
                     if override:  # in free flight mode, no need to retrieve all pose attributes
                         self._update_pose(board=board, screen=screen, retrieve_all=False)
                     else:  # otherwise, we need to retrieve them all for _flight()
-                        self._update_pose(board=board, screen=screen, retrieve_all=True)
+                        self._update_pose(board=board, screen=screen, retrieve_all=True, force_retrieve=True)  # FIXME: remove force retrieve
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
