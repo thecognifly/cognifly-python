@@ -175,13 +175,15 @@ class PS4GamepadManager:
             emergency: whether to trigger the emergency behavior
             valid: whether the modified commands should be used to override UDP commands
         """
+        disarm = False
+        arm = False
         connected, axis_states, button_states = self.gamepad.get()
         if not connected:
             if self.connected:
                 # gamepad has been disconnected, trigger emergency behavior
                 self.connected = False
-                return CMDS, flight_command, True, True  # trigger emergency
-            return CMDS, flight_command, False, False  # not connected
+                return CMDS, flight_command, True, True, arm, disarm  # trigger emergency
+            return CMDS, flight_command, False, False, arm, disarm  # not connected
         else:  # connected
             if not self.connected or self.ts is None:  # connection
                 self.ts = time.time()
@@ -211,8 +213,6 @@ class PS4GamepadManager:
             override = False
             now = time.time()
 
-            disarm = False
-            arm = False
             if tl == tr == 1:
                 arm = True
             elif ba == 1:
