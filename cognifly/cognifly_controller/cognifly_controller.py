@@ -886,7 +886,7 @@ class CogniflyController:
         res = self.filter_w_z.update_estimate(res)
         return res
 
-    def _read_estimate(self, board):
+    def _read_estimate(self, board, screen=None):
         """
         Reads estimates from board
         """
@@ -917,6 +917,12 @@ class CogniflyController:
             est_z_valid = bool(flags & (1 << 6))
 
             yaw_rate = self._compute_yaw_rate(yaw)
+
+            if screen is not None and self.print_screen:
+                try_addstr(screen, 28, 0, f"FC internal estimates:")
+                try_addstr(screen, 29, 0, f"pos: [{pos_x_wf: .5f},{pos_y_wf: .5f},{pos_z_wf: .5f}] m, yaw: {yaw} rad")
+                try_addstr(screen, 30, 0, f"vel: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s, w: {yaw_rate} rad/s")
+                try_addstr(screen, 31, 0, f"nav_epv: {nav_epv}, nav_eph: {nav_eph}, flags: {bin(flags)}")
 
         except Exception as e:
             return None, None, None, None, None, None, None, None
@@ -975,7 +981,7 @@ class CogniflyController:
 
         # read from fc and replace whatever we need to replace for writing:
         if read_pos_z_wf or (retrieve_all and self._failure_custom):
-            r_pos_x_wf, r_pos_y_wf, r_pos_z_wf, r_yaw, r_vel_x_wf, r_vel_y_wf, r_vel_z_wf, r_yaw_rate = self._read_estimate(board)
+            r_pos_x_wf, r_pos_y_wf, r_pos_z_wf, r_yaw, r_vel_x_wf, r_vel_y_wf, r_vel_z_wf, r_yaw_rate = self._read_estimate(board, screen)
             if read_pos_z_wf:
                 pos_z_wf = r_pos_z_wf
 
