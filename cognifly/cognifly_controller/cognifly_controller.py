@@ -6,6 +6,7 @@ TO USE THIS SCRIPT, COGNIFLY MUST BE IN EST_POS DEBUG MODE
 Copyright (C) 2021 Yann Bouteiller, Ricardo de Azambuja
 """
 import datetime
+import random
 import struct
 import time
 import curses
@@ -446,6 +447,8 @@ def set_rangefinder(board, distance_mm, quality=250):
 
 
 def set_rangefinder_from_altitude(board, altitude):
+    jitter = random.randint(a=0, b=2)
+    altitude += 0.04 + 0.01 * jitter
     distance_mm = max(altitude * 1000, 0)
     set_rangefinder(board, distance_mm)
 
