@@ -435,7 +435,7 @@ def set_barometer_from_altitude(board, altitude, t_start):
     set_barometer(board, pressure_pa, temp, t_start)
 
 
-def set_rangefinder(board, distance_mm, quality=1):
+def set_rangefinder(board, distance_mm, quality=128):
     msp2_range_format = '<Bi'  # https://docs.python.org/3/library/struct.html#format-characters
     range_data = {
         'quality': quality,  # uint8 - [0;255]
