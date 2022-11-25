@@ -425,7 +425,7 @@ def set_barometer(board, pressurePa, temp, t_start):
         'instance': 3,  # uint8 -  sensor instance number to support multi-sensor setups
         'timeMs': round((time.time() - t_start) * 1000),  # uint32
         'pressurePa': pressurePa,  # float
-        'temp': round(temp),  # int16_t centi-degrees C
+        'temp': round(temp)  # int16_t centi-degrees C
     }
     data = struct.pack(msp2_baro_format, *barometer_data.values())
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_BAROMETER'], data=data, flush=False)
@@ -441,7 +441,7 @@ def set_rangefinder(board, distance_mm, quality=250):
     msp2_range_format = '<Bi'  # https://docs.python.org/3/library/struct.html#format-characters
     range_data = {
         'quality': quality,  # uint8 - [0;255]
-        'distanceMm': round(distance_mm),  # int32_t - Negative value for out of range
+        'distanceMm': round(distance_mm)  # int32_t - Negative value for out of range
     }
     data = struct.pack(msp2_range_format, *range_data.values())
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_RANGEFINDER'], data=data, flush=False)
@@ -452,6 +452,23 @@ def set_rangefinder_from_altitude(board, altitude):
     altitude += 0.04 + 0.01 * jitter
     distance_mm = max(altitude * 1000, 0)
     set_rangefinder(board, distance_mm)
+
+
+def set_optflow(board, motion_x, motion_y, quality=250):
+    msp2_flow_format = '<Bii'  # https://docs.python.org/3/library/struct.html#format-characters
+    flow_data = {
+        'quality': quality,  # uint8 - [0;255]
+        'motionX': round(motion_x),  # int32
+        'motionY': round(motion_y)  # int32
+    }
+    data = struct.pack(msp2_flow_format, *flow_data.values())
+    board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_OPTIC_FLOW'], data=data, flush=False)
+
+
+def set_optflow_from_velocities(board, yaw, vx_wf, vy_wf):
+    vx_wf = np.cos(yaw) * vx_wf + np.sin(yaw) * vy_wf
+    vy_wf = np.cos(yaw) * vy_wf - np.sin(yaw) * vx_wf
+    set_optflow(board, vx_wf, vy_wf)
 
 
 class CogniflyController:
@@ -483,7 +500,8 @@ class CogniflyController:
                  custom_gps=True,
                  custom_compass=True,
                  custom_barometer=True,
-                 custom_rangefinder=False):
+                 custom_rangefinder=True,
+                 custom_optflow=True):
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -505,11 +523,13 @@ class CogniflyController:
             self.custom_compass = False
             self.custom_barometer = False
             self.custom_rangefinder = False
+            self.custom_optflow = False
         else:
             self.custom_gps = custom_gps
             self.custom_compass = custom_compass
             self.custom_barometer = custom_barometer
             self.custom_rangefinder = custom_rangefinder
+            self.custom_optflow = custom_optflow
         self.board = None
         self.network = network
         self.drone_hostname = drone_hostname
@@ -972,7 +992,7 @@ class CogniflyController:
         self._failure_custom is also updated for _flight() to recover in case the custom estimator fails.
         """
         read_pos_z_wf = False
-        write_barometer, write_rangefinder, write_compass, write_gps = False, False, False, False
+        write_barometer, write_rangefinder, write_compass, write_gps, write_optflow = False, False, False, False, False
 
         pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = None, None, None, None, None, None, None, None
         r_pos_x_wf, r_pos_y_wf, r_pos_z_wf, r_yaw, r_vel_x_wf, r_vel_y_wf, r_vel_z_wf, r_yaw_rate = None, None, None, None, None, None, None, None
@@ -1001,10 +1021,13 @@ class CogniflyController:
                 write_compass = True
 
             # check whether the custom gps input is valid:
-            self.valid_input_gps = None not in (pos_x_wf, pos_y_wf, pos_z_wf)
+            self.valid_input_gps = None not in (pos_x_wf, pos_y_wf, pos_z_wf, vel_x_wf, vel_y_wf, vel_z_wf)
             # if we use a fake gps and the estimate is OK, send it to the FC, otherwise do nothing
-            if self.custom_gps and self.valid_input_gps:
-                write_gps = True
+            if self.valid_input_gps:
+                if self.custom_gps:
+                    write_gps = True
+                if self.custom_optflow:
+                    write_optflow = True
         else:  # if there is no custom estimator
             read_pos_z_wf = True  # we need to read Z from the FC
             write_barometer = True  # and to loop it back the barometer in order to make inav happy
@@ -1042,6 +1065,8 @@ class CogniflyController:
             set_compass_from_yaw(board=board, yaw=yaw, t_start=self._t_start)
         if write_gps:
             set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf, vx=vel_x_wf, vy=vel_y_wf, vz=vel_z_wf)
+        if write_optflow:
+            set_optflow_from_velocities(board=board, yaw=yaw, vx_wf=vel_x_wf, vy_wf=vel_y_wf)
 
         # update pose attributes:
         self.pos_x_wf, self.pos_y_wf, self.pos_z_wf, self.yaw, self.vel_x_wf, self.vel_y_wf, self.vel_z_wf, self.yaw_rate = pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate
