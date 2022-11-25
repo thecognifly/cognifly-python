@@ -430,6 +430,7 @@ def set_barometer(board, pressurePa, temp, t_start):
 
 
 def set_barometer_from_altitude(board, altitude, t_start):
+    altitude = max(0.03, altitude)
     temp = 2500  # centi-degrees C
     pressure_pa = ((1.0 - (altitude / 44330.0)) ** 5.254999) * 101325.0
     set_barometer(board, pressure_pa, temp, t_start)
@@ -446,6 +447,7 @@ def set_rangefinder(board, distance_mm, quality=255):
 
 
 def set_rangefinder_from_altitude(board, altitude):
+    altitude = max(0.03, altitude)
     distance_mm = max(altitude * 1000, 0)
     set_rangefinder(board, distance_mm)
 
