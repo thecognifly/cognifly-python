@@ -479,7 +479,7 @@ class CogniflyController:
                  custom_gps=True,
                  custom_compass=True,
                  custom_barometer=True,
-                 custom_rangefinder=True):
+                 custom_rangefinder=False):
         """
         Custom controller and udp interface for Cognifly
         Args:
