@@ -481,7 +481,7 @@ class CogniflyController:
                  z_vel_gain=0.2,
                  w_gain=0.5,
                  custom_gps=True,
-                 custom_compass=False,
+                 custom_compass=True,
                  custom_barometer=True,
                  custom_rangefinder=False):
         """
