@@ -496,11 +496,11 @@ class CogniflyController:
                  y_vel_gain=0.5,
                  z_vel_gain=0.2,
                  w_gain=0.5,
-                 custom_gps=True,
-                 custom_compass=True,
+                 custom_gps=False,
+                 custom_compass=False,
                  custom_barometer=True,
-                 custom_rangefinder=False,
-                 custom_optflow=False):
+                 custom_rangefinder=True,
+                 custom_optflow=True):
         """
         Custom controller and udp interface for Cognifly
         Args:
