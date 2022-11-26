@@ -496,8 +496,8 @@ class CogniflyController:
                  y_vel_gain=0.5,
                  z_vel_gain=0.2,
                  w_gain=0.5,
-                 custom_gps=False,
-                 custom_compass=False,
+                 custom_gps=True,
+                 custom_compass=True,
                  custom_barometer=True,
                  custom_rangefinder=True,
                  custom_optflow=True):
@@ -1445,7 +1445,7 @@ class CogniflyController:
                     if override:  # in free flight mode, no need to retrieve all pose attributes
                         self._update_pose(board=board, screen=screen, retrieve_all=False)
                     else:  # otherwise, we need to retrieve them all for _flight()
-                        self._update_pose(board=board, screen=screen, retrieve_all=True, force_retrieve=True)  # FIXME: remove force retrieve
+                        self._update_pose(board=board, screen=screen, retrieve_all=True, force_retrieve=False)
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
