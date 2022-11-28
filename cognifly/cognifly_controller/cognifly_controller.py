@@ -388,6 +388,7 @@ def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
     """
     latitude = x / 111000.0
     longitude = y / 111000.0
+    z = max(z, 0.05)
     mslAltitude = z * 100.0
     nedVelNorth = vx * 100.0
     nedVelEast = vy * 100.0
