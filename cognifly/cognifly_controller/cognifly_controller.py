@@ -743,9 +743,8 @@ class CogniflyController:
 
     def _send_cmds(self, board):
         if board.send_RAW_RC([int(self.CMDS[ki]) for ki in self.CMDS_ORDER]):
-            pass
-            # data_handler = board.receive_msg()
-            # board.process_recv_data(data_handler)
+            data_handler = board.receive_msg()
+            board.process_recv_data(data_handler)
 
     def _start_arming(self, board):
         if not self._armed and not self._arming:
@@ -1351,7 +1350,7 @@ class CogniflyController:
             if self.print_screen:
                 try_addstr(screen, 15, 0, "Connecting to the FC...")
 
-            with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200, timeout=0, min_time_between_writes=1/100) as board:
+            with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200, timeout=0, min_time_between_writes=0) as board:
                 if board == 1:  # an error occurred...
                     return 1
                 else:
