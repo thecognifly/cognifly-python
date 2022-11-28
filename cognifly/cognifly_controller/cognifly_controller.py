@@ -743,8 +743,9 @@ class CogniflyController:
 
     def _send_cmds(self, board):
         if board.send_RAW_RC([int(self.CMDS[ki]) for ki in self.CMDS_ORDER]):
-            data_handler = board.receive_msg()
-            board.process_recv_data(data_handler)
+            pass
+            # data_handler = board.receive_msg()
+            # board.process_recv_data(data_handler)
 
     def _start_arming(self, board):
         if not self._armed and not self._arming:
