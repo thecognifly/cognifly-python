@@ -63,7 +63,7 @@ MIN_CMD_V_Z = -1000
 MIN_CMD_YAW = 1250
 MAX_CMD_ROLL = 1750
 MAX_CMD_PITCH = 1750
-MAX_CMD_THROTTLE = 1800
+MAX_CMD_THROTTLE = 2000
 MAX_CMD_YAW = 1750
 MAX_CMD_V_Z = 1000
 
@@ -447,13 +447,13 @@ def set_rangefinder(board, distance_mm, quality=250):
 
 
 def set_rangefinder_from_altitude(board, altitude):
-    jitter = random.randint(a=0, b=2)
-    altitude += 0.04 + 0.01 * jitter
+    # jitter = random.randint(a=0, b=2)
+    # altitude += 0.04 + 0.01 * jitter
     distance_mm = max(altitude * 1000, 0)
     set_rangefinder(board, distance_mm)
 
 
-def set_optflow(board, motion_x, motion_y, quality=250):
+def set_optflow(board, motion_x, motion_y, quality=5):
     msp2_flow_format = '<Bii'  # https://docs.python.org/3/library/struct.html#format-characters
     flow_data = {
         'quality': quality,  # uint8 - [0;255]
