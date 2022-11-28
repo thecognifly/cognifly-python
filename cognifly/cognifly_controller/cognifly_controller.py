@@ -1693,7 +1693,7 @@ class CogniflyController:
                     if profile:
                         if time.time() >= stop_profiling_time:
                             pro.stop()
-                            return pro.output_text()
+                            return pro.output_text(show_all=True)
 
         finally:
             self.board = None
