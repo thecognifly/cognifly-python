@@ -448,8 +448,8 @@ def set_rangefinder(board, distance_mm, quality=250):
 
 def set_rangefinder_from_altitude(board, altitude):
     # jitter = random.randint(a=0, b=2)
-    # altitude += 0.04 + 0.01 * jitter
-    distance_mm = max(altitude * 1000, 0)
+    altitude = max(altitude, 0.0) + 0.05  # + 0.01 * jitter
+    distance_mm = altitude * 1000
     set_rangefinder(board, distance_mm)
 
 
