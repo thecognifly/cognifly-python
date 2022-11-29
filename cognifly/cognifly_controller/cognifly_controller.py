@@ -982,7 +982,7 @@ class CogniflyController:
         else:
             return self._read_estimate(board)
 
-    def _update_pose(self, board, screen, retrieve_all, force_retrieve=False):
+    def _update_pose(self, board, screen, retrieve_all, force_retrieve=True):  # FIXME remove True
         """
         This method handles pose retrieval and sensor faking.
 
