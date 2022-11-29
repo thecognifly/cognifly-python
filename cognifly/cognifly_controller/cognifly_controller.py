@@ -982,7 +982,7 @@ class CogniflyController:
         else:
             return self._read_estimate(board)
 
-    def _update_pose(self, board, screen, retrieve_all, force_retrieve=True):  # FIXME remove True
+    def _update_pose(self, board, screen, retrieve_all, force_retrieve=False):
         """
         This method handles pose retrieval and sensor faking.
 
@@ -1446,7 +1446,7 @@ class CogniflyController:
                     if override:  # in free flight mode, no need to retrieve all pose attributes
                         self._update_pose(board=board, screen=screen, retrieve_all=False)
                     else:  # otherwise, we need to retrieve them all for _flight()
-                        self._update_pose(board=board, screen=screen, retrieve_all=True, force_retrieve=False)
+                        self._update_pose(board=board, screen=screen, retrieve_all=True, force_retrieve=True)  # FIXME
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
