@@ -88,7 +88,7 @@ ARMED = 1800
 DISARMED = 1000
 ANGLE_MODE = 1000
 NAV_ALTHOLD_MODE = 1500
-NAV_POSHOLD_MODE = 1000 # FIXME 1800
+NAV_POSHOLD_MODE = 1800
 
 DEFAULT_AUX1 = DISARMED  # DISARMED (1000) / ARMED (1800)
 DEFAULT_AUX2 = ANGLE_MODE  # Angle (1000) / NAV_ALTHOLD (1500) / NAV_POSHOLD (1800)
@@ -1446,7 +1446,7 @@ class CogniflyController:
                     if override:  # in free flight mode, no need to retrieve all pose attributes
                         self._update_pose(board=board, screen=screen, retrieve_all=False)
                     else:  # otherwise, we need to retrieve them all for _flight()
-                        self._update_pose(board=board, screen=screen, retrieve_all=True, force_retrieve=True)  # FIXME
+                        self._update_pose(board=board, screen=screen, retrieve_all=True, force_retrieve=False)
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
