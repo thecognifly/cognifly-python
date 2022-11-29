@@ -501,7 +501,7 @@ class CogniflyController:
                  custom_compass=True,
                  custom_barometer=True,
                  custom_rangefinder=True,
-                 custom_optflow=False):
+                 custom_optflow=True):
         """
         Custom controller and udp interface for Cognifly
         Args:
