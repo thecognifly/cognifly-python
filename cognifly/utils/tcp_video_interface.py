@@ -167,6 +167,8 @@ class TCPVideoInterface(object):
             if resolution != 'VGA':
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
+
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
             ret, f = cap.read()
 
             while record:
