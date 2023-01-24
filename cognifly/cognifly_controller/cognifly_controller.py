@@ -480,6 +480,7 @@ class CogniflyController:
                  obs_loop_time=0.1,
                  trace_logs=False,
                  pose_estimator=None,
+                 use_local_coordinates=True,
                  pid_limit=500,
                  vel_x_kp=750.0,
                  vel_x_ki=400.0,
@@ -513,11 +514,13 @@ class CogniflyController:
                 if False, only the key presses will be read repeatedly using curses
             obs_loop_time: float (optional):
                 if None, an observation is sent by UDP as answer each time a UDP command is received
-                else, an observation is sent bu UDP every obs_loop_time seconds
+                else, an observation is sent via UDP every obs_loop_time seconds
             trace_logs: bool (optional): if True, flight telemetry will be printed in a CSV-like log file
             pose_estimator: cognifly.cognifly_controller.cognifly_controller.PoseEstimator: custom pose estimator
+            use_local_coordinates: bool (optional): whether to use the local or global coordinate reference
         """
         self.pose_estimator = pose_estimator
+        self.use_local_coordinates = use_local_coordinates
         if self.pose_estimator is None:
             self.custom_gps = False
             self.custom_compass = False
@@ -1106,7 +1109,7 @@ class CogniflyController:
         old_yaw = yaw
 
         if self._flight_origin is None:  # new basis at reset
-            self._flight_origin = (pos_x_wf, pos_y_wf, yaw)
+            self._flight_origin = (pos_x_wf, pos_y_wf, yaw) if self.use_local_coordinates else (0, 0, 0)
         else:
             # change of basis
             # NB: this is only to avoid rebooting the board at reset
