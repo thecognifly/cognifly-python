@@ -409,11 +409,11 @@ def set_compass(board, magX, magY, magZ, t_start):
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data, flush=False)
 
 
-def set_compass_from_yaw(board, yaw, t_start):
+def set_compass_from_yaw(board, yaw, t_start, yaw_offset=np.pi/2):
     """
     Caution: yaw is computed with z pointing down
     """
-    c_yaw = smallest_angle_diff_rad(yaw + np.pi / 2, 0.0)
+    c_yaw = smallest_angle_diff_rad(yaw + yaw_offset, 0.0)
     x = np.cos(c_yaw) * 32767
     y = np.sin(c_yaw) * 32767
     set_compass(board, x, y, 0, t_start)
@@ -502,7 +502,8 @@ class CogniflyController:
                  custom_compass=True,
                  custom_barometer=True,
                  custom_rangefinder=True,
-                 custom_optflow=False):
+                 custom_optflow=False,
+                 compass_offset=np.pi/2.0):
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -533,6 +534,7 @@ class CogniflyController:
             self.custom_barometer = custom_barometer
             self.custom_rangefinder = custom_rangefinder
             self.custom_optflow = custom_optflow
+        self.custom_compass = compass_offset
         self.board = None
         self.network = network
         self.drone_hostname = drone_hostname
@@ -1065,7 +1067,7 @@ class CogniflyController:
         if write_rangefinder:
             set_rangefinder_from_altitude(board=board, altitude=pos_z_wf)
         if write_compass:
-            set_compass_from_yaw(board=board, yaw=yaw, t_start=self._t_start)
+            set_compass_from_yaw(board=board, yaw=yaw, t_start=self._t_start, yaw_offset=self.compass_offset)
         if write_gps:
             set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf, vx=vel_x_wf, vy=vel_y_wf, vz=vel_z_wf)
         if write_optflow:
