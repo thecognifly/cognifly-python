@@ -9,7 +9,6 @@ from threading import Thread, Lock, Condition
 from copy import deepcopy
 import numpy as np
 import traceback
-import cv2
 import pickle as pkl
 
 from cognifly.utils.ip_tools import get_free_port
@@ -129,6 +128,7 @@ class TCPVideoInterface(object):
     #             self.__record = False
 
     def __streaming_thread(self, ip, port, wait_duration, resolution, fps, compress_format, compress_quality):
+        import cv2
         camera_error = False
         connection = None
         client_socket = None
@@ -362,6 +362,8 @@ class TCPVideoInterface(object):
             im: OpenCV image: None when the current identifier is not > inf_image_i
             im_i: int: identifier
         """
+        import cv2
+
         with self.__lock:
             im_i = self.__image_i
             data = deepcopy(self.__image) if im_i > min_image_i else None
