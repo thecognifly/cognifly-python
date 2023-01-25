@@ -974,7 +974,7 @@ class CogniflyController:
                 try_addstr(screen, 31, 0, f"nav_epv: {nav_epv}, nav_eph: {nav_eph}, flags: {bin(flags)}")
 
         except Exception as e:
-            raise e  # FIXME
+            print(f"DEBUG EXCEPTION {e}")  # FIXME
             return None, None, None, None, None, None, None, None
 
         return pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate
@@ -982,7 +982,7 @@ class CogniflyController:
     def _read_board(self):
         board = self.board
         if board is None:
-            raise RuntimeError("No board")  # FIXME
+            print("DEBUG No board")  # FIXME
             return None, None, None, None, None, None, None, None
         else:
             return self._read_estimate(board)
