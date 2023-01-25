@@ -982,6 +982,7 @@ class CogniflyController:
     def _read_board(self):
         board = self.board
         if board is None:
+            raise RuntimeError("No board")  # FIXME
             return None, None, None, None, None, None, None, None
         else:
             return self._read_estimate(board)
