@@ -337,7 +337,6 @@ class PoseEstimator(ABC):
         This method is redefined when run_curses() is executed in the CogniflyController object
         Until then, it returns None for all estimates
         """
-        print(f"DEBUG: not implemented") # FIXME
         return None, None, None, None, None, None, None, None
 
 
