@@ -534,7 +534,7 @@ class CogniflyController:
             self.custom_barometer = custom_barometer
             self.custom_rangefinder = custom_rangefinder
             self.custom_optflow = custom_optflow
-        self.custom_compass = compass_offset
+        self.compass_offset = compass_offset
         self.board = None
         self.network = network
         self.drone_hostname = drone_hostname
