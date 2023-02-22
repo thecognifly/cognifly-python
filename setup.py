@@ -32,15 +32,15 @@ with open("README.md", "r") as fh:
 
 deps = ['numpy', 'Pillow', 'psutil']
 if is_raspberrypi():  # drone
-    deps.append(['picamera', 'yamspy', 'opencv-python'])
+    deps.append(['picamera', 'yamspy==0.3.3', 'opencv-python'])
 elif is_coral():  # drone
-    deps.append(['yamspy', 'opencv-python'])
+    deps.append(['yamspy==0.3.3', 'opencv-python'])
 else:  # remote
     deps.append(['opencv-contrib-python', 'pysimplegui'])
 
 setup(name='cognifly',
       packages=[package for package in find_packages()],
-      version='0.3.1',
+      version='0.3.2',
       license='MIT',
       description='Control the CogniFly open-source drone from python',
       long_description=long_description,
