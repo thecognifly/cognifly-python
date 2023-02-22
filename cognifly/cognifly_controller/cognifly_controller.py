@@ -503,6 +503,7 @@ class CogniflyController:
                  custom_barometer=False,
                  custom_rangefinder=False,
                  custom_optflow=False,
+                 no_barometer=True,
                  compass_offset=np.pi/2.0):
         """
         Custom controller and udp interface for Cognifly
@@ -534,6 +535,7 @@ class CogniflyController:
             self.custom_barometer = custom_barometer
             self.custom_rangefinder = custom_rangefinder
             self.custom_optflow = custom_optflow
+        self.no_barometer = no_barometer
         self.compass_offset = compass_offset
         self.board = None
         self.network = network
@@ -1013,11 +1015,12 @@ class CogniflyController:
                 write_barometer = True  # we will need to send our estimate to the FC
                 if not self.valid_input_altitude:
                     # if our current estimate is wrong, we need to loopback the barometer estimate from the FC
-                    read_pos_z_wf = True
+                    read_pos_z_wf = True  # FIXME: sensor loopback
+
             if self.custom_rangefinder:
                 write_rangefinder = True
                 if not self.valid_input_altitude:
-                    read_pos_z_wf = True
+                    read_pos_z_wf = True  # FIXME: sensor loopback
 
             # check whether the custom compass input is valid:
             self.valid_input_compass = yaw is not None
@@ -1033,9 +1036,6 @@ class CogniflyController:
                     write_gps = True
                 if self.custom_optflow:
                     write_optflow = True
-        else:  # if there is no custom estimator
-            read_pos_z_wf = True  # we need to read Z from the FC
-            write_barometer = True  # and to loop it back the barometer in order to make inav happy
 
         # read from fc and replace whatever we need to replace for writing:
         if force_retrieve or read_pos_z_wf or (retrieve_all and self._failure_custom):
@@ -1064,6 +1064,8 @@ class CogniflyController:
         # fake the sensors we need to fake:
         if write_barometer:
             set_barometer_from_altitude(board=board, altitude=pos_z_wf, t_start=self._t_start)
+        elif self.no_barometer:
+            set_barometer_from_altitude(board=board, altitude=0.05, t_start=self._t_start)  # Fake constant barometer
         if write_rangefinder:
             set_rangefinder_from_altitude(board=board, altitude=pos_z_wf)
         if write_compass:
