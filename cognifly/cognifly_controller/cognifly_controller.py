@@ -989,7 +989,7 @@ class CogniflyController:
         else:
             return self._read_estimate(board)
 
-    def _update_pose(self, board, screen, retrieve_all, force_retrieve=False):
+    def _update_pose(self, board, screen, retrieve_all):
         """
         This method handles pose retrieval and sensor faking.
 
@@ -999,6 +999,7 @@ class CogniflyController:
         self._failure_custom is also updated for _flight() to recover in case the custom estimator fails.
         """
         read_pos_z_wf = False
+        force_retrieve = False
         write_barometer, write_rangefinder, write_compass, write_gps, write_optflow = False, False, False, False, False
 
         pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = None, None, None, None, None, None, None, None
@@ -1036,6 +1037,8 @@ class CogniflyController:
                     write_gps = True
                 if self.custom_optflow:
                     write_optflow = True
+        elif retrieve_all:
+            force_retrieve = True
 
         # read from fc and replace whatever we need to replace for writing:
         if force_retrieve or read_pos_z_wf or (retrieve_all and self._failure_custom):
@@ -1453,7 +1456,7 @@ class CogniflyController:
                     if override:  # in free flight mode, no need to retrieve all pose attributes
                         self._update_pose(board=board, screen=screen, retrieve_all=False)
                     else:  # otherwise, we need to retrieve them all for _flight()
-                        self._update_pose(board=board, screen=screen, retrieve_all=True, force_retrieve=False)
+                        self._update_pose(board=board, screen=screen, retrieve_all=True)
 
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
