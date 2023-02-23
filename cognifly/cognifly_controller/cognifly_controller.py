@@ -488,8 +488,8 @@ class CogniflyController:
                  vel_y_kp=750.0,
                  vel_y_ki=400.0,
                  vel_y_kd=50.0,
-                 vel_z_kp=50.0,
-                 vel_z_ki=20.0,
+                 vel_z_kp=75.0,  # 50
+                 vel_z_ki=10.0,  # 20
                  vel_z_kd=0.0,  # 5.0
                  vel_w_kp=400.0,
                  vel_w_ki=200.0,
