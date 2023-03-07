@@ -60,8 +60,8 @@ LAND = 900
 PH_TAKEOFF = 1550
 PH_HOVER = 1500
 PH_LAND = 1450
-PH_MAX_Z_CMD = 100
-PH_MIN_Z_CMD = -100
+PH_MAX_Z_CMD = 50
+PH_MIN_Z_CMD = -50
 
 MIN_CMD_ROLL = 1250
 MIN_CMD_PITCH = 1250
@@ -240,14 +240,14 @@ class PS4GamepadManager:
                 override = True
 
             if haty == -1:
-                CMDS['throttle'] = TAKEOFF
+                CMDS['throttle'] = TAKEOFF if CONTROL_MODE == SURFACE_MODE else PH_HOVER
                 if self.mode == 2:
                     flight_command = ['PDF', 0.0, 0.0, None, None, 0.1, 0.0, time.time() + 1000000.0]
                     self.hover = True
                 else:
                     flight_command = None
             elif haty == 1:
-                CMDS['throttle'] = LAND
+                CMDS['throttle'] = LAND if CONTROL_MODE == SURFACE_MODE else DEFAULT_THROTTLE
                 self.z_wait_until = now + 2.0
                 flight_command = None
 
@@ -266,10 +266,12 @@ class PS4GamepadManager:
                         CMDS['throttle'] += vz * (ts - self.ts)
                         self.ts = ts
                     else:
-                        vz = PH_HOVER
-                        vz += trigger_to_positive_z_poshold(az, deadband=self.deadband)
-                        vz += trigger_to_negative_z_poshold(arz, deadband=self.deadband)
-                        CMDS['throttle'] = vz
+                        # POSHOLD MODE
+                        if CMDS['throttle'] != DEFAULT_THROTTLE:  # only after "takeoff"
+                            vz = PH_HOVER
+                            vz += trigger_to_positive_z_poshold(az, deadband=self.deadband)
+                            vz += trigger_to_negative_z_poshold(arz, deadband=self.deadband)
+                            CMDS['throttle'] = vz
                     flight_command = None
                 elif self.mode == 2:  # override flight command
                     vx = joystick_to_cmd(- ay, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
