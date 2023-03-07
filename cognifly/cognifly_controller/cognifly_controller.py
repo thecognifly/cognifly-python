@@ -94,7 +94,6 @@ KEY_LAND = LAND
 ARMED = 1800
 DISARMED = 1000
 ANGLE_MODE = 1000
-NAV_ALTHOLD_MODE = 1500
 NAV_POSHOLD_MODE = 1800
 
 DEFAULT_AUX1 = DISARMED  # DISARMED (1000) / ARMED (1800)
@@ -117,9 +116,8 @@ BATT_TOO_LOW = 3
 EPSILON_DIST_TO_TARGET = 0.05  # (m)
 EPSILON_ANGLE_TO_TARGET = 1 * np.pi / 180.0  # (rad)
 
-SURFACE_MODE = 0
-POSHOLD_MODE = 1
-CONTROL_MODE = POSHOLD_MODE
+SURFACE_CTRL = 0
+POSHOLD_CTRL = 1
 
 
 def hover_command():
@@ -176,8 +174,9 @@ def trigger_to_negative_z_poshold(value, deadband=0.05):
 
 
 class PS4GamepadManager:
-    def __init__(self):
-        self.deadband = 0.05
+    def __init__(self, control_mode, deadband=0.05):
+        self.control_mode = control_mode
+        self.deadband = deadband
         self.gamepad = PS4Gamepad()
         self.connected, _, _ = self.gamepad.get()
         self.vz = 0
@@ -242,7 +241,7 @@ class PS4GamepadManager:
             override_z = False
             if haty == -1:
                 override_z = True
-                CMDS['throttle'] = TAKEOFF if CONTROL_MODE == SURFACE_MODE else PH_TAKEOFF
+                CMDS['throttle'] = TAKEOFF if self.control_mode == SURFACE_CTRL else PH_TAKEOFF
                 if self.mode == 2:
                     flight_command = ['PDF', 0.0, 0.0, None, None, 0.1, 0.0, time.time() + 1000000.0]
                     self.hover = True
@@ -250,7 +249,7 @@ class PS4GamepadManager:
                     flight_command = None
             elif haty == 1:
                 override_z = True
-                CMDS['throttle'] = LAND if CONTROL_MODE == SURFACE_MODE else PH_LAND
+                CMDS['throttle'] = LAND if self.control_mode == SURFACE_CTRL else PH_LAND
                 self.z_wait_until = now + 2.0
                 flight_command = None
 
@@ -261,7 +260,7 @@ class PS4GamepadManager:
                     CMDS['pitch'] = joystick_to_pitch(- ay, deadband=self.deadband)
                     CMDS['roll'] = joystick_to_roll(ax, deadband=self.deadband)
                     CMDS['yaw'] = joystick_to_yaw(arx, deadband=self.deadband)
-                    if CONTROL_MODE == SURFACE_MODE:
+                    if self.control_mode == SURFACE_CTRL:
                         vz = 0
                         vz += trigger_to_positive_vz(az, deadband=self.deadband)
                         vz += trigger_to_negative_vz(arz, deadband=self.deadband)
@@ -535,7 +534,8 @@ class CogniflyController:
                  custom_rangefinder=False,
                  custom_optflow=False,
                  no_barometer=True,
-                 compass_offset=np.pi/2.0):
+                 compass_offset=np.pi/2.0,
+                 control_mode=POSHOLD_CTRL):
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -552,6 +552,7 @@ class CogniflyController:
             pose_estimator: cognifly.cognifly_controller.cognifly_controller.PoseEstimator: custom pose estimator
             use_local_coordinates: bool (optional): whether to use the local or global coordinate reference
         """
+        self.control_mode = control_mode
         self.pose_estimator = pose_estimator
         self.use_local_coordinates = use_local_coordinates
         if self.pose_estimator is None:
@@ -586,7 +587,6 @@ class CogniflyController:
         if self.network:
             self._t_connect = Thread(target=self._try_connect_thread, args=(drone_hostname, drone_port), daemon=True)
             self._t_connect.start()
-            # self.drone_hostname, self.drone_ip, self.drone_port, self.udp_int, self.tcp_video_int = try_connect(drone_hostname, drone_port)
         self.sender_initialized = False  # sender is initialized only when a reset message is received
         self.print_screen = print_screen
         self.obs_loop_time = obs_loop_time
@@ -685,7 +685,7 @@ class CogniflyController:
 
         # PS4 controller:
 
-        self.gamepad_manager = PS4GamepadManager()
+        self.gamepad_manager = PS4GamepadManager(control_mode=self.control_mode)
 
         # Flight:
 
@@ -846,16 +846,24 @@ class CogniflyController:
                 elif command[2][0] == "ARM":
                     self._start_arming(board)
                 elif command[2][0] == "TAKEOFF":
-                    alt = command[2][1] if command[2][1] is not None else TAKEOFF
-                    track_xy = command[2][2]
-                    max_duration = command[2][3]
-                    max_velocity = command[2][4]
-                    self.CMDS["throttle"] = alt  # TODO: replace by true altitude (now a throttle value)
-                    self.CMDS["aux2"] = NAV_POSHOLD_MODE
-                    if track_xy:
-                        self.current_flight_command = ["PDF", 0.0, 0.0, None, None, max_velocity, 0.0, time.time() + max_duration]
-                    else:
-                        self.current_flight_command = None
+                    if self.control_mode == SURFACE_CTRL:
+                        alt = command[2][1] if command[2][1] is not None else TAKEOFF
+                        track_xy = command[2][2]
+                        max_duration = command[2][3]
+                        max_velocity = command[2][4]
+                        self.CMDS["throttle"] = alt  # TODO: replace by true altitude (now a throttle value)
+                        self.CMDS["aux2"] = NAV_POSHOLD_MODE
+                        if track_xy:
+                            self.current_flight_command = ["PDF", 0.0, 0.0, None, None, max_velocity, 0.0, time.time() + max_duration]
+                        else:
+                            self.current_flight_command = None
+                    elif self.control_mode == POSHOLD_CTRL:
+                        alt = command[2][1] if command[2][1] is not None else 0.5
+                        # track_xy = command[2][2]
+                        max_duration = command[2][3]
+                        max_velocity = command[2][4]
+                        self.CMDS["aux2"] = NAV_POSHOLD_MODE
+                        self.current_flight_command = ["PDF", 0.0, 0.0, alt, None, max_velocity, 0.0, time.time() + max_duration]
                 elif command[2][0] == "LAND":
                     self.CMDS["throttle"] = LAND
                     self.CMDS["aux2"] = NAV_POSHOLD_MODE
@@ -1320,7 +1328,10 @@ class CogniflyController:
                     w_target = self.pid_w_z(yaw_rate) if w != 0 else 0
                     self.CMDS['pitch'] = DEFAULT_PITCH + x_target
                     self.CMDS['roll'] = DEFAULT_ROLL + y_target
-                    self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
+                    if self.control_mode == SURFACE_CTRL:
+                        self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
+                    elif self.control_mode == POSHOLD_CTRL:
+                        self.CMDS['throttle'] = PH_HOVER + z_target
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
             elif self.current_flight_command[0] in ("PDF", "PDZ"):  # position command drone frame
                 # command is ["PDF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
