@@ -1262,7 +1262,10 @@ class CogniflyController:
                     w_target = self.pid_w_z(yaw_rate) if w != 0 else 0
                     self.CMDS['pitch'] = DEFAULT_PITCH + x_target
                     self.CMDS['roll'] = DEFAULT_ROLL + y_target
-                    self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
+                    if self.control_mode == SURFACE_CTRL:
+                        self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
+                    elif self.control_mode == POSHOLD_CTRL:
+                        self.CMDS['throttle'] = PH_HOVER + z_target
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
             elif self.current_flight_command[0] == "PWF":  # position command
                 # command is ["PWF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
@@ -1339,6 +1342,7 @@ class CogniflyController:
                     self.CMDS['pitch'] = DEFAULT_PITCH + x_target
                     self.CMDS['roll'] = DEFAULT_ROLL + y_target
                     if self.control_mode == SURFACE_CTRL:
+                        print(f"DEBUG: z target: {z_target}")
                         self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
                     elif self.control_mode == POSHOLD_CTRL:
                         self.CMDS['throttle'] = PH_HOVER + z_target
