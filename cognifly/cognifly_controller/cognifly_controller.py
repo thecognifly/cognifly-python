@@ -241,12 +241,21 @@ class PS4GamepadManager:
             override_z = False
             if haty == -1:
                 override_z = True
-                CMDS['throttle'] = TAKEOFF if self.control_mode == SURFACE_CTRL else PH_TAKEOFF
-                if self.mode == 2:
-                    flight_command = ['PDF', 0.0, 0.0, None, None, 0.1, 0.0, time.time() + 1000000.0]
-                    self.hover = True
-                else:
-                    flight_command = None
+                if self.control_mode == SURFACE_CTRL:
+                    CMDS['throttle'] = TAKEOFF
+                    if self.mode == 2:
+                        flight_command = ['PDF', 0.0, 0.0, None, None, 0.1, 0.0, time.time() + 1000000.0]
+                        self.hover = True
+                    else:
+                        flight_command = None
+                elif self.control_mode == POSHOLD_CTRL:
+                    if self.mode == 2:
+                        CMDS['throttle'] = PH_HOVER
+                        flight_command = ['PDF', 0.0, 0.0, 0.5, None, 0.1, 0.0, time.time() + 1000000.0]
+                        self.hover = True
+                    else:
+                        CMDS['throttle'] = PH_TAKEOFF
+                        flight_command = None
             elif haty == 1:
                 override_z = True
                 CMDS['throttle'] = LAND if self.control_mode == SURFACE_CTRL else PH_LAND
