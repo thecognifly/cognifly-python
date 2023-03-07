@@ -270,7 +270,7 @@ class PS4GamepadManager:
                         self.ts = ts
                     else:
                         # POSHOLD MODE
-                        if CMDS['throttle'] != DEFAULT_THROTTLE and not override_z:  # only after "takeoff"
+                        if not override_z:
                             vz = PH_HOVER
                             vz += trigger_to_positive_z_poshold(az, deadband=self.deadband)
                             vz += trigger_to_negative_z_poshold(arz, deadband=self.deadband)
