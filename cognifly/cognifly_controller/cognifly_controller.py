@@ -56,6 +56,13 @@ DEFAULT_YAW = 1500
 TAKEOFF = 1400
 LAND = 900
 
+# For poshold mode:
+PH_TAKEOFF = 1550
+PH_HOVER = 1500
+PH_LAND = 1450
+PH_MAX_Z_CMD = 100
+PH_MIN_Z_CMD = -100
+
 MIN_CMD_ROLL = 1250
 MIN_CMD_PITCH = 1250
 MIN_CMD_THROTTLE = 1000  # throttle bellow a certain value disarms the FC
@@ -110,6 +117,10 @@ BATT_TOO_LOW = 3
 EPSILON_DIST_TO_TARGET = 0.05  # (m)
 EPSILON_ANGLE_TO_TARGET = 1 * np.pi / 180.0  # (rad)
 
+SURFACE_MODE = 0
+POSHOLD_MODE = 1
+CONTROL_MODE = POSHOLD_MODE
+
 
 def hover_command():
     return ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 1000000.0]
@@ -154,6 +165,14 @@ def trigger_to_positive_vz(value, deadband=0.05):
 
 def trigger_to_negative_vz(value, deadband=0.05):
     return joystick_to_t(value, deadband, MIN_CMD_V_Z)
+
+
+def trigger_to_positive_z_poshold(value, deadband=0.05):
+    return joystick_to_t(value, deadband, PH_MAX_Z_CMD)
+
+
+def trigger_to_negative_z_poshold(value, deadband=0.05):
+    return joystick_to_t(value, deadband, PH_MIN_Z_CMD)
 
 
 class PS4GamepadManager:
@@ -239,13 +258,19 @@ class PS4GamepadManager:
                     CMDS['pitch'] = joystick_to_pitch(- ay, deadband=self.deadband)
                     CMDS['roll'] = joystick_to_roll(ax, deadband=self.deadband)
                     CMDS['yaw'] = joystick_to_yaw(arx, deadband=self.deadband)
-                    vz = 0
-                    vz += trigger_to_positive_vz(az, deadband=self.deadband)
-                    vz += trigger_to_negative_vz(arz, deadband=self.deadband)
-                    ts = time.time()
-                    CMDS['throttle'] += vz * (ts - self.ts)
+                    if CONTROL_MODE == SURFACE_MODE:
+                        vz = 0
+                        vz += trigger_to_positive_vz(az, deadband=self.deadband)
+                        vz += trigger_to_negative_vz(arz, deadband=self.deadband)
+                        ts = time.time()
+                        CMDS['throttle'] += vz * (ts - self.ts)
+                        self.ts = ts
+                    else:
+                        vz = PH_HOVER
+                        vz += trigger_to_positive_z_poshold(az, deadband=self.deadband)
+                        vz += trigger_to_negative_z_poshold(arz, deadband=self.deadband)
+                        CMDS['throttle'] = vz
                     flight_command = None
-                    self.ts = ts
                 elif self.mode == 2:  # override flight command
                     vx = joystick_to_cmd(- ay, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
                     vy = joystick_to_cmd(ax, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
