@@ -875,7 +875,7 @@ class CogniflyController:
                         self.CMDS["aux2"] = NAV_POSHOLD_MODE
                         self.current_flight_command = ["PDF", 0.0, 0.0, alt, None, max_velocity, 0.0, time.time() + max_duration]
                 elif command[2][0] == "LAND":
-                    self.CMDS["throttle"] = LAND
+                    self.CMDS["throttle"] = LAND if self.control_mode == SURFACE_CTRL else PH_LAND
                     self.CMDS["aux2"] = NAV_POSHOLD_MODE
                     self.current_flight_command = None
                 elif command[2][0] in ("VDF", "VWF"):  # velocity
@@ -1396,7 +1396,7 @@ class CogniflyController:
         if self.emergency:
             self.CMDS['roll'] = DEFAULT_ROLL
             self.CMDS['pitch'] = DEFAULT_PITCH
-            self.CMDS['throttle'] = LAND
+            self.CMDS['throttle'] = LAND if self.control_mode == SURFACE_CTRL else PH_LAND
             self.CMDS['yaw'] = DEFAULT_YAW
             self._update_pose(board=board, screen=screen, retrieve_all=True)
             if self.pos_z_wf <= 0.1:
@@ -1610,7 +1610,7 @@ class CogniflyController:
                                 cursor_msg = 'takeoff throttle:{}'.format(self.CMDS['throttle'])
 
                             elif char == LAND_CHR:
-                                self.CMDS['throttle'] = KEY_LAND
+                                self.CMDS['throttle'] = KEY_LAND if self.control_mode else PH_LAND
                                 cursor_msg = 'land throttle:{}'.format(self.CMDS['throttle'])
 
                             elif PAUSE_CHR:
