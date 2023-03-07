@@ -1341,6 +1341,7 @@ class CogniflyController:
                     if self.control_mode == SURFACE_CTRL:
                         self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
                     elif self.control_mode == POSHOLD_CTRL:
+                        print(f"DEBUG: z_target={z_target}")
                         self.CMDS['throttle'] = PH_HOVER + z_target
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
             elif self.current_flight_command[0] in ("PDF", "PDZ"):  # position command drone frame
