@@ -378,8 +378,9 @@ def set_gps(board,
             nedVelEast=0,
             nedVelDown=0,
             groundCourse=0):
-    if mslAltitude < 0 or mslAltitude > 2147483647:
-        logging.warning(f'GPS altitude cannot be < 0')
+    # if mslAltitude < 0 or mslAltitude > 2147483647:
+    if mslAltitude > 2147483647:
+        logging.warning(f'GPS altitude invalid')
         mslAltitude = 0
     msp2_gps_format = '<BHIBBHHHHiiiiiiHHHBBBBB'  # https://docs.python.org/3/library/struct.html#format-characters
     now = datetime.datetime.now()
