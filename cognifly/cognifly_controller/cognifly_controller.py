@@ -862,6 +862,7 @@ class CogniflyController:
                         # track_xy = command[2][2]
                         max_duration = command[2][3]
                         max_velocity = command[2][4]
+                        self.CMDS["throttle"] = PH_HOVER
                         self.CMDS["aux2"] = NAV_POSHOLD_MODE
                         self.current_flight_command = ["PDF", 0.0, 0.0, alt, None, max_velocity, 0.0, time.time() + max_duration]
                 elif command[2][0] == "LAND":
