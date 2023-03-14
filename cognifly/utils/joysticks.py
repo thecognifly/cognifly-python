@@ -84,6 +84,7 @@ button_names = {
 class PS4Gamepad:
     def __init__(self):
         # We'll store the states here.
+        self._connected = False
         self._axis_states = {}
         self._button_states = {}
         self._axis_map = []
