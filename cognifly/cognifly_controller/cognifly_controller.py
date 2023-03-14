@@ -544,7 +544,8 @@ class CogniflyController:
                  custom_optflow=False,
                  no_barometer=True,
                  compass_offset=np.pi/2.0,
-                 control_mode=POSHOLD_CTRL):
+                 control_mode=POSHOLD_CTRL,
+                 device_interface=None):
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -561,6 +562,10 @@ class CogniflyController:
             pose_estimator: cognifly.cognifly_controller.cognifly_controller.PoseEstimator: custom pose estimator
             use_local_coordinates: bool (optional): whether to use the local or global coordinate reference
         """
+        if device_interface is None:
+            self.device_str = "/dev/ttyS0" if is_raspberrypi() else "/dev/ttyS1"
+        else:
+            self.device_str = device_interface
         self.control_mode = control_mode
         self.pose_estimator = pose_estimator
         self.use_local_coordinates = use_local_coordinates
@@ -716,7 +721,6 @@ class CogniflyController:
 
         self.emergency = False
         self._t_start = time.time()
-        self.device_str = "/dev/ttyS0" if is_raspberrypi() else "/dev/ttyS1"
         self._alpha_d = 0.1
         self._d1 = 0
         self._d2 = 0
