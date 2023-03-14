@@ -174,10 +174,10 @@ def trigger_to_negative_z_poshold(value, deadband=0.05):
 
 
 class PS4GamepadManager:
-    def __init__(self, control_mode, deadband=0.05):
+    def __init__(self, control_mode, deadband=0.05, device='/dev/input/js0'):
         self.control_mode = control_mode
         self.deadband = deadband
-        self.gamepad = PS4Gamepad()
+        self.gamepad = PS4Gamepad(device=device)
         self.connected, _, _ = self.gamepad.get()
         self.vz = 0
         self.ts = None
@@ -545,7 +545,8 @@ class CogniflyController:
                  no_barometer=True,
                  compass_offset=np.pi/2.0,
                  control_mode=POSHOLD_CTRL,
-                 device_interface=None):
+                 device_interface=None,
+                 joystick_interface='/dev/input/js0'):
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -699,7 +700,7 @@ class CogniflyController:
 
         # PS4 controller:
 
-        self.gamepad_manager = PS4GamepadManager(control_mode=self.control_mode)
+        self.gamepad_manager = PS4GamepadManager(control_mode=self.control_mode, device=joystick_interface)
 
         # Flight:
 

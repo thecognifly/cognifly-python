@@ -82,14 +82,14 @@ button_names = {
 
 
 class PS4Gamepad:
-    def __init__(self):
+    def __init__(self, device):
         # We'll store the states here.
         self._connected = False
         self._axis_states = {}
         self._button_states = {}
         self._axis_map = []
         self._button_map = []
-        self.fn = Path('/dev/input/js0')
+        self.fn = Path(device)
         self._lock = Lock()
         self._t_js = None
         self._js_loop_running = False
@@ -215,7 +215,7 @@ class PS4Gamepad:
 
 if __name__ == '__main__':
     import time
-    g = PS4Gamepad()
+    g = PS4Gamepad(device='/dev/input/js0')
     while True:
         print(g.get())
         time.sleep(0.1)
