@@ -33,6 +33,7 @@ class UDPInterface(object):
             raise Exception("Cannot initialize the receiver twice.")
         self.__sockI.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.__sockI.bind((ip, port))
+        self.__sockI.setblocking(False)
         self.__buffersize = self.__sockI.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF)
         logging.debug(f"buffer size: {self.__buffersize}")
         while clean_buffer:
@@ -41,13 +42,9 @@ class UDPInterface(object):
                 if not WINDOWS:
                     self.__sockI.recv(1, socket.MSG_DONTWAIT)
                 else:
-                    self.__sockI.setblocking(False)
                     self.__sockI.recv(1)
             except IOError:  # recv raises a error when no data is received
                 clean_buffer = False
-            finally:
-                if WINDOWS:
-                    self.__sockI.setblocking(True)
         logging.debug(f"Cleaning receiving buffer...Done!")
 
     def __del__(self):
@@ -75,10 +72,13 @@ class UDPInterface(object):
         if timeout:
             self.__sockI.settimeout(timeout)
         try:
+            self.__sockI.setblocking(True)
             data, _ = self.__sockI.recvfrom(self.__buffersize)
-            self.__sockI.settimeout(None)
         except socket.timeout:
             return []
+        finally:
+            self.__sockI.setblocking(False)
+            self.__sockI.settimeout(None)
         res = [data]
         nb = self.recv_nonblocking()
         res = res + nb
@@ -98,13 +98,9 @@ class UDPInterface(object):
                 if not WINDOWS:
                     data, _ = self.__sockI.recvfrom(self.__buffersize, socket.MSG_DONTWAIT)
                 else:
-                    self.__sockI.setblocking(False)
                     data, _ = self.__sockI.recvfrom(self.__buffersize)
             except IOError:
                 return res
-            finally:
-                if WINDOWS:
-                    self.__sockI.setblocking(True)
             res += [data]
 
 
