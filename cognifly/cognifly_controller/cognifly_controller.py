@@ -431,7 +431,7 @@ def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
     mslAltitude = z * 100.0
     nedVelNorth = vx * 100.0
     nedVelEast = vy * 100.0
-    nedVelDown = vz * 100.0
+    nedVelDown = - vz * 100.0  # FIXME: double check, there was no -1 here
     set_gps(board, longitude, latitude, mslAltitude, nedVelNorth, nedVelEast, nedVelDown)
 
 
