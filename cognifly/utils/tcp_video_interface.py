@@ -160,7 +160,7 @@ class TCPVideoInterface(object):
                 record = True
             if is_raspberrypi():
                 cap = cv2.VideoCapture(0)
-            else:  # Coral board
+            else:  # Coral board or khadas
                 cap = cv2.VideoCapture(1)
             assert cap.isOpened(), "VideoCapture could not be opened."
             cap.set(cv2.CAP_PROP_FPS, fps)

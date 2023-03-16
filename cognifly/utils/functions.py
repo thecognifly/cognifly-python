@@ -54,3 +54,13 @@ def is_coral():
     except Exception:
         pass
     return False
+
+
+def is_khadas():
+    try:
+        with io.open('/sys/firmware/devicetree/base/model', 'r') as m:
+            if 'khadas' in m.read().lower():
+                return True
+    except Exception:
+        pass
+    return False

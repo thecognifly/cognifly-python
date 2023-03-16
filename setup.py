@@ -27,13 +27,23 @@ def is_coral():
     return False
 
 
+def is_khadas():
+    try:
+        with io.open('/sys/firmware/devicetree/base/model', 'r') as m:
+            if 'khadas' in m.read().lower():
+                return True
+    except Exception:
+        pass
+    return False
+
+
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 deps = ['numpy', 'Pillow', 'psutil']
 if is_raspberrypi():  # drone
     deps.append(['picamera', 'yamspy', 'opencv-python'])
-elif is_coral():  # drone
+elif is_coral() or is_khadas():  # drone
     deps.append(['yamspy', 'opencv-python'])
 else:  # remote
     deps.append(['opencv-contrib-python', 'pysimplegui'])
