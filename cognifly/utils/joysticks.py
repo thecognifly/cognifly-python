@@ -205,7 +205,13 @@ class PS4Gamepad:
         with self._lock:
             connected = self._connected
             if connected:
-                axis_states = self._axis_states.copy()
+                copied_axis_states = self._axis_states.copy()
+                if 'rx' not in copied_axis_states:
+                    copied_axis_states['rx'] = copied_axis_states['z']
+                    copied_axis_states['ry'] = copied_axis_states['rz']
+                    copied_axis_states['z'] = copied_axis_states['gas']
+                    copied_axis_states['rz'] = copied_axis_states['brake']
+                axis_states = copied_axis_states
                 button_states = self._button_states.copy()
             else:
                 axis_states = None
