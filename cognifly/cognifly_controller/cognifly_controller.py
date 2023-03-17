@@ -889,6 +889,8 @@ class CogniflyController:
                     self.target_flag = True
                     self.target_id = identifier
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], command[2][5], command[2][6], time.time() + command[2][7]]
+                elif command[2][0] == "RAW":
+                    self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
             elif command[0] == "ST1":  # stream on
                 if self.tcp_video_int is not None:
                     self.tcp_video_int.start_streaming(ip_dest=command[2][0], port_dest=command[2][1], resolution=command[2][2], fps=command[2][3], compress_format=command[2][4], compress_quality=command[2][5])
@@ -1142,6 +1144,24 @@ class CogniflyController:
             try_addstr(screen, 20, 0, f"pos_wf: [{pos_x_wf: .5f},{pos_y_wf: .5f},{pos_z_wf: .5f}] m")
             try_addstr(screen, 21, 0, f"vel_wf: [{vel_x_wf: .5f},{vel_y_wf: .5f},{vel_z_wf: .5f}] m/s")
 
+    def _default_command(self):
+        """
+        Called when the current command times out
+        """
+        if self.pose_estimator is None:
+            # stop moving and remove flight command
+            self.pid_vel_x.set_auto_mode(False)
+            self.pid_vel_y.set_auto_mode(False)
+            self.pid_vel_z.set_auto_mode(False)
+            self.pid_w_z.set_auto_mode(False)
+            self.CMDS['pitch'] = DEFAULT_PITCH
+            self.CMDS['roll'] = DEFAULT_ROLL
+            self.CMDS['yaw'] = DEFAULT_YAW
+            self.current_flight_command = None
+        else:
+            # track current position
+            self.current_flight_command = hover_command()
+
     def _flight(self, screen):
         """
         This method is a high-level flight controller.
@@ -1223,18 +1243,7 @@ class CogniflyController:
                 # command is ["VXF", x, y, z, time_end]
                 time_end = self.current_flight_command[5]
                 if time.time() >= time_end:
-                    if self.pose_estimator is None:
-                        # stop moving and remove flight command
-                        self.pid_vel_x.set_auto_mode(False)
-                        self.pid_vel_y.set_auto_mode(False)
-                        self.pid_vel_z.set_auto_mode(False)
-                        self.pid_w_z.set_auto_mode(False)
-                        self.CMDS['roll'] = DEFAULT_ROLL
-                        self.CMDS['yaw'] = DEFAULT_YAW
-                        self.current_flight_command = None
-                    else:
-                        # track current position
-                        self.current_flight_command = hover_command()
+                    self._default_command()
                 else:
                     if self.current_flight_command[0] == "VDF":  # drone frame
                         v_x = self.current_flight_command[1]
@@ -1276,19 +1285,7 @@ class CogniflyController:
                 # command is ["PWF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
                 time_end = self.current_flight_command[7]
                 if time.time() >= time_end:
-                    if self.pose_estimator is None:
-                        # stop moving and remove flight command
-                        self.pid_vel_x.set_auto_mode(False)
-                        self.pid_vel_y.set_auto_mode(False)
-                        self.pid_vel_z.set_auto_mode(False)
-                        self.pid_w_z.set_auto_mode(False)
-                        self.CMDS['pitch'] = DEFAULT_PITCH
-                        self.CMDS['roll'] = DEFAULT_ROLL
-                        self.CMDS['yaw'] = DEFAULT_YAW
-                        self.current_flight_command = None
-                    else:
-                        # track current position
-                        self.current_flight_command = hover_command()
+                    self._default_command()
                 else:
                     # compute a 4D vector toward the goal:
                     x_goal = self.current_flight_command[1]
@@ -1369,6 +1366,15 @@ class CogniflyController:
                 if self.current_flight_command[0] == "PDZ" and current_flight_command[3] is not None:
                     current_flight_command[3] = pos_z_wf
                 self.current_flight_command = tuple(current_flight_command)
+            elif self.current_flight_command[0] == "RAW":  # raw RPYT
+                time_end = self.current_flight_command[5]
+                if time.time() >= time_end:
+                    self._default_command()
+                else:
+                    self.CMDS['roll'] = self.current_flight_command[1]
+                    self.CMDS['pitch'] = self.current_flight_command[2]
+                    self.CMDS['yaw'] = self.current_flight_command[3]
+                    self.CMDS['throttle'] = self.current_flight_command[4]
 
         if self.trace_logs:
             now = time.time() - self.start_time

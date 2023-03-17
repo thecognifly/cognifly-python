@@ -549,6 +549,23 @@ class Cognifly:
         self._lock.release()
         self.send(msg_type="ACT", msg=(frame_str, x, y, z, yaw, max_velocity, max_yaw_rate, max_duration))
 
+    def set_raw_rpyt_nonblocking(self, roll=1500, pitch=1500, yaw=1500, throttle=1500, duration=1.0):
+        """
+        Sends raw INAV Roll, Pitch, Yaw and Throttle joystick commands.
+
+        The drone needs to be armed.
+        This function overrides the cognifly-python PIDs.
+        The commands are sent to INAV directly, and how they are interpreted depends on your INAV configuration.
+
+        Args:
+            roll: int (optional): "roll" joystick command
+            pitch: int (optional): "pitch" joystick command
+            yaw: int (optional): "yaw" joystick command
+            throttle: int (optional): "throttle" joystick command
+            duration: float (optional): maximum max_duration of the command (s)
+        """
+        self.send(msg_type="ACT", msg=("RAW", roll, pitch, yaw, throttle, duration))
+
     def set_pid_vel_x(self, k_p=None, k_i=None, k_d=None, timeout=1.0):
         """
         Sets the gains of the PID for the x velocity tracker.
