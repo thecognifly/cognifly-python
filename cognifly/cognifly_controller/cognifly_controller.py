@@ -510,6 +510,21 @@ def set_optflow_from_velocities(board, yaw, vx_wf, vy_wf):
     set_optflow(board, vx_wf, vy_wf)
 
 
+class ExponentialAverage:
+    def __init__(self, alpha=0.9):
+        self.alpha = alpha
+        self.value = None
+
+    def update(self, value):
+        if self.value is None:
+            self.value = value
+        else:
+            self.value = self.alpha * self.value + (1.0 - self.alpha) * value
+
+    def get(self):
+        return self.value
+
+
 class CogniflyController:
     def __init__(self,
                  network=True,
@@ -1439,8 +1454,6 @@ class CogniflyController:
                     try_addstr(screen, 15, 0, "Connecting to the FC... connected!")
                     screen.move(1, 0)
 
-                average_cycle = deque([0.0] * NO_OF_CYCLES_AVERAGE_GUI_TIME)
-
                 # It's necessary to send some messages or the RX failsafe will be active
                 # and it will not be possible to arm.
                 command_list = ['MSP_API_VERSION', 'MSP_FC_VARIANT', 'MSP_FC_VERSION', 'MSP_BUILD_INFO',
@@ -1486,6 +1499,10 @@ class CogniflyController:
                     stop_profiling_time = time.time() + profiling_duration
                     pro.start()
 
+                flight_duration = ExponentialAverage()
+                pose_duration = ExponentialAverage()
+                loop_duration = ExponentialAverage()
+
                 last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
                 while True:
                     start_time = time.time()
@@ -1520,15 +1537,16 @@ class CogniflyController:
                     #
                     # Pose handler  (NO DELAYS) --------------------------------
                     #
+                    t1 = time.time()
                     if override:  # in free flight mode, no need to retrieve all pose attributes
                         self._update_pose(board=board, screen=screen, retrieve_all=False)
                     else:  # otherwise, we need to retrieve them all for _flight()
                         self._update_pose(board=board, screen=screen, retrieve_all=True)
-
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
                     # For safety, UDP commands are overridden by key presses
                     #
+                    t2 = time.time()
                     if self.udp_int:
                         udp_cmds = self.udp_int.recv_nonblocking()
                         if len(udp_cmds) > 0:
@@ -1545,6 +1563,10 @@ class CogniflyController:
                     #
                     # end of UDP recv non-blocking -----------------------------
                     #
+
+                    now = time.time()
+                    flight_duration.update(now - t2)
+                    pose_duration.update(t2 - t1)
 
                     self._batt_handler(board)
                     self._emergency_handler(board, screen)
@@ -1748,10 +1770,11 @@ class CogniflyController:
                             elif next_msg == 'MSP_RC':
                                 try_addstr(screen, 10, 0, "RC Channels Values: {}".format(board.RC['channels']))
 
-                            _s1 = sum(average_cycle)
-                            _s2 = len(average_cycle)
-                            str_cycletime = "NaN" if _s1 == 0 or _s2 == 0 else \
-                                f"GUI cycleTime: {last_cycle_time * 1000:2.2f}ms (average {1 / (_s1 / _s2):2.2f}Hz), barometer: {self._d1 * 1000:2.2f}ms, gps: {self._d2 * 1000:2.2f}ms, compass: {self._d3 * 1000:2.2f}ms"
+                            loop_dur = loop_duration.get()
+                            if loop_dur is None or loop_dur == 0:
+                                str_cycletime = "NaN"
+                            else:
+                                str_cycletime = f"GUI cycleTime: {loop_dur* 1000:2.2f}ms ({1 / loop_dur:2.2f}Hz), flight: {flight_duration.get() * 1000:2.2f}ms"
                             try_addstr(screen, 11, 0, str_cycletime)
 
                             try_addstr(screen, 3, 0, cursor_msg)
@@ -1765,8 +1788,7 @@ class CogniflyController:
                     if last_cycle_time < CTRL_LOOP_TIME:
                         time.sleep(CTRL_LOOP_TIME - last_cycle_time)
 
-                    average_cycle.append(last_cycle_time)
-                    average_cycle.popleft()
+                    loop_duration.update(time.time() - start_time)
 
                     if profile:
                         if time.time() >= stop_profiling_time:
