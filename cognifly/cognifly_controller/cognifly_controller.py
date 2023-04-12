@@ -1774,7 +1774,7 @@ class CogniflyController:
                             if loop_dur is None or loop_dur == 0:
                                 str_cycletime = "NaN"
                             else:
-                                str_cycletime = f"GUI cycleTime: {loop_dur* 1000:2.2f}ms ({1 / loop_dur:2.2f}Hz), flight: {flight_duration.get() * 1000:2.2f}ms"
+                                str_cycletime = f"GUI cycleTime: {loop_dur* 1000:2.2f}ms ({1 / loop_dur:2.2f}Hz), flight: {flight_duration.get() * 1000:2.2f}ms, fpose: {pose_duration.get() * 1000:2.2f}ms"
                             try_addstr(screen, 11, 0, str_cycletime)
 
                             try_addstr(screen, 3, 0, cursor_msg)
