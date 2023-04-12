@@ -1499,8 +1499,6 @@ class CogniflyController:
                     stop_profiling_time = time.time() + profiling_duration
                     pro.start()
 
-                flight_duration = ExponentialAverage()
-                pose_duration = ExponentialAverage()
                 loop_duration = ExponentialAverage()
 
                 last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
@@ -1537,7 +1535,6 @@ class CogniflyController:
                     #
                     # Pose handler  (NO DELAYS) --------------------------------
                     #
-                    t1 = time.time()
                     if override:  # in free flight mode, no need to retrieve all pose attributes
                         self._update_pose(board=board, screen=screen, retrieve_all=False)
                     else:  # otherwise, we need to retrieve them all for _flight()
@@ -1546,7 +1543,6 @@ class CogniflyController:
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
                     # For safety, UDP commands are overridden by key presses
                     #
-                    t2 = time.time()
                     if self.udp_int:
                         udp_cmds = self.udp_int.recv_nonblocking()
                         if len(udp_cmds) > 0:
@@ -1563,10 +1559,6 @@ class CogniflyController:
                     #
                     # end of UDP recv non-blocking -----------------------------
                     #
-
-                    now = time.time()
-                    flight_duration.update(now - t2)
-                    pose_duration.update(t2 - t1)
 
                     self._batt_handler(board)
                     self._emergency_handler(board, screen)
@@ -1774,7 +1766,7 @@ class CogniflyController:
                             if loop_dur is None or loop_dur == 0:
                                 str_cycletime = "NaN"
                             else:
-                                str_cycletime = f"GUI cycleTime: {loop_dur* 1000:2.2f}ms ({1 / loop_dur:2.2f}Hz), flight: {flight_duration.get() * 1000:2.2f}ms, fpose: {pose_duration.get() * 1000:2.2f}ms"
+                                str_cycletime = f"GUI cycleTime: {loop_dur* 1000:2.2f}ms ({1 / loop_dur:2.2f}Hz)"
                             try_addstr(screen, 11, 0, str_cycletime)
 
                             try_addstr(screen, 3, 0, cursor_msg)
