@@ -112,7 +112,7 @@ EPSILON_ANGLE_TO_TARGET = 1 * np.pi / 180.0  # (rad)
 
 
 def hover_command():
-    return ['PDZ', 0, 0, 0, 0, 0.1, 0.5, time.time() + 1000000.0]
+    return ['PDZ', 0, 0, None, 0, 0.1, 0.5, time.time() + 1000000.0]
 
 
 def joystick_to_cmd(value, deadband, default_cmd, min_cmd, max_cmd):
