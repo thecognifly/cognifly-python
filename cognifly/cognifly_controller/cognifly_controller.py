@@ -504,6 +504,7 @@ class CogniflyController:
                  custom_rangefinder=False,
                  custom_optflow=False,
                  no_barometer=True,
+                 no_compass=True,
                  compass_offset=np.pi/2.0):
         """
         Custom controller and udp interface for Cognifly
@@ -536,6 +537,7 @@ class CogniflyController:
             self.custom_rangefinder = custom_rangefinder
             self.custom_optflow = custom_optflow
         self.no_barometer = no_barometer
+        self.no_compass = no_compass
         self.compass_offset = compass_offset
         self.board = None
         self.network = network
@@ -1072,6 +1074,8 @@ class CogniflyController:
         if write_rangefinder:
             set_rangefinder_from_altitude(board=board, altitude=pos_z_wf)
         if write_compass:
+            if self.no_compass:
+                yaw = 0.0
             set_compass_from_yaw(board=board, yaw=yaw, t_start=self._t_start, yaw_offset=self.compass_offset)
         if write_gps:
             set_gps_from_xyz(board=board, x=pos_x_wf, y=pos_y_wf, z=pos_z_wf, vx=vel_x_wf, vy=vel_y_wf, vz=vel_z_wf)
