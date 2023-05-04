@@ -50,7 +50,7 @@ KEY_TIMEOUT = 0.2  # seconds before a keyboard command times out
 
 DEFAULT_ROLL = 1500
 DEFAULT_PITCH = 1500
-DEFAULT_THROTTLE = 1000  # throttle bellow a certain value disarms the FC
+DEFAULT_THROTTLE = 1500  # throttle bellow a certain value disarms the FC
 DEFAULT_YAW = 1500
 
 TAKEOFF = 1400
