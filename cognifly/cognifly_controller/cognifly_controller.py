@@ -289,8 +289,8 @@ class PS4GamepadManager:
                     vy = joystick_to_cmd(ax, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.5, max_cmd=1.5)
                     w = joystick_to_cmd(arx, deadband=self.deadband, default_cmd=0.0, min_cmd=-1.0, max_cmd=1.0)
                     vz = 0
-                    vz += joystick_to_t(az, deadband=self.deadband, max_cmd=0.2)
-                    vz -= joystick_to_t(arz, deadband=self.deadband, max_cmd=0.2)
+                    vz += joystick_to_t(az, deadband=self.deadband, max_cmd=0.5)
+                    vz -= joystick_to_t(arz, deadband=self.deadband, max_cmd=0.5)
                     if 0 == vx == vy == vz == w:
                         if not self.hover:  # we have to send position command PDZ only once!
                             flight_command = hover_command()
