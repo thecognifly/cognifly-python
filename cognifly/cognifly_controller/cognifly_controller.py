@@ -240,6 +240,7 @@ class PS4GamepadManager:
 
             override_z = False
             if haty == -1:
+                CMDS["aux2"] = NAV_POSHOLD_MODE
                 override_z = True
                 if self.control_mode == SURFACE_CTRL:
                     CMDS['throttle'] = TAKEOFF
@@ -875,40 +876,37 @@ class CogniflyController:
                     self._disarm(board)
                 elif command[2][0] == "ARM":
                     self._start_arming(board)
-                elif command[2][0] == "TAKEOFF":
-                    if self.control_mode == SURFACE_CTRL:
-                        alt = command[2][1] if command[2][1] is not None else TAKEOFF
-                        track_xy = command[2][2]
-                        max_duration = command[2][3]
-                        max_velocity = command[2][4]
-                        self.CMDS["throttle"] = alt  # TODO: replace by true altitude (now a throttle value)
-                        self.CMDS["aux2"] = NAV_POSHOLD_MODE
-                        if track_xy:
-                            self.current_flight_command = ["PDF", 0.0, 0.0, None, None, max_velocity, 0.0, time.time() + max_duration]
-                        else:
-                            self.current_flight_command = None
-                    elif self.control_mode == POSHOLD_CTRL:
-                        alt = command[2][1] if command[2][1] is not None else 0.5
-                        # track_xy = command[2][2]
-                        max_duration = command[2][3]
-                        max_velocity = command[2][4]
-                        self.CMDS["throttle"] = PH_HOVER
-                        self.CMDS["aux2"] = NAV_POSHOLD_MODE
-                        self.current_flight_command = ["PDF", 0.0, 0.0, alt, None, max_velocity, 0.0, time.time() + max_duration]
-                elif command[2][0] == "LAND":
-                    self.CMDS["throttle"] = LAND if self.control_mode == SURFACE_CTRL else PH_LAND
+                else:
                     self.CMDS["aux2"] = NAV_POSHOLD_MODE
-                    self.current_flight_command = None
-                elif command[2][0] in ("VDF", "VWF"):  # velocity
-                    self.CMDS["aux2"] = NAV_POSHOLD_MODE
-                    self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
-                elif command[2][0] in ("PDF", "PDZ", "PWF"):  # position
-                    self.CMDS["aux2"] = NAV_POSHOLD_MODE
-                    self.target_flag = True
-                    self.target_id = identifier
-                    self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], command[2][5], command[2][6], time.time() + command[2][7]]
-                elif command[2][0] == "RAW":
-                    self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
+                    if command[2][0] == "TAKEOFF":
+                        if self.control_mode == SURFACE_CTRL:
+                            alt = command[2][1] if command[2][1] is not None else TAKEOFF
+                            track_xy = command[2][2]
+                            max_duration = command[2][3]
+                            max_velocity = command[2][4]
+                            self.CMDS["throttle"] = alt  # TODO: replace by true altitude (now a throttle value)
+                            if track_xy:
+                                self.current_flight_command = ["PDF", 0.0, 0.0, None, None, max_velocity, 0.0, time.time() + max_duration]
+                            else:
+                                self.current_flight_command = None
+                        elif self.control_mode == POSHOLD_CTRL:
+                            alt = command[2][1] if command[2][1] is not None else 0.5
+                            # track_xy = command[2][2]
+                            max_duration = command[2][3]
+                            max_velocity = command[2][4]
+                            self.CMDS["throttle"] = PH_HOVER
+                            self.current_flight_command = ["PDF", 0.0, 0.0, alt, None, max_velocity, 0.0, time.time() + max_duration]
+                    elif command[2][0] == "LAND":
+                        self.CMDS["throttle"] = LAND if self.control_mode == SURFACE_CTRL else PH_LAND
+                        self.current_flight_command = None
+                    elif command[2][0] in ("VDF", "VWF"):  # velocity
+                        self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
+                    elif command[2][0] in ("PDF", "PDZ", "PWF"):  # position
+                        self.target_flag = True
+                        self.target_id = identifier
+                        self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], command[2][5], command[2][6], time.time() + command[2][7]]
+                    elif command[2][0] == "RAW":
+                        self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
             elif command[0] == "ST1":  # stream on
                 if self.tcp_video_int is not None:
                     self.tcp_video_int.start_streaming(ip_dest=command[2][0], port_dest=command[2][1], resolution=command[2][2], fps=command[2][3], compress_format=command[2][4], compress_quality=command[2][5])
