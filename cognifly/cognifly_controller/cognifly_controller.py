@@ -898,7 +898,6 @@ class CogniflyController:
                             max_duration = command[2][3]
                             max_velocity = command[2][4]
                             self.CMDS["throttle"] = PH_HOVER
-                            print(f"DEBUG: takeoff to {alt}m")
                             self.current_flight_command = ["PDF", 0.0, 0.0, alt, None, max_velocity, 0.0, time.time() + max_duration]
                     elif command[2][0] in ("VDF", "VWF"):  # velocity
                         self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
@@ -1308,14 +1307,12 @@ class CogniflyController:
                     x_goal = self.current_flight_command[1]
                     y_goal = self.current_flight_command[2]
                     z_goal = self.current_flight_command[3]
-                    print(f"DEBUG: z_goal = {z_goal}")
                     yaw_goal = self.current_flight_command[4]
                     vel_norm_goal = self.current_flight_command[5]
                     w_norm_goal = self.current_flight_command[6]
                     x_vector = x_goal - pos_x_wf
                     y_vector = y_goal - pos_y_wf
                     z_vector = z_goal - pos_z_wf if z_goal is not None else 0.0
-                    print(f"DEBUG: z_vector = {z_vector}")
                     yaw_vector = smallest_angle_diff_rad(yaw_goal, yaw) if yaw_goal is not None else None
                     if self.target_flag:  # check whether position target is reached
                         dist_condition = np.linalg.norm([x_vector, y_vector, z_vector]) <= EPSILON_DIST_TO_TARGET
@@ -1345,13 +1342,11 @@ class CogniflyController:
                     self.pid_vel_x.setpoint = v_x
                     self.pid_vel_y.setpoint = v_y
                     self.pid_vel_z.setpoint = v_z
-                    print(f"DEBUG: z pid setpoint = {v_z}")
                     self.pid_w_z.setpoint = w
                     self.pid_vel_x.set_auto_mode(True)
                     self.pid_vel_y.set_auto_mode(True)
                     if v_z != 0:
                         self.pid_vel_z.set_auto_mode(True)
-                        print(f"DEBUG: z pid activated")
                     else:
                         self.pid_vel_z.set_auto_mode(False)
                     if w != 0:
@@ -1361,19 +1356,16 @@ class CogniflyController:
                     x_target = self.pid_vel_x(vel_x_df)
                     y_target = self.pid_vel_y(vel_y_df)
                     z_target = self.pid_vel_z(vel_z_df) if v_z != 0 else 0
-                    print(f"DEBUG: z_target = {z_target}")
                     w_target = self.pid_w_z(yaw_rate) if w != 0 else 0
                     self.CMDS['pitch'] = DEFAULT_PITCH + x_target
                     self.CMDS['roll'] = DEFAULT_ROLL + y_target
                     if self.control_mode == SURFACE_CTRL:
-                        print(f"DEBUG: z target: {z_target}")
                         self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
                     elif self.control_mode == POSHOLD_CTRL:
                         self.CMDS['throttle'] = PH_HOVER + z_target
-                        print(f"DEBUG: self.CMDS['throttle']: {self.CMDS['throttle']}")
+                        print(f"DEBUG: z_goal = {z_goal}, z_vector = {z_vector}, z_target = {z_target}, cmd={self.CMDS['throttle']}")
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
             elif self.current_flight_command[0] in ("PDF", "PDZ"):  # position command drone frame
-                print(f"DEBUG: PDF/PDZ command: {self.current_flight_command}")
                 # command is ["PDF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
                 # we convert this into a command in world frame (it will be applied in the next iteration)
                 current_flight_command = list(self.current_flight_command)
@@ -1390,7 +1382,6 @@ class CogniflyController:
                 if self.current_flight_command[0] == "PDZ" and current_flight_command[3] is not None:
                     current_flight_command[3] = pos_z_wf
                 self.current_flight_command = tuple(current_flight_command)
-                print(f"DEBUG: converted PWF command: {self.current_flight_command}")
             elif self.current_flight_command[0] == "RAW":  # raw RPYT
                 time_end = self.current_flight_command[5]
                 if time.time() >= time_end:
