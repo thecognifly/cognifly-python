@@ -1363,7 +1363,6 @@ class CogniflyController:
                         self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
                     elif self.control_mode == POSHOLD_CTRL:
                         self.CMDS['throttle'] = PH_HOVER + z_target
-                        print(f"DEBUG: z_goal:{z_goal}, z_vec:{z_vector}, v_targ:{v_z}, pid:{z_target}, cmd={self.CMDS['throttle']}")
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
             elif self.current_flight_command[0] in ("PDF", "PDZ"):  # position command drone frame
                 # command is ["PDF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
