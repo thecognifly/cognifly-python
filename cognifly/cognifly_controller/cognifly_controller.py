@@ -1308,12 +1308,14 @@ class CogniflyController:
                     x_goal = self.current_flight_command[1]
                     y_goal = self.current_flight_command[2]
                     z_goal = self.current_flight_command[3]
+                    print(f"DEBUG: z_goal = {z_goal}")
                     yaw_goal = self.current_flight_command[4]
                     vel_norm_goal = self.current_flight_command[5]
                     w_norm_goal = self.current_flight_command[6]
                     x_vector = x_goal - pos_x_wf
                     y_vector = y_goal - pos_y_wf
                     z_vector = z_goal - pos_z_wf if z_goal is not None else 0.0
+                    print(f"DEBUG: z_vector = {z_vector}")
                     yaw_vector = smallest_angle_diff_rad(yaw_goal, yaw) if yaw_goal is not None else None
                     if self.target_flag:  # check whether position target is reached
                         dist_condition = np.linalg.norm([x_vector, y_vector, z_vector]) <= EPSILON_DIST_TO_TARGET
@@ -1343,11 +1345,13 @@ class CogniflyController:
                     self.pid_vel_x.setpoint = v_x
                     self.pid_vel_y.setpoint = v_y
                     self.pid_vel_z.setpoint = v_z
+                    print(f"DEBUG: z pid setpoint = {v_z}")
                     self.pid_w_z.setpoint = w
                     self.pid_vel_x.set_auto_mode(True)
                     self.pid_vel_y.set_auto_mode(True)
                     if v_z != 0:
                         self.pid_vel_z.set_auto_mode(True)
+                        print(f"DEBUG: z pid activated")
                     else:
                         self.pid_vel_z.set_auto_mode(False)
                     if w != 0:
@@ -1357,6 +1361,7 @@ class CogniflyController:
                     x_target = self.pid_vel_x(vel_x_df)
                     y_target = self.pid_vel_y(vel_y_df)
                     z_target = self.pid_vel_z(vel_z_df) if v_z != 0 else 0
+                    print(f"DEBUG: z_target = {z_target}")
                     w_target = self.pid_w_z(yaw_rate) if w != 0 else 0
                     self.CMDS['pitch'] = DEFAULT_PITCH + x_target
                     self.CMDS['roll'] = DEFAULT_ROLL + y_target
@@ -1365,6 +1370,7 @@ class CogniflyController:
                         self.CMDS['throttle'] = self.CMDS['throttle'] + z_target
                     elif self.control_mode == POSHOLD_CTRL:
                         self.CMDS['throttle'] = PH_HOVER + z_target
+                        print(f"DEBUG: self.CMDS['throttle']: {self.CMDS['throttle']}")
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
             elif self.current_flight_command[0] in ("PDF", "PDZ"):  # position command drone frame
                 print(f"DEBUG: PDF/PDZ command: {self.current_flight_command}")
