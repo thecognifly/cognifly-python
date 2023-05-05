@@ -898,6 +898,7 @@ class CogniflyController:
                             max_duration = command[2][3]
                             max_velocity = command[2][4]
                             self.CMDS["throttle"] = PH_HOVER
+                            print(f"DEBUG: takeoff to {alt}m")
                             self.current_flight_command = ["PDF", 0.0, 0.0, alt, None, max_velocity, 0.0, time.time() + max_duration]
                     elif command[2][0] in ("VDF", "VWF"):  # velocity
                         self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
@@ -1366,6 +1367,7 @@ class CogniflyController:
                         self.CMDS['throttle'] = PH_HOVER + z_target
                     self.CMDS['yaw'] = DEFAULT_YAW + w_target
             elif self.current_flight_command[0] in ("PDF", "PDZ"):  # position command drone frame
+                print(f"DEBUG: PDF/PDZ command: {self.current_flight_command}")
                 # command is ["PDF", x, y, z, yaw, vel_norm_goal, w_norm_goal, duration]
                 # we convert this into a command in world frame (it will be applied in the next iteration)
                 current_flight_command = list(self.current_flight_command)
@@ -1382,6 +1384,7 @@ class CogniflyController:
                 if self.current_flight_command[0] == "PDZ" and current_flight_command[3] is not None:
                     current_flight_command[3] = pos_z_wf
                 self.current_flight_command = tuple(current_flight_command)
+                print(f"DEBUG: converted PWF command: {self.current_flight_command}")
             elif self.current_flight_command[0] == "RAW":  # raw RPYT
                 time_end = self.current_flight_command[5]
                 if time.time() >= time_end:
