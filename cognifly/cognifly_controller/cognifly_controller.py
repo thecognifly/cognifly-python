@@ -57,9 +57,9 @@ TAKEOFF = 1400
 LAND = 900
 
 # For poshold mode:
-PH_TAKEOFF = 1550
+PH_TAKEOFF = 1600
 PH_HOVER = 1500
-PH_LAND = 1450
+PH_LAND = 1300
 PH_MAX_Z_CMD = 200
 PH_MIN_Z_CMD = -200
 
@@ -827,9 +827,9 @@ class CogniflyController:
             self._send_cmds(board)
 
     def _complete_arming(self, board):
-        self.CMDS['aux2'] = NAV_POSHOLD_MODE
-        self.CMDS['throttle'] = PH_HOVER
-        self._send_cmds(board)
+        # self.CMDS['aux2'] = NAV_POSHOLD_MODE
+        # self.CMDS['throttle'] = PH_HOVER
+        # self._send_cmds(board)
         self._armed = True
         self._arming = False
 
@@ -900,8 +900,10 @@ class CogniflyController:
                     self.CMDS["aux2"] = NAV_POSHOLD_MODE
                     self.current_flight_command = None
                 elif command[2][0] in ("VDF", "VWF"):  # velocity
+                    self.CMDS["aux2"] = NAV_POSHOLD_MODE
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], time.time() + command[2][5]]
                 elif command[2][0] in ("PDF", "PDZ", "PWF"):  # position
+                    self.CMDS["aux2"] = NAV_POSHOLD_MODE
                     self.target_flag = True
                     self.target_id = identifier
                     self.current_flight_command = [command[2][0], command[2][1], command[2][2], command[2][3], command[2][4], command[2][5], command[2][6], time.time() + command[2][7]]
@@ -1430,7 +1432,7 @@ class CogniflyController:
             self.CMDS['throttle'] = LAND if self.control_mode == SURFACE_CTRL else PH_LAND
             self.CMDS['yaw'] = DEFAULT_YAW
             self._update_pose(board=board, screen=screen, retrieve_all=True)
-            if self.pos_z_wf <= 0.1:
+            if self.control_mode == SURFACE_CTRL and self.pos_z_wf <= 0.1:
                 self._disarm(board)
                 self._flight_origin = None  # reset flight origin after an emergency
                 self.emergency = False
