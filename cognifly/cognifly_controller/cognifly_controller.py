@@ -1745,7 +1745,7 @@ class CogniflyController:
                                     cam_err, cam_exp, cam_trace = self.tcp_video_int.get_camera_error()
                                     if cam_err:
                                         self.debug_flags.append("CAMERA_ERROR")
-                                        try_addstr(screen, 12, 0, f"CAMERA ERROR: {cam_exp}")
+                                        try_addstr(screen, 14, 0, f"CAMERA ERROR: {cam_exp}")
                                         # raise Exception(cam_trace)
                                 try_addstr(screen, 5, 50, "armingDisableFlags: {}".format(self.debug_flags))
 
@@ -1768,6 +1768,16 @@ class CogniflyController:
                             else:
                                 str_cycletime = f"GUI cycleTime: {loop_dur* 1000:2.2f}ms ({1 / loop_dur:2.2f}Hz)"
                             try_addstr(screen, 11, 0, str_cycletime)
+
+                            str_status = "Status: "
+                            if self.emergency:
+                                str_status += "EMERGENCY"
+                            else:
+                                str_status += "OK"
+                            try_addstr(screen, 12, 0, str_status)
+
+                            str_cmd = f"Flight command: {self.current_flight_command}"
+                            try_addstr(screen, 13, 0, str_cmd)
 
                             try_addstr(screen, 3, 0, cursor_msg)
                     #
