@@ -605,6 +605,7 @@ class CogniflyController:
         self.drone_hostname = drone_hostname
         self.drone_port = drone_port
         self.udp_int = None
+        self.udp_cmd = None
         self.tcp_video_int = None
         self.drone_ip = None
         self._armed = False
@@ -853,6 +854,7 @@ class CogniflyController:
             board: used for arming and disarming
         """
         if command[0] == "RES":  # reset drone
+            self.udp_cmd = command
             if self._armed:
                 self.emergency = True  # land if not disarmed
             self.CMDS['roll'] = DEFAULT_ROLL
@@ -867,6 +869,7 @@ class CogniflyController:
             self.current_flight_command = None
             self._reset_pids()
         elif self.sender_initialized:  # do not take any udp order unless reset has been called
+            self.udp_cmd = command
             identifier = command[1]
             if command[0] == "ACT":  # action
                 if self.last_cmd_type != command[2][0]:
@@ -1776,10 +1779,14 @@ class CogniflyController:
                                 str_status += "OK"
                             try_addstr(screen, 12, 0, str_status)
 
-                            str_cmd = f"Flight command: {self.current_flight_command}"
-                            try_addstr(screen, 13, 0, str_cmd)
-
                             try_addstr(screen, 3, 0, cursor_msg)
+
+                            cmds_str = "Commands: "
+                            if self.udp_cmd is not None:
+                                cmds_str += f"UDP->{self.udp_cmd[0]} "
+                            if self.current_flight_command is not None:
+                                cmds_str += f"FLIGHT->{self.current_flight_command[0]}"
+                            try_addstr(screen, 13, 0, cmds_str)
                     #
                     # end of SLOW MSG ------------------------------------------
                     #
