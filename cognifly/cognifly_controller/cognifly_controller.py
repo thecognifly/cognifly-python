@@ -890,7 +890,7 @@ class CogniflyController:
                             track_xy = command[2][2]
                             max_duration = command[2][3]
                             max_velocity = command[2][4]
-                            self.CMDS["throttle"] = alt  # TODO: replace by true altitude (now a throttle value)
+                            self.CMDS["throttle"] = alt
                             if track_xy:
                                 self.current_flight_command = ["PDF", 0.0, 0.0, None, None, max_velocity, 0.0, time.time() + max_duration]
                             else:

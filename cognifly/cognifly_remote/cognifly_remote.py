@@ -487,7 +487,7 @@ class Cognifly:
         Do not use altitude (this currently refers to a FC throttle value and is likely to change in the future).
 
         Args:
-            altitude: do not use
+            altitude: target altitude (ALTHOLD mode) or takeoff throttle (SURFACE mode)
             track_xy: bool (optional): if True, the drone will track X and Y while taking off
             max_duration: float (optional): duration for which X and Y can be tracked if track_xy is True (s)
             max_velocity: float (optional): maximum velocity used to track X and Y if track_xy is True (m/s)
