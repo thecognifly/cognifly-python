@@ -1772,18 +1772,16 @@ class CogniflyController:
                                 str_cycletime = f"GUI cycleTime: {loop_dur* 1000:2.2f}ms ({1 / loop_dur:2.2f}Hz)"
                             try_addstr(screen, 11, 0, str_cycletime)
 
-                            str_status = "Status: "
                             if self.emergency:
-                                str_status += "EMERGENCY"
+                                str_status = "Status: EMERGENCY"
+                                try_addstr(screen, 12, 0, str_status, curses.A_BOLD + curses.A_BLINK)
                             else:
-                                str_status += "OK"
-                            try_addstr(screen, 12, 0, str_status)
+                                str_status = "Status: OK"
+                                try_addstr(screen, 12, 0, str_status)
 
                             try_addstr(screen, 3, 0, cursor_msg)
 
-                            cmds_str = "Commands: "
-                            if self.udp_cmd is not None:
-                                cmds_str += f"UDP->{self.udp_cmd[0]} "
+                            cmds_str = "Flight command: "
                             if self.current_flight_command is not None:
                                 cmds_str += f"FLIGHT->{self.current_flight_command[0]}"
                             try_addstr(screen, 13, 0, cmds_str)
