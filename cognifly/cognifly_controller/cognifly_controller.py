@@ -1681,7 +1681,7 @@ class CogniflyController:
                     self.CMDS['roll'] = clip(self.CMDS['roll'], MIN_CMD_ROLL, MAX_CMD_ROLL)
                     self.CMDS['pitch'] = clip(self.CMDS['pitch'], MIN_CMD_PITCH, MAX_CMD_PITCH)
                     self.CMDS['yaw'] = clip(self.CMDS['yaw'], MIN_CMD_YAW, MAX_CMD_YAW)
-                    self.CMDS['throttle'] = clip(self.CMDS['throttle'], MIN_CMD_THROTTLE, MAX_CMD_THROTTLE)
+                    self.CMDS['throttle'] = clip(self.CMDS['throttle'], MIN_CMD_THROTTLE, MAX_CMD_THROTTLE) if not self._arming else DEFAULT_THROTTLE
                     #
                     # END CLIP RC VALUES ---------------------------------------
                     #
@@ -1689,7 +1689,7 @@ class CogniflyController:
                     #
                     # IMPORTANT MESSAGES (CTRL_LOOP_TIME based) ----------------
                     #
-                    if (time.time() - last_loop_time) >= CTRL_LOOP_TIME and not self._arming:
+                    if (time.time() - last_loop_time) >= CTRL_LOOP_TIME:
                         last_loop_time = time.time()
                         # Send the RC channel values to the FC
                         self._send_cmds(board)
