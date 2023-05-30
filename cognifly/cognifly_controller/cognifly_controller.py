@@ -1554,7 +1554,7 @@ class CogniflyController:
                         if len(udp_cmds) > 0:
                             for cmd in udp_cmds:
                                 self._udp_commands_handler(pkl.loads(cmd), board)
-                        if not override and not self._arming:  # override the flight controller if valid PS4
+                        if not override:  # override the flight controller if valid PS4
                             self._flight(screen)
                         if self.obs_loop_time is not None:
                             tick = time.time()
@@ -1689,7 +1689,7 @@ class CogniflyController:
                     #
                     # IMPORTANT MESSAGES (CTRL_LOOP_TIME based) ----------------
                     #
-                    if (time.time() - last_loop_time) >= CTRL_LOOP_TIME:
+                    if (time.time() - last_loop_time) >= CTRL_LOOP_TIME and not self._arming:
                         last_loop_time = time.time()
                         # Send the RC channel values to the FC
                         self._send_cmds(board)
