@@ -610,6 +610,7 @@ class CogniflyController:
         self.drone_ip = None
         self._armed = False
         self._arming = False
+        self._ph_arming = False
         self._lock_connect = Lock()
         self._drone_hostname = drone_hostname
         self._drone_ip = self.drone_ip
@@ -830,10 +831,17 @@ class CogniflyController:
 
     def _complete_arming(self, board):
         self.CMDS['aux2'] = NAV_POSHOLD_MODE
-        self.CMDS['throttle'] = PH_HOVER
+        if not self._ph_arming:
+            # first, arm with land throttle to avoid jumping
+            self._ph_arming = True
+            self.CMDS['throttle'] = PH_LAND
+        else:
+            # then, switch to hover throttle
+            self.CMDS['throttle'] = PH_HOVER
+            self._armed = True
+            self._arming = False
+            self._ph_arming = False
         self._send_cmds(board)
-        self._armed = True
-        self._arming = False
 
     def _disarm(self, board):
         self.CMDS['aux1'] = DISARMED
