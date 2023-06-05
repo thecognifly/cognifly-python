@@ -58,7 +58,7 @@ LAND = 900
 
 # For poshold mode:
 PH_TAKEOFF = 1600
-PH_HOVER = 1500
+PH_HOVER = 1550  # FIXME: I don't understand why seems to be the actual hovering command instead of 1500
 PH_LAND = 1300
 PH_MAX_Z_CMD = 200
 PH_MIN_Z_CMD = -200
