@@ -55,6 +55,7 @@ DEFAULT_YAW = 1500
 
 TAKEOFF = 1400
 LAND = 900
+LAND_ANGLE = 1000
 
 # For poshold mode:
 PH_TAKEOFF = 1600
@@ -1483,8 +1484,8 @@ class CogniflyController:
         if self.emergency:
             self.CMDS['roll'] = DEFAULT_ROLL
             self.CMDS['pitch'] = DEFAULT_PITCH
-            self.CMDS['aux2'] = DEFAULT_AUX2
-            self.CMDS['throttle'] = LAND
+            self.CMDS['aux2'] = ANGLE_MODE
+            self.CMDS['throttle'] = LAND_ANGLE
             self.CMDS['yaw'] = DEFAULT_YAW
             self._update_pose(board=board, screen=screen, retrieve_all=True)
             if self.control_mode == SURFACE_CTRL and self.pos_z_wf <= 0.1:
