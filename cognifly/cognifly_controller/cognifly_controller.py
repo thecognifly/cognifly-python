@@ -398,7 +398,7 @@ class PoseEstimator(ABC):
 
         thread_list[2].join(timeout=timeout)
         with thread_list[0]:
-            if len(thread_list[1]) == 3:
+            if len(thread_list[1]) >= 1:
                 res = thread_list[1][0]
                 thread_list.pop(-1)
                 thread_list.pop(-1)
