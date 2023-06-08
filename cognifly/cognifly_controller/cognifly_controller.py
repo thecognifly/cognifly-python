@@ -396,9 +396,7 @@ class PoseEstimator(ABC):
             thread_list.append(Thread(target=self.__get, args=(thread_list[0], thread_list[1]), daemon=True))
             thread_list[2].start()
 
-        t1 = time.time()
         thread_list[2].join(timeout=timeout)
-        t2 = time.time()
 
         with thread_list[0]:
             if len(thread_list[1]) >= 1:
