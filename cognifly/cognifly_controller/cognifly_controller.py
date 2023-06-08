@@ -408,8 +408,6 @@ class PoseEstimator(ABC):
             else:
                 res = None, None, None, None, None, None, None, None
 
-        print(f"DEBUG: res: {res}, elapsed: {t2 - t1}")
-
         return res
 
 
