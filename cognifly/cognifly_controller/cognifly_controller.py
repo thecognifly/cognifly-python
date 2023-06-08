@@ -389,18 +389,19 @@ class PoseEstimator(ABC):
         Calls get() in a thread.
 
         If get() does not return within timeout, returns None for all estimates.
+        thread_list is a persistent list which must be initialized to [Lock(),].
         """
-        if len(thread_list) == 0:
-            thread_list.append(Lock())  # to access result
+        if len(thread_list) == 1:
             thread_list.append([])  # to store result
             thread_list.append(Thread(target=self.__get, args=(thread_list[0], thread_list[1]), daemon=True))
             thread_list[2].start()
 
         thread_list[2].join(timeout=timeout)
         with thread_list[0]:
-            if len(thread_list[1]) >= 1:
+            if len(thread_list[1]) == 3:
                 res = thread_list[1][0]
-                thread_list.clear()
+                thread_list.pop(-1)
+                thread_list.pop(-1)
             else:
                 res = None, None, None, None, None, None, None, None
         return res
@@ -553,6 +554,11 @@ class ExponentialAverage:
         return self.value
 
 
+def add_flag_to_list(flag, flag_list):
+    if flag not in flag_list:
+        flag_list.append(flag)
+
+
 class CogniflyController:
     def __init__(self,
                  network=True,
@@ -614,7 +620,7 @@ class CogniflyController:
         self.control_mode = control_mode
         self.pose_estimator = pose_estimator
         self.estimator_timeout = estimator_timeout
-        self.estimator_thread_list = []
+        self.estimator_thread_list = [Lock(), ]
         self.use_local_coordinates = use_local_coordinates
         if self.pose_estimator is None:
             self.custom_gps = False
@@ -1130,14 +1136,14 @@ class CogniflyController:
                 if not self.valid_input_altitude:
                     # if our current estimate is wrong, we need to trigger emergency
                     self.emergency = True
-                    self.emergency_flags.append("NO_VALID_ALTITUDE")
+                    add_flag_to_list("NO_VALID_ALTITUDE", self.emergency_flags)
                     read_pos_z_wf = True  # FIXME: sensor loopback
 
             if self.custom_rangefinder:
                 write_rangefinder = True
                 if not self.valid_input_altitude:
                     self.emergency = True
-                    self.emergency_flags.append("NO_VALID_ALTITUDE")
+                    add_flag_to_list("NO_VALID_ALTITUDE", self.emergency_flags)
                     read_pos_z_wf = True  # FIXME: sensor loopback
 
             # check whether the custom compass input is valid:
@@ -1147,7 +1153,7 @@ class CogniflyController:
                     write_compass = True
                 else:
                     self.emergency = True
-                    self.emergency_flags.append("NO_VALID_YAW")
+                    add_flag_to_list("NO_VALID_YAW", self.emergency_flags)
 
             # check whether the custom gps input is valid:
             self.valid_input_gps = None not in (pos_x_wf, pos_y_wf, pos_z_wf, vel_x_wf, vel_y_wf, vel_z_wf)
@@ -1157,14 +1163,14 @@ class CogniflyController:
                     write_gps = True
                 else:
                     self.emergency = True
-                    self.emergency_flags.append("NO_VALID_GPS")
+                    add_flag_to_list("NO_VALID_GPS", self.emergency_flags)
 
             if self.custom_optflow:
                 if self.valid_input_gps:
                     write_optflow = True
                 else:
                     self.emergency = True
-                    self.emergency_flags.append("NO_VALID_OPTFLOW")
+                    add_flag_to_list("NO_VALID_OPTFLOW", self.emergency_flags)
 
         elif retrieve_all:
             force_retrieve = True
@@ -1484,9 +1490,14 @@ class CogniflyController:
         if self.emergency:
             self.CMDS['roll'] = DEFAULT_ROLL
             self.CMDS['pitch'] = DEFAULT_PITCH
-            self.CMDS['aux2'] = ANGLE_MODE
-            self.CMDS['throttle'] = LAND_ANGLE
             self.CMDS['yaw'] = DEFAULT_YAW
+            if any('NO_VALID_' in flag for flag in self.emergency_flags):
+                # If custom sensor failed, emergency landing in angle mode
+                self.CMDS['aux2'] = ANGLE_MODE
+                self.CMDS['throttle'] = LAND_ANGLE
+            else:
+                # otherwise, normal landing
+                self.CMDS['throttle'] = LAND if self.control_mode == SURFACE_CTRL else PH_LAND
             self._update_pose(board=board, screen=screen, retrieve_all=True)
             if self.control_mode == SURFACE_CTRL and self.pos_z_wf <= 0.1:
                 self._disarm(board)
