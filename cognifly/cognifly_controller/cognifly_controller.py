@@ -378,6 +378,29 @@ class PoseEstimator(ABC):
         """
         return None, None, None, None, None, None, None, None
 
+    def __get(self, lock, result_list):
+        res = self.get()
+        with lock:
+            result_list.append(res)
+
+    def threaded_get(self, timeout):
+        """
+        Calls get() in a thread.
+
+        If get() does not return within timeout, returns None for all estimates.
+        """
+        lock = Lock()
+        _result_list = []
+        _t_get = Thread(target=self.__get, args=(lock, _result_list), daemon=True)
+        _t_get.start()
+        _t_get.join(timeout=timeout)
+        with lock:
+            if len(_result_list) == 1:
+                res = _result_list[0]
+            else:
+                res = None, None, None, None, None, None, None, None
+        return res
+
 
 def set_gps(board,
             longitude,
@@ -562,7 +585,8 @@ class CogniflyController:
                  compass_offset=np.pi/2.0,
                  control_mode=POSHOLD_CTRL,
                  device_interface=None,
-                 joystick_interface='/dev/input/js0'):
+                 joystick_interface='/dev/input/js0',
+                 estimator_timeout=0):
         """
         Custom controller and udp interface for Cognifly
         Args:
@@ -585,6 +609,7 @@ class CogniflyController:
             self.device_str = device_interface
         self.control_mode = control_mode
         self.pose_estimator = pose_estimator
+        self.estimator_timeout = estimator_timeout
         self.use_local_coordinates = use_local_coordinates
         if self.pose_estimator is None:
             self.custom_gps = False
@@ -739,6 +764,7 @@ class CogniflyController:
         # Others:
 
         self.emergency = False
+        self.emergency_flags = []
         self._t_start = time.time()
         self._alpha_d = 0.1
         self._d1 = 0
@@ -860,6 +886,7 @@ class CogniflyController:
             self.udp_cmd = command
             if self._armed:
                 self.emergency = True  # land if not disarmed
+                self.emergency_flags.append("ARMED_RESET_ATTEMPT")
             self.CMDS['roll'] = DEFAULT_ROLL
             self.CMDS['pitch'] = DEFAULT_PITCH
             self.CMDS['throttle'] = DEFAULT_THROTTLE  # throttle bellow a certain value disarms the FC
@@ -1085,7 +1112,10 @@ class CogniflyController:
 
         if self.pose_estimator is not None:  # if there is a custom estimator
             # retrieve custom estimate
-            pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.get()
+            if self.estimator_timeout <= 0:
+                pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.get()
+            else:
+                pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.threaded_get(self.estimator_timeout)
             self._failure_custom = None in (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
 
             # check whether the custom barometer/rangefinder input is valid:
@@ -1093,28 +1123,44 @@ class CogniflyController:
             if self.custom_barometer:  # if we use a fake MSP barometer:
                 write_barometer = True  # we will need to send our estimate to the FC
                 if not self.valid_input_altitude:
-                    # if our current estimate is wrong, we need to loopback the barometer estimate from the FC
+                    # if our current estimate is wrong, we need to trigger emergency
+                    self.emergency = True
+                    self.emergency_flags.append("NO_VALID_ALTITUDE")
                     read_pos_z_wf = True  # FIXME: sensor loopback
 
             if self.custom_rangefinder:
                 write_rangefinder = True
                 if not self.valid_input_altitude:
+                    self.emergency = True
+                    self.emergency_flags.append("NO_VALID_ALTITUDE")
                     read_pos_z_wf = True  # FIXME: sensor loopback
 
             # check whether the custom compass input is valid:
             self.valid_input_compass = yaw is not None
-            # if we use a fake compass and the estimate is OK, send it to the FC, otherwise do nothing
-            if self.custom_compass and self.valid_input_compass:
-                write_compass = True
+            if self.custom_compass:
+                if self.valid_input_compass:
+                    write_compass = True
+                else:
+                    self.emergency = True
+                    self.emergency_flags.append("NO_VALID_YAW")
 
             # check whether the custom gps input is valid:
             self.valid_input_gps = None not in (pos_x_wf, pos_y_wf, pos_z_wf, vel_x_wf, vel_y_wf, vel_z_wf)
-            # if we use a fake gps and the estimate is OK, send it to the FC, otherwise do nothing
-            if self.valid_input_gps:
-                if self.custom_gps:
+
+            if self.custom_gps:
+                if self.valid_input_gps:
                     write_gps = True
-                if self.custom_optflow:
+                else:
+                    self.emergency = True
+                    self.emergency_flags.append("NO_VALID_GPS")
+
+            if self.custom_optflow:
+                if self.valid_input_gps:
                     write_optflow = True
+                else:
+                    self.emergency = True
+                    self.emergency_flags.append("NO_VALID_OPTFLOW")
+
         elif retrieve_all:
             force_retrieve = True
 
@@ -1421,6 +1467,7 @@ class CogniflyController:
         if self.__batt_state != BATT_OK:
             if self.__batt_state == BATT_TOO_LOW:
                 self.emergency = True
+                self.emergency_flags.append("BATTERY TOO LOW")
             if self.sender_initialized and time.time() - self.last_bat_tick >= BATT_UDP_MSG_TIME:
                 self.udp_int.send(pkl.dumps(("BBT", (self.voltage, ))))
                 self.last_bat_tick = time.time()
@@ -1432,7 +1479,8 @@ class CogniflyController:
         if self.emergency:
             self.CMDS['roll'] = DEFAULT_ROLL
             self.CMDS['pitch'] = DEFAULT_PITCH
-            self.CMDS['throttle'] = LAND if self.control_mode == SURFACE_CTRL else PH_LAND
+            self.CMDS['aux2'] = DEFAULT_AUX2
+            self.CMDS['throttle'] = LAND
             self.CMDS['yaw'] = DEFAULT_YAW
             self._update_pose(board=board, screen=screen, retrieve_all=True)
             if self.control_mode == SURFACE_CTRL and self.pos_z_wf <= 0.1:
@@ -1776,7 +1824,7 @@ class CogniflyController:
                             try_addstr(screen, 11, 0, str_cycletime)
 
                             if self.emergency:
-                                str_status = "Status: EMERGENCY"
+                                str_status = f"Status: EMERGENCY, {self.emergency_flags}"
                                 try_addstr(screen, 12, 0, str_status, curses.A_BOLD + curses.A_BLINK)
                             else:
                                 str_status = "Status: OK"
