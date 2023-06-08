@@ -1129,6 +1129,8 @@ class CogniflyController:
                 pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.threaded_get(self.estimator_timeout, self.estimator_thread_list)
             self._failure_custom = None in (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
 
+            print(f"DEBUG: custom estimate: {(pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)}")
+
             # check whether the custom barometer/rangefinder input is valid:
             self.valid_input_altitude = pos_z_wf is not None
             if self.custom_barometer:  # if we use a fake MSP barometer:
@@ -1605,10 +1607,8 @@ class CogniflyController:
                     #
                     # Pose handler  (NO DELAYS) --------------------------------
                     #
-                    if override:  # in free flight mode, no need to retrieve all pose attributes
-                        self._update_pose(board=board, screen=screen, retrieve_all=False)
-                    else:  # otherwise, we need to retrieve them all for _flight()
-                        self._update_pose(board=board, screen=screen, retrieve_all=True)
+                    self._update_pose(board=board, screen=screen, retrieve_all=not override)
+
                     #
                     # UDP recv non-blocking  (NO DELAYS) -----------------------
                     # For safety, UDP commands are overridden by key presses
