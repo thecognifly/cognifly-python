@@ -383,20 +383,23 @@ class PoseEstimator(ABC):
         with lock:
             result_list.append(res)
 
-    def threaded_get(self, timeout):
+    def threaded_get(self, timeout, thread_list):
         """
         Calls get() in a thread.
 
         If get() does not return within timeout, returns None for all estimates.
         """
-        lock = Lock()
-        _result_list = []
-        _t_get = Thread(target=self.__get, args=(lock, _result_list), daemon=True)
-        _t_get.start()
-        _t_get.join(timeout=timeout)
-        with lock:
-            if len(_result_list) == 1:
-                res = _result_list[0]
+        if len(thread_list) == 0:
+            thread_list.append(Lock())  # to access result
+            thread_list.append([])  # to store result
+            thread_list.append(Thread(target=self.__get, args=(thread_list[0], thread_list[1]), daemon=True))
+            thread_list[2].start()
+
+        thread_list[2].join(timeout=timeout)
+        with thread_list[0]:
+            if len(thread_list[1]) >= 1:
+                res = thread_list[1][0]
+                thread_list.clear()
             else:
                 res = None, None, None, None, None, None, None, None
         return res
@@ -610,6 +613,7 @@ class CogniflyController:
         self.control_mode = control_mode
         self.pose_estimator = pose_estimator
         self.estimator_timeout = estimator_timeout
+        self.estimator_thread_list = []
         self.use_local_coordinates = use_local_coordinates
         if self.pose_estimator is None:
             self.custom_gps = False
@@ -1115,7 +1119,7 @@ class CogniflyController:
             if self.estimator_timeout <= 0:
                 pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.get()
             else:
-                pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.threaded_get(self.estimator_timeout)
+                pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.threaded_get(self.estimator_timeout, self.estimator_thread_list)
             self._failure_custom = None in (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
 
             # check whether the custom barometer/rangefinder input is valid:
