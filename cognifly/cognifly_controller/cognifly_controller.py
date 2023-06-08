@@ -396,7 +396,10 @@ class PoseEstimator(ABC):
             thread_list.append(Thread(target=self.__get, args=(thread_list[0], thread_list[1]), daemon=True))
             thread_list[2].start()
 
+        t1 = time.time()
         thread_list[2].join(timeout=timeout)
+        t2 = time.time()
+
         with thread_list[0]:
             if len(thread_list[1]) >= 1:
                 res = thread_list[1][0]
@@ -404,6 +407,9 @@ class PoseEstimator(ABC):
                 thread_list.pop(-1)
             else:
                 res = None, None, None, None, None, None, None, None
+
+        print(f"DEBUG: res: {res}, elapsed: {t2 - t1}")
+
         return res
 
 
@@ -1128,8 +1134,6 @@ class CogniflyController:
             else:
                 pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate = self.pose_estimator.threaded_get(self.estimator_timeout, self.estimator_thread_list)
             self._failure_custom = None in (pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)
-
-            print(f"DEBUG: custom estimate: {(pos_x_wf, pos_y_wf, pos_z_wf, yaw, vel_x_wf, vel_y_wf, vel_z_wf, yaw_rate)}")
 
             # check whether the custom barometer/rangefinder input is valid:
             self.valid_input_altitude = pos_z_wf is not None
