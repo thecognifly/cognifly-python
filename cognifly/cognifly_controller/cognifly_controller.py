@@ -53,7 +53,7 @@ DEFAULT_PITCH = 1500
 DEFAULT_THROTTLE = 1000  # throttle bellow a certain value disarms the FC
 DEFAULT_YAW = 1500
 
-TAKEOFF = 1400
+TAKEOFF = 1300
 LAND = 900
 
 MIN_CMD_ROLL = 1250
