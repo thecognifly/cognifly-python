@@ -1868,7 +1868,9 @@ class CogniflyController:
                         if time.time() >= stop_profiling_time:
                             pro.stop()
                             return pro.output_text(show_all=True)
-
+        except Exception as e:
+            print("Encountered exception: {e}")
+            raise e
         finally:
             self.board = None
             if self.print_screen:
