@@ -806,13 +806,13 @@ class CogniflyController:
             profiling_duration: float: if >= 0, profile code for this number of seconds.
         """
         if reboot_fc:
-            with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200, timeout=0, min_time_between_writes=0.05) as board:
+            with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200) as board:
                 if board == 1:  # an error occurred...
                     raise RuntimeError('board unavailable')
                 else:
                     print("Rebooting flight controller...")
                     board.reboot()
-                    time.sleep(10)
+                    time.sleep(5)
                     print("Flight controller ready.")
         try:
             if self.print_screen:
@@ -1507,7 +1507,6 @@ class CogniflyController:
                 self.emergency = False
 
     def _controller(self, screen, profiling_duration=-1):
-        print("DEBUG entered controller")
         # print doesn't work with curses, use addstr instead
         profile = False
 
@@ -1515,9 +1514,7 @@ class CogniflyController:
             if self.print_screen:
                 try_addstr(screen, 15, 0, "Connecting to the FC...")
 
-            print(f"DEBUG trying to get MSPy object for {self.device_str}")
-            with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200, timeout=0, min_time_between_writes=0.05) as board:
-                print(f"DEBUG gotten MSPy object: {board}")
+            with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200, timeout=0, min_time_between_writes=0) as board:
                 if board == 1:  # an error occurred...
                     return 1
                 else:
@@ -1578,7 +1575,6 @@ class CogniflyController:
 
                 last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
                 while True:
-                    print("DEBUG new loop")
                     start_time = time.time()
                     #
                     # checking connection result  (NO DELAYS) ------------------
@@ -1872,9 +1868,6 @@ class CogniflyController:
                         if time.time() >= stop_profiling_time:
                             pro.stop()
                             return pro.output_text(show_all=True)
-        except Exception as e:
-            print(f"Encountered exception: {e}")
-            raise e
         finally:
             self.board = None
             if self.print_screen:
