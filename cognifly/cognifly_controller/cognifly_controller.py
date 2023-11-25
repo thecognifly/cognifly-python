@@ -812,7 +812,7 @@ class CogniflyController:
                 else:
                     print("Rebooting flight controller...")
                     board.reboot()
-                    time.sleep(5)
+                    time.sleep(15)
                     print("Flight controller ready.")
         try:
             if self.print_screen:
