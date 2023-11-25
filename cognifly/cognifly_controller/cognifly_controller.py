@@ -805,7 +805,7 @@ class CogniflyController:
             reboot_fc: bool: if True, the flight controller will first reboot.
             profiling_duration: float: if >= 0, profile code for this number of seconds.
         """
-        if reboot_fc:
+        if False:  # reboot_fc:  # DEBUG
             with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200) as board:
                 if board == 1:  # an error occurred...
                     raise RuntimeError('board unavailable')
