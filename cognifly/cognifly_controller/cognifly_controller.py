@@ -1507,6 +1507,7 @@ class CogniflyController:
                 self.emergency = False
 
     def _controller(self, screen, profiling_duration=-1):
+        print("DEBUG entered controller")
         # print doesn't work with curses, use addstr instead
         profile = False
 
@@ -1575,7 +1576,7 @@ class CogniflyController:
 
                 last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
                 while True:
-                    print(f"DEBUG new loop")
+                    print("DEBUG new loop")
                     start_time = time.time()
                     #
                     # checking connection result  (NO DELAYS) ------------------
