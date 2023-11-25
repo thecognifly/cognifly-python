@@ -1514,7 +1514,7 @@ class CogniflyController:
             if self.print_screen:
                 try_addstr(screen, 15, 0, "Connecting to the FC...")
 
-            with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200, timeout=0, min_time_between_writes=0) as board:
+            with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200, timeout=0, min_time_between_writes=0.02) as board:
                 if board == 1:  # an error occurred...
                     return 1
                 else:
@@ -1575,6 +1575,7 @@ class CogniflyController:
 
                 last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
                 while True:
+                    print(f"DEBUG new loop")
                     start_time = time.time()
                     #
                     # checking connection result  (NO DELAYS) ------------------
