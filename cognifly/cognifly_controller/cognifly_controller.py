@@ -1869,7 +1869,7 @@ class CogniflyController:
                             pro.stop()
                             return pro.output_text(show_all=True)
         except Exception as e:
-            print("Encountered exception: {e}")
+            print(f"Encountered exception: {e}")
             raise e
         finally:
             self.board = None
