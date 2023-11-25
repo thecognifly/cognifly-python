@@ -1515,7 +1515,9 @@ class CogniflyController:
             if self.print_screen:
                 try_addstr(screen, 15, 0, "Connecting to the FC...")
 
+            print("DEBUG trying to get MSPy object")
             with MSPy(device=self.device_str, loglevel='WARNING', baudrate=115200, timeout=0, min_time_between_writes=0.02) as board:
+                print(f"DEBUG gotten MSPy object: {board}")
                 if board == 1:  # an error occurred...
                     return 1
                 else:
