@@ -812,7 +812,7 @@ class CogniflyController:
                 else:
                     print("Rebooting flight controller...")
                     board.reboot()
-                    time.sleep(15)
+                    time.sleep(5)
                     print("Flight controller ready.")
         try:
             if self.print_screen:
@@ -899,7 +899,7 @@ class CogniflyController:
             self.udp_cmd = command
             if self._armed:
                 self.emergency = True  # land if not disarmed
-                self.emergency_flags.append("ARMED_RESET_ATTEMPT")
+                add_flag_to_list("ARMED_RESET_ATTEMPT", self.emergency_flags)
             self.CMDS['roll'] = DEFAULT_ROLL
             self.CMDS['pitch'] = DEFAULT_PITCH
             self.CMDS['throttle'] = DEFAULT_THROTTLE  # throttle bellow a certain value disarms the FC
@@ -1480,7 +1480,7 @@ class CogniflyController:
         if self.__batt_state != BATT_OK:
             if self.__batt_state == BATT_TOO_LOW:
                 self.emergency = True
-                self.emergency_flags.append("BATTERY TOO LOW")
+                add_flag_to_list("BATTERY TOO LOW", self.emergency_flags)
             if self.sender_initialized and time.time() - self.last_bat_tick >= BATT_UDP_MSG_TIME:
                 self.udp_int.send(pkl.dumps(("BBT", (self.voltage, ))))
                 self.last_bat_tick = time.time()
@@ -1573,8 +1573,9 @@ class CogniflyController:
 
                 loop_duration = ExponentialAverage()
 
-                last_loop_time = last_slow_msg_time = last_cycle_time = time.time()
+                last_loop_time = last_slow_msg_time = time.time()
                 while True:
+                    # print(f"DEBUG: last loop {last_loop_time}")
                     start_time = time.time()
                     #
                     # checking connection result  (NO DELAYS) ------------------
