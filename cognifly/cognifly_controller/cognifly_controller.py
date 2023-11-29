@@ -1575,7 +1575,8 @@ class CogniflyController:
 
                 last_loop_time = last_slow_msg_time = time.time()
                 while True:
-                    # print(f"DEBUG: last loop {last_loop_time}")
+                    if not self.print_screen:
+                        print(f"Loop timestamp: {last_loop_time}")
                     start_time = time.time()
                     #
                     # checking connection result  (NO DELAYS) ------------------
