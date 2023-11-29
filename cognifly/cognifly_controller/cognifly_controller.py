@@ -812,8 +812,8 @@ class CogniflyController:
                 else:
                     print("Rebooting flight controller...")
                     board.reboot()
-                    time.sleep(5)
-                    print("Flight controller ready.")
+            time.sleep(5)
+            print("Flight controller ready.")
         try:
             if self.print_screen:
                 # get the curses screen window
