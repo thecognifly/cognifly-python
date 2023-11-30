@@ -30,19 +30,19 @@ from cognifly.utils.functions import clip, smallest_angle_diff_rad, is_raspberry
 from cognifly.utils.joysticks import PS4Gamepad
 
 SWITCH_MODE_CHR = ord('m')
-FORWARD_CHR = ord('8')  # curses.KEY_UP
-BACKWARD_CHR = ord('5')  # curses.KEY_DOWN
-LEFT_CHR = ord('7')  # curses.KEY_LEFT
-RIGHT_CHR = ord('9')  # curses.KEY_RIGHT
-LEFTYAW_CHR = ord('4')
-RIGHTYAW_CHR = ord('6')
-UPWARD_CHR = curses.KEY_PPAGE
-DOWNWARD_CHR = curses.KEY_NPAGE
+FORWARD_CHR = ord('w')  # curses.KEY_UP
+BACKWARD_CHR = ord('s')  # curses.KEY_DOWN
+LEFT_CHR = ord('a')  # curses.KEY_LEFT
+RIGHT_CHR = ord('d')  # curses.KEY_RIGHT
+LEFTYAW_CHR = ord('q')
+RIGHTYAW_CHR = ord('e')
+UPWARD_CHR = curses.KEY_DOWN  # curses.KEY_PPAGE
+DOWNWARD_CHR = curses.KEY_DOWN  # curses.KEY_NPAGE
 PAUSE_CHR = ord('p')
-ARM_CHR = ord('a')
-DISARM_CHR = ord('d')
+ARM_CHR = ord('z')
+DISARM_CHR = ord('x')
 REBOOT_CHR = ord('r')
-QUIT_CHR = ord('q')
+QUIT_CHR = ord('c')
 TAKEOFF_CHR = ord('t')
 LAND_CHR = ord('l')
 
