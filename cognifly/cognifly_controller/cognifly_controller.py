@@ -862,8 +862,10 @@ class CogniflyController:
 
     def _send_cmds(self, board):
         print(f"DEBUG: 20")
+        t1 = time.time()
         if board.send_RAW_RC([int(self.CMDS[ki]) for ki in self.CMDS_ORDER]):
-            print(f"DEBUG: 21")
+            t2 = time.time()
+            print(f"DEBUG: 21: (s): {t2 - t1}")
             data_handler = board.receive_msg()
             print(f"DEBUG: 22")
             board.process_recv_data(data_handler)
