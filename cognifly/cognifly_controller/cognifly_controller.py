@@ -449,9 +449,9 @@ def set_gps(board,
         'sec': now.second,  # uint8
     }
     data = struct.pack(msp2_gps_format, *[int(i) for i in gps_data.values()])
-    print(f"DEBUG: 10")
+    # print(f"DEBUG: 10")
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_GPS'], data=data, flush=False)
-    print(f"DEBUG: 11")
+    # print(f"DEBUG: 11")
 
 
 def set_gps_from_xyz(board, x, y, z, vx=0, vy=0, vz=0):
@@ -478,9 +478,9 @@ def set_compass(board, magX, magY, magZ, t_start):
         'magZ': round(magZ)  # int16_t mGauss, down
     }
     data = struct.pack(msp2_compass_format, *[int(i) for i in compass_data.values()])
-    print(f"DEBUG: 12")
+    # print(f"DEBUG: 12")
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_COMPASS'], data=data, flush=False)
-    print(f"DEBUG: 13")
+    # print(f"DEBUG: 13")
 
 
 def set_compass_from_yaw(board, yaw, t_start, yaw_offset=np.pi/2):
@@ -502,9 +502,9 @@ def set_barometer(board, pressurePa, temp, t_start):
         'temp': round(temp)  # int16_t centi-degrees C
     }
     data = struct.pack(msp2_baro_format, *barometer_data.values())
-    print(f"DEBUG: 14")
+    # print(f"DEBUG: 14")
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_BAROMETER'], data=data, flush=False)
-    print(f"DEBUG: 15")
+    # print(f"DEBUG: 15")
 
 
 def set_barometer_from_altitude(board, altitude, t_start):
@@ -520,9 +520,9 @@ def set_rangefinder(board, distance_mm, quality=250):
         'distanceMm': round(distance_mm)  # int32_t - Negative value for out of range
     }
     data = struct.pack(msp2_range_format, *range_data.values())
-    print(f"DEBUG: 16")
+    # print(f"DEBUG: 16")
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_RANGEFINDER'], data=data, flush=False)
-    print(f"DEBUG: 17")
+    # print(f"DEBUG: 17")
 
 
 def set_rangefinder_from_altitude(board, altitude):
@@ -540,9 +540,9 @@ def set_optflow(board, motion_x, motion_y, quality=5):
         'motionY': round(motion_y)  # int32
     }
     data = struct.pack(msp2_flow_format, *flow_data.values())
-    print(f"DEBUG: 18")
+    # print(f"DEBUG: 18")
     board.send_RAW_msg(MSPy.MSPCodes['MSP2_SENSOR_OPTIC_FLOW'], data=data, flush=False)
-    print(f"DEBUG: 19")
+    # print(f"DEBUG: 19")
 
 
 def set_optflow_from_velocities(board, yaw, vx_wf, vy_wf):
@@ -861,13 +861,13 @@ class CogniflyController:
         self.pid_w_z = PID(kp=self.vel_w_kp, ki=self.vel_w_ki, kd=self.vel_w_kd, sample_time=0.01, output_limits=self.pid_limits_w, auto_mode=False)
 
     def _send_cmds(self, board):
-        print(f"DEBUG: 20")
+        # print(f"DEBUG: 20")
         t1 = time.time()
         if board.send_RAW_RC([int(self.CMDS[ki]) for ki in self.CMDS_ORDER]):
             t2 = time.time()
-            print(f"DEBUG: 21: (s): {t2 - t1}")
+            # print(f"DEBUG: 21: (s): {t2 - t1}")
             data_handler = board.receive_msg()
-            print(f"DEBUG: 22")
+            # print(f"DEBUG: 22")
             board.process_recv_data(data_handler)
 
     def _start_arming(self, board):
@@ -1078,11 +1078,11 @@ class CogniflyController:
         """
 
         try:
-            print(f"DEBUG: 23")
+            # print(f"DEBUG: 23")
             if board.send_RAW_msg(MSPy.MSPCodes['MSP2_INAV_DEBUG'], data=[]):
-                print(f"DEBUG: 24")
+                # print(f"DEBUG: 24")
                 dataHandler = board.receive_msg()
-                print(f"DEBUG: 25")
+                # print(f"DEBUG: 25")
                 board.process_recv_data(dataHandler)
             else:
                 raise RuntimeError
@@ -1555,11 +1555,11 @@ class CogniflyController:
                     command_list.append('MSP_VOLTAGE_METER_CONFIG')
 
                 for msg in command_list:
-                    print(f"DEBUG: 26")
+                    # print(f"DEBUG: 26")
                     if board.send_RAW_msg(MSPy.MSPCodes[msg], data=[]):
-                        print(f"DEBUG: 27")
+                        # print(f"DEBUG: 27")
                         data_handler = board.receive_msg()
-                        print(f"DEBUG: 28")
+                        # print(f"DEBUG: 28")
                         board.process_recv_data(data_handler)
                 if board.INAV:
                     cell_count = board.BATTERY_STATE['cellCount']
@@ -1795,21 +1795,21 @@ class CogniflyController:
                         if not self.print_screen:
                             if next_msg == 'MSP_ANALOG':
                                 # Read info from the FC
-                                print(f"DEBUG: 1")
+                                # print(f"DEBUG: 1")
                                 if board.send_RAW_msg(MSPy.MSPCodes[next_msg], data=[]):
-                                    print(f"DEBUG: 2")
+                                    # print(f"DEBUG: 2")
                                     data_handler = board.receive_msg()
-                                    print(f"DEBUG: 3")
+                                    # print(f"DEBUG: 3")
                                     board.process_recv_data(data_handler)
                                 self.voltage = board.ANALOG['voltage']
                                 self._check_batt_voltage()
                             elif next_msg == 'MSP_STATUS_EX':
                                 # Read info from the FC
-                                print(f"DEBUG: 4")
+                                # print(f"DEBUG: 4")
                                 if board.send_RAW_msg(MSPy.MSPCodes[next_msg], data=[]):
-                                    print(f"DEBUG: 5")
+                                    # print(f"DEBUG: 5")
                                     data_handler = board.receive_msg()
-                                    print(f"DEBUG: 6")
+                                    # print(f"DEBUG: 6")
                                     board.process_recv_data(data_handler)
                                 self.debug_flags = board.process_armingDisableFlags(board.CONFIG['armingDisableFlags'])
                                 if self.tcp_video_int is not None:
@@ -1818,11 +1818,11 @@ class CogniflyController:
                                         self.debug_flags.append("CAMERA_ERROR")
                         else:  # print screen messages
                             # Read info from the FC
-                            print(f"DEBUG: 7")
+                            # print(f"DEBUG: 7")
                             if board.send_RAW_msg(MSPy.MSPCodes[next_msg], data=[]):
-                                print(f"DEBUG: 8")
+                                # print(f"DEBUG: 8")
                                 data_handler = board.receive_msg()
-                                print(f"DEBUG: 9")
+                                # print(f"DEBUG: 9")
                                 board.process_recv_data(data_handler)
                             if next_msg == 'MSP_ANALOG':
                                 self.voltage = board.ANALOG['voltage']
